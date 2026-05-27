@@ -1,18 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Plus, Trash2, Trophy, Loader2 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type Set = { score1: string; score2: string }
+
+type MatchResult = {
+  matchId: string
+  setNumber: number
+  score1: number
+  score2: number
+}
 
 type Match = {
   id: string
@@ -30,15 +36,14 @@ type Props = {
   player2Name: string
   drawId: string
   categoryId: string
+  existingResults?: MatchResult[]
 }
 
 function getSetWinner(set: Set): 1 | 2 | null {
   const s1 = parseInt(set.score1)
   const s2 = parseInt(set.score2)
-  if (isNaN(s1) || isNaN(s2)) return null
-  if (s1 > s2) return 1
-  if (s2 > s1) return 2
-  return null
+  if (isNaN(s1) || isNaN(s2) || s1 === s2) return null
+  return s1 > s2 ? 1 : 2
 }
 
 function inferMatchWinner(sets: Set[]): 1 | 2 | null {
@@ -49,10 +54,26 @@ function inferMatchWinner(sets: Set[]): 1 | 2 | null {
   return null
 }
 
-export function MatchResultDialog({ match, open, onClose, player1Name, player2Name, drawId, categoryId }: Props) {
+export function MatchResultDialog({
+  match, open, onClose, player1Name, player2Name, drawId, categoryId, existingResults,
+}: Props) {
   const queryClient = useQueryClient()
+  const isEdit = !!existingResults?.length
+
   const [sets, setSets] = useState<Set[]>([{ score1: '', score2: '' }])
   const [resultType, setResultType] = useState<'completed' | 'walkover' | 'retired'>('completed')
+
+  // Pré-preenche ao editar
+  useEffect(() => {
+    if (open && isEdit && existingResults) {
+      const sorted = [...existingResults].sort((a, b) => a.setNumber - b.setNumber)
+      setSets(sorted.map((s) => ({ score1: String(s.score1), score2: String(s.score2) })))
+      if (match?.status) setResultType(match.status as 'completed' | 'walkover' | 'retired')
+    } else if (open && !isEdit) {
+      setSets([{ score1: '', score2: '' }])
+      setResultType('completed')
+    }
+  }, [open, isEdit])
 
   const winner = inferMatchWinner(sets)
 
@@ -83,16 +104,10 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
     onClose()
   }
 
-  function addSet() {
-    setSets((prev) => [...prev, { score1: '', score2: '' }])
-  }
-
-  function removeSet(idx: number) {
-    setSets((prev) => prev.filter((_, i) => i !== idx))
-  }
-
+  function addSet() { setSets((p) => [...p, { score1: '', score2: '' }]) }
+  function removeSet(idx: number) { setSets((p) => p.filter((_, i) => i !== idx)) }
   function updateSet(idx: number, field: 'score1' | 'score2', value: string) {
-    setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s))
+    setSets((p) => p.map((s, i) => i === idx ? { ...s, [field]: value } : s))
   }
 
   const roundLabel = match?.round === 1 ? 'Final'
@@ -104,33 +119,44 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Lançar Resultado</DialogTitle>
+          <DialogTitle>{isEdit ? 'Editar Resultado' : 'Lançar Resultado'}</DialogTitle>
           <p className="text-sm text-muted-foreground">{roundLabel}</p>
         </DialogHeader>
 
+        {isEdit && (
+          <div className="flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+            <span>⚠️</span>
+            <span>Se o vencedor mudar, as partidas seguintes serão reabertas automaticamente.</span>
+          </div>
+        )}
+
         {/* Players */}
         <div className="rounded-lg border border-border overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+          <div className={`flex items-center gap-3 px-4 py-3 border-b border-border ${
+            winner === 1 ? 'bg-green-50' : 'bg-muted/30'
+          }`}>
             {winner === 1 && <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />}
-            <span className={`text-sm flex-1 ${ winner === 1 ? 'font-semibold' : winner === 2 ? 'text-muted-foreground' : 'font-medium' }`}>
-              {player1Name}
-            </span>
-            <span className="text-xs text-muted-foreground font-medium">
+            <span className={`text-sm flex-1 truncate ${
+              winner === 1 ? 'font-semibold' : winner === 2 ? 'text-muted-foreground' : 'font-medium'
+            }`}>{player1Name}</span>
+            <span className="text-xs text-muted-foreground font-mono">
               {sets.filter((s) => getSetWinner(s) === 1).length} sets
             </span>
           </div>
-          <div className="flex items-center gap-3 px-4 py-3">
+          <div className={`flex items-center gap-3 px-4 py-3 ${
+            winner === 2 ? 'bg-green-50' : ''
+          }`}>
             {winner === 2 && <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />}
-            <span className={`text-sm flex-1 ${ winner === 2 ? 'font-semibold' : winner === 1 ? 'text-muted-foreground' : 'font-medium' }`}>
-              {player2Name}
-            </span>
-            <span className="text-xs text-muted-foreground font-medium">
+            <span className={`text-sm flex-1 truncate ${
+              winner === 2 ? 'font-semibold' : winner === 1 ? 'text-muted-foreground' : 'font-medium'
+            }`}>{player2Name}</span>
+            <span className="text-xs text-muted-foreground font-mono">
               {sets.filter((s) => getSetWinner(s) === 2).length} sets
             </span>
           </div>
         </div>
 
-        {/* Result type */}
+        {/* Result type tabs */}
         <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
           {(['completed', 'walkover', 'retired'] as const).map((type) => (
             <button
@@ -156,24 +182,18 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
                 <Plus className="w-3 h-3" /> Adicionar set
               </button>
             </div>
-
-            {/* Header */}
             <div className="grid grid-cols-[1fr_40px_1fr_32px] gap-2 px-1">
               <p className="text-xs text-muted-foreground truncate">{player1Name.split(' ')[0]}</p>
               <div />
               <p className="text-xs text-muted-foreground truncate">{player2Name.split(' ')[0]}</p>
               <div />
             </div>
-
             {sets.map((set, idx) => {
               const sw = getSetWinner(set)
               return (
                 <div key={idx} className="grid grid-cols-[1fr_40px_1fr_32px] gap-2 items-center">
                   <Input
-                    type="number"
-                    min={0}
-                    max={30}
-                    placeholder="0"
+                    type="number" min={0} max={30} placeholder="0"
                     value={set.score1}
                     onChange={(e) => updateSet(idx, 'score1', e.target.value)}
                     className={`text-center font-mono ${
@@ -182,10 +202,7 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
                   />
                   <p className="text-center text-xs text-muted-foreground font-medium">S{idx + 1}</p>
                   <Input
-                    type="number"
-                    min={0}
-                    max={30}
-                    placeholder="0"
+                    type="number" min={0} max={30} placeholder="0"
                     value={set.score2}
                     onChange={(e) => updateSet(idx, 'score2', e.target.value)}
                     className={`text-center font-mono ${
@@ -205,7 +222,7 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
           </div>
         )}
 
-        {/* W.O. / Ret. — escolhe vencedor manualmente */}
+        {/* W.O. / Ret. */}
         {resultType !== 'completed' && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vencedor</p>
@@ -213,13 +230,7 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
               {[player1Name, player2Name].map((name, idx) => (
                 <button
                   key={idx}
-                  onClick={() => {
-                    // encode winner via fake set
-                    setSets(idx === 0
-                      ? [{ score1: '21', score2: '0' }]
-                      : [{ score1: '0', score2: '21' }]
-                    )
-                  }}
+                  onClick={() => setSets(idx === 0 ? [{ score1: '21', score2: '0' }] : [{ score1: '0', score2: '21' }])}
                   className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
                     (idx === 0 && winner === 1) || (idx === 1 && winner === 2)
                       ? 'border-primary bg-primary/10 text-primary'
@@ -235,11 +246,11 @@ export function MatchResultDialog({ match, open, onClose, player1Name, player2Na
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
-          <Button
-            onClick={() => submitResult()}
-            disabled={isPending || !winner}
-          >
-            {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : 'Confirmar resultado'}
+          <Button onClick={() => submitResult()} disabled={isPending || !winner}>
+            {isPending
+              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+              : isEdit ? 'Salvar alterações' : 'Confirmar resultado'
+            }
           </Button>
         </DialogFooter>
       </DialogContent>
