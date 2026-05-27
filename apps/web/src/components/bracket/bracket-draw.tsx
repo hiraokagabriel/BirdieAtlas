@@ -5,39 +5,15 @@ import { Trophy, Pencil } from 'lucide-react'
 import { MatchResultDialog } from './match-result-dialog'
 
 type Match = {
-  id: string
-  round: number
-  position: number
-  status: string
-  registration1Id: string | null
-  registration2Id: string | null
+  id: string; round: number; position: number; status: string
+  registration1Id: string | null; registration2Id: string | null
   nextMatchId: string | null
 }
 
-type Registration = {
-  id: string
-  athleteId: string
-  athlete2Id: string | null
-  seed: number | null
-}
-
-type Athlete = {
-  id: string
-  name: string
-}
-
-type MatchResult = {
-  matchId: string
-  setNumber: number
-  score1: number
-  score2: number
-}
-
-type Category = {
-  id: string
-  name: string
-  discipline: string
-}
+type Registration = { id: string; athleteId: string; athlete2Id: string | null; seed: number | null }
+type Athlete = { id: string; name: string }
+type MatchResult = { matchId: string; setNumber: number; score1: number; score2: number }
+type Category = { id: string; name: string; discipline: string }
 
 type Props = {
   matches: Match[]
@@ -46,21 +22,17 @@ type Props = {
   results: MatchResult[]
   activeCategory?: Category
   drawId: string
+  readonly?: boolean
 }
 
 const disciplineBorder: Record<string, string> = {
-  MS: 'border-blue-400',
-  WS: 'border-purple-400',
-  MD: 'border-cyan-400',
-  WD: 'border-pink-400',
-  XD: 'border-orange-400',
+  MS: 'border-blue-400', WS: 'border-purple-400', MD: 'border-cyan-400',
+  WD: 'border-pink-400', XD: 'border-orange-400',
 }
 
 const disciplineWinner: Record<string, string> = {
-  MS: 'bg-blue-50 border-blue-300 text-blue-900',
-  WS: 'bg-purple-50 border-purple-300 text-purple-900',
-  MD: 'bg-cyan-50 border-cyan-300 text-cyan-900',
-  WD: 'bg-pink-50 border-pink-300 text-pink-900',
+  MS: 'bg-blue-50 border-blue-300 text-blue-900', WS: 'bg-purple-50 border-purple-300 text-purple-900',
+  MD: 'bg-cyan-50 border-cyan-300 text-cyan-900', WD: 'bg-pink-50 border-pink-300 text-pink-900',
   XD: 'bg-orange-50 border-orange-300 text-orange-900',
 }
 
@@ -70,8 +42,7 @@ function getAthleteLabel(regId: string | null, registrations: Registration[], at
   if (!reg) return { name: '?', seed: null }
   const a1 = athletes.find((a) => a.id === reg.athleteId)
   const a2 = reg.athlete2Id ? athletes.find((a) => a.id === reg.athlete2Id) : null
-  const name = a2 ? `${a1?.name ?? '?'} / ${a2.name}` : (a1?.name ?? '?')
-  return { name, seed: reg.seed }
+  return { name: a2 ? `${a1?.name ?? '?'} / ${a2.name}` : (a1?.name ?? '?'), seed: reg.seed }
 }
 
 function getMatchWinner(match: Match, results: MatchResult[]): 1 | 2 | null {
@@ -84,11 +55,7 @@ function getMatchWinner(match: Match, results: MatchResult[]): 1 | 2 | null {
 }
 
 function getMatchScore(match: Match, results: MatchResult[]): string {
-  return results
-    .filter((r) => r.matchId === match.id)
-    .sort((a, b) => a.setNumber - b.setNumber)
-    .map((s) => `${s.score1}-${s.score2}`)
-    .join(', ')
+  return results.filter((r) => r.matchId === match.id).sort((a, b) => a.setNumber - b.setNumber).map((s) => `${s.score1}-${s.score2}`).join(', ')
 }
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
@@ -99,7 +66,7 @@ const statusLabel: Record<string, { label: string; dot: string }> = {
   retired: { label: 'Ret.', dot: 'bg-red-400' },
 }
 
-export function BracketDraw({ matches, registrations, athletes, results, activeCategory, drawId }: Props) {
+export function BracketDraw({ matches, registrations, athletes, results, activeCategory, drawId, readonly = false }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
 
   const maxRound = Math.max(...matches.map((m) => m.round))
@@ -116,16 +83,8 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
       <div className="p-6 overflow-x-auto">
         <div className="flex gap-0 min-w-max">
           {rounds.map((round, roundIdx) => {
-            const roundMatches = matches
-              .filter((m) => m.round === round)
-              .sort((a, b) => a.position - b.position)
-
-            const roundLabel =
-              round === 1 ? 'Final'
-              : round === 2 ? 'Semifinal'
-              : round === 3 ? 'Quartas de Final'
-              : `Fase ${round}`
-
+            const roundMatches = matches.filter((m) => m.round === round).sort((a, b) => a.position - b.position)
+            const roundLabel = round === 1 ? 'Final' : round === 2 ? 'Semifinal' : round === 3 ? 'Quartas de Final' : `Fase ${round}`
             const isLastRound = roundIdx === rounds.length - 1
 
             return (
@@ -133,7 +92,6 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
                 <div className="text-center pb-4">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{roundLabel}</span>
                 </div>
-
                 <div className="flex flex-col flex-1 justify-around gap-2">
                   {roundMatches.map((match) => {
                     const p1 = getAthleteLabel(match.registration1Id, registrations, athletes)
@@ -143,41 +101,30 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
                     const status = statusLabel[match.status] ?? statusLabel.pending
                     const isFinal = round === 1
                     const isCompleted = ['completed', 'walkover', 'retired'].includes(match.status)
-                    const canInteract = (match.status === 'pending' || isCompleted) && match.registration1Id && match.registration2Id
+                    const canInteract = !readonly && (match.status === 'pending' || isCompleted) && match.registration1Id && match.registration2Id
 
                     return (
                       <div key={match.id} className="flex items-center">
                         <div
                           className={`flex-1 rounded-lg border-2 overflow-hidden transition-all ${
                             isFinal ? `${borderColor} shadow-sm` : 'border-border'
-                          } ${
-                            canInteract ? 'cursor-pointer hover:shadow-md hover:border-primary/40' : ''
-                          }`}
+                          } ${canInteract ? 'cursor-pointer hover:shadow-md hover:border-primary/40' : ''}`}
                           onClick={() => canInteract && setSelectedMatch(match)}
                         >
-                          {/* Player 1 */}
                           <div className={`flex items-center gap-2 px-3 py-2 border-b border-border ${
                             winner === 1 ? winnerColor : winner === 2 ? 'opacity-40' : ''
                           }`}>
                             {p1.seed && <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">[{p1.seed}]</span>}
-                            <span className={`text-sm flex-1 truncate ${winner === 1 ? 'font-semibold' : 'font-medium'}`}>
-                              {p1.name}
-                            </span>
+                            <span className={`text-sm flex-1 truncate ${winner === 1 ? 'font-semibold' : 'font-medium'}`}>{p1.name}</span>
                             {winner === 1 && <Trophy className="w-3 h-3 shrink-0 text-yellow-500" />}
                           </div>
-
-                          {/* Player 2 */}
                           <div className={`flex items-center gap-2 px-3 py-2 ${
                             winner === 2 ? winnerColor : winner === 1 ? 'opacity-40' : ''
                           }`}>
                             {p2.seed && <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">[{p2.seed}]</span>}
-                            <span className={`text-sm flex-1 truncate ${winner === 2 ? 'font-semibold' : 'font-medium'}`}>
-                              {p2.name}
-                            </span>
+                            <span className={`text-sm flex-1 truncate ${winner === 2 ? 'font-semibold' : 'font-medium'}`}>{p2.name}</span>
                             {winner === 2 && <Trophy className="w-3 h-3 shrink-0 text-yellow-500" />}
                           </div>
-
-                          {/* Footer */}
                           <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 border-t border-border">
                             <div className="flex items-center gap-1.5">
                               <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
@@ -189,11 +136,8 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
                             </div>
                           </div>
                         </div>
-
                         {!isLastRound && (
-                          <div className="w-8 flex items-center">
-                            <div className="w-full h-px bg-border" />
-                          </div>
+                          <div className="w-8 flex items-center"><div className="w-full h-px bg-border" /></div>
                         )}
                       </div>
                     )
@@ -203,16 +147,12 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
             )
           })}
 
-          {/* Champion */}
           {matches.some((m) => m.round === 1 && ['completed', 'walkover', 'retired'].includes(m.status)) && (() => {
             const finalMatch = matches.find((m) => m.round === 1)
             if (!finalMatch) return null
             const winner = getMatchWinner(finalMatch, results)
             if (!winner) return null
-            const champ = getAthleteLabel(
-              winner === 1 ? finalMatch.registration1Id : finalMatch.registration2Id,
-              registrations, athletes
-            )
+            const champ = getAthleteLabel(winner === 1 ? finalMatch.registration1Id : finalMatch.registration2Id, registrations, athletes)
             return (
               <div className="flex flex-col" style={{ minWidth: 180 }}>
                 <div className="text-center pb-4">
@@ -233,16 +173,18 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
         </div>
       </div>
 
-      <MatchResultDialog
-        match={selectedMatch}
-        open={!!selectedMatch}
-        onClose={() => setSelectedMatch(null)}
-        player1Name={p1Selected.name}
-        player2Name={p2Selected.name}
-        drawId={drawId}
-        categoryId={activeCategory?.id ?? ''}
-        existingResults={existingResults}
-      />
+      {!readonly && (
+        <MatchResultDialog
+          match={selectedMatch}
+          open={!!selectedMatch}
+          onClose={() => setSelectedMatch(null)}
+          player1Name={p1Selected.name}
+          player2Name={p2Selected.name}
+          drawId={drawId}
+          categoryId={activeCategory?.id ?? ''}
+          existingResults={existingResults}
+        />
+      )}
     </>
   )
 }
