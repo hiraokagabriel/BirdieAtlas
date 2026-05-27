@@ -4,14 +4,14 @@ import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from '@/components/bracket/bracket-draw'
 import { ScheduleView } from '@/components/bracket/schedule-view'
-import { Calendar, MapPin, Trophy } from 'lucide-react'
+import { Calendar, MapPin, Trophy, Lock } from 'lucide-react'
 
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: string
   startDate: string; endDate: string; city: string; state: string; location: string
 }
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number }
-type Draw = { id: string }
+type Draw = { id: string; published: boolean }
 type Match = {
   id: string; round: number; position: number; status: string
   registration1Id: string | null; registration2Id: string | null
@@ -37,6 +37,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
 
   const [activeCategoryId, setActiveCategoryId] = useState('')
   const [draw, setDraw] = useState<Draw | null>(null)
+  const [drawLoaded, setDrawLoaded] = useState(false)
   const [matches, setMatches] = useState<Match[]>([])
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [results, setResults] = useState<MatchResult[]>([])
@@ -56,18 +57,25 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
 
   useEffect(() => {
     if (!activeCategoryId) return
+    setDrawLoaded(false)
     Promise.all([
       apiFetch<Draw[]>(`/tournaments/categories/${activeCategoryId}/draws`),
       apiFetch<Registration[]>(`/tournaments/categories/${activeCategoryId}/registrations`),
     ]).then(async ([drawList, regs]) => {
       setRegistrations(regs)
-      if (!drawList.length) { setDraw(null); setMatches([]); return }
+      if (!drawList.length || !drawList[0].published) {
+        setDraw(null)
+        setMatches([])
+        setDrawLoaded(true)
+        return
+      }
       const d = drawList[0]
       setDraw(d)
       const matchList = await apiFetch<Match[]>(`/draws/${d.id}/matches`)
       setMatches(matchList)
       const allResults = await Promise.all(matchList.map((m) => apiFetch<MatchResult[]>(`/draws/matches/${m.id}/result`)))
       setResults(allResults.flat())
+      setDrawLoaded(true)
     })
   }, [activeCategoryId])
 
@@ -132,6 +140,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
         ))}
       </div>
 
+      {/* Bracket público — só se published */}
       {tab === 'bracket' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -151,11 +160,13 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
           </div>
 
           <div className="rounded-xl border border-border bg-card overflow-auto">
-            {!draw ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <Trophy className="w-8 h-8 mx-auto mb-3 opacity-30" />
+            {!drawLoaded ? (
+              <div className="p-12 text-center text-muted-foreground">Carregando...</div>
+            ) : !draw ? (
+              <div className="p-12 text-center text-muted-foreground space-y-2">
+                <Lock className="w-8 h-8 mx-auto opacity-30" />
                 <p className="font-medium">Chaveamento não disponível</p>
-                <p className="text-sm mt-1">O chaveamento desta categoria ainda não foi gerado.</p>
+                <p className="text-sm">O chaveamento desta categoria ainda não foi publicado.</p>
               </div>
             ) : (
               <BracketDraw
