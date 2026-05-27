@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
-import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments } from '../db/schema'
+import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings } from '../db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -23,23 +23,6 @@ function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null
 
 function getSlotForPosition(position: number): 'registration1Id' | 'registration2Id' {
   return position % 2 === 1 ? 'registration1Id' : 'registration2Id'
-}
-
-// Retorna placement (1=campeão, 2=vice, 3/4=semi, etc) para cada registrationId
-function computePlacements(allMatches: typeof matches.$inferSelect[]): Map<string, number> {
-  const placements = new Map<string, number>()
-  const maxRound = Math.max(...allMatches.map((m) => m.round))
-
-  // Perdedor da final = 2º lugar
-  // Perdedores das semis = 3º (compartilhado)
-  // Perdedores das quartas = 5º (compartilhado), etc.
-  for (const match of allMatches) {
-    const results = [] as { score1: number; score2: number }[]
-    // placements calculados depois com matchResults separado — aqui só estrutura
-    void results
-    void match
-  }
-  return placements
 }
 
 export async function drawsRoutes(app: FastifyInstance) {
@@ -111,7 +94,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return db.select().from(matches).where(eq(matches.drawId, drawId))
   })
 
-  // Publicar chaveamento
   app.post('/draws/:drawId/publish', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
@@ -120,7 +102,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
-  // Despublicar chaveamento
   app.post('/draws/:drawId/unpublish', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
@@ -129,48 +110,62 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
+  // ---------------------------------------------------------------------------
   // Distribuir pontos de ranking ao encerrar torneio
+  // Fix 1: ranking resolvido por disciplina da categoria (não o rankingId fixo do torneio)
+  // Fix 2: pointsTable buscada por name + tournamentLevel (todas as linhas, não por id)
+  // Fix 3: categorias incompletas reportadas no response, não silenciadas
+  // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
-    // Busca torneio com rankingId e pointsTableId
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-    if (!tournament.rankingId) return reply.status(400).send({ error: 'Tournament has no rankingId configured' })
     if (!tournament.pointsTableId) return reply.status(400).send({ error: 'Tournament has no pointsTableId configured' })
 
-    // Tabela de pontos por placement
-    const pointsTable = await db.select().from(pointsTables)
-      .where(and(eq(pointsTables.id, tournament.pointsTableId), eq(pointsTables.tournamentLevel, tournament.level)))
-    if (!pointsTable.length) return reply.status(400).send({ error: 'Points table not found' })
+    // Fix 2: busca todas as linhas da tabela de pontos pelo name que pertence ao pointsTableId de referência
+    const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
+    if (!refTable) return reply.status(400).send({ error: 'Points table not found' })
 
-    const pointsMap = new Map(pointsTable.map((p) => [p.placement, p.points]))
+    const allPointsRows = await db.select().from(pointsTables)
+      .where(and(eq(pointsTables.name, refTable.name), eq(pointsTables.tournamentLevel, tournament.level)))
+    if (!allPointsRows.length) return reply.status(400).send({ error: 'Points table rows not found' })
 
-    // Busca todas as categorias do torneio
+    const pointsMap = new Map(allPointsRows.map((p) => [p.placement, p.points]))
+
+    // Fix 1: busca todos os rankings do tenant para resolver por disciplina
+    const tenantRankings = await db.select().from(rankings).where(eq(rankings.tenantId, tournament.tenantId))
+    const rankingByDiscipline = new Map(tenantRankings.map((r) => [r.discipline, r]))
+
     const categories = await db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, tournamentId))
 
-    const awarded: { registrationId: string; athleteId: string; athlete2Id: string | null; placement: number; points: number }[] = []
+    const awarded: { categoryName: string; registrationId: string; athleteId: string; athlete2Id: string | null; placement: number; points: number }[] = []
+    const skipped: { categoryName: string; reason: string }[] = []
 
     for (const category of categories) {
+      // Fix 1: resolve o ranking correto pela disciplina da categoria
+      const ranking = rankingByDiscipline.get(category.discipline)
+      if (!ranking) {
+        skipped.push({ categoryName: category.name, reason: `No ranking found for discipline ${category.discipline}` })
+        continue
+      }
+
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, category.id))
-      if (!drawList.length) continue
+      if (!drawList.length) {
+        skipped.push({ categoryName: category.name, reason: 'No draw generated' })
+        continue
+      }
       const draw = drawList[0]
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, draw.id))
       const completedStatuses = ['completed', 'walkover', 'retired']
-      const allDone = allMatches.every((m) => completedStatuses.includes(m.status))
-      if (!allDone) {
-        // Pula categorias com partidas pendentes — não bloqueia, apenas ignora
+      const pendingMatches = allMatches.filter((m) => !completedStatuses.includes(m.status))
+      if (pendingMatches.length > 0) {
+        // Fix 3: reporta ao invés de silenciar
+        skipped.push({ categoryName: category.name, reason: `${pendingMatches.length} match(es) still pending` })
         continue
       }
 
-      const maxRound = Math.max(...allMatches.map((m) => m.round))
-
-      // Para cada rodada, o perdedor recebe um placement
-      // round 1 final → winner=1º, loser=2º
-      // round 2 semis → losers=3º (2 atletas)
-      // round 3 quartas → losers=5º (4 atletas)
-      // placement = 2^(round-1) + 1 para os perdedores de cada round
       const placementByReg = new Map<string, number>()
 
       for (const match of allMatches) {
@@ -182,16 +177,11 @@ export async function drawsRoutes(app: FastifyInstance) {
         const loserRegId = winner === 1 ? match.registration2Id : match.registration1Id
         const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
 
-        // Placement do perdedor: para round R (1=final, 2=semi...), perdedor fica em 2^(R-1)+1
-        // final (R=1): loser=2, semi (R=2): loser=3, quartas (R=3): loser=5
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
-
-        // Campeão (vencedor da final)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
       }
 
-      // Distribui pontos
       const regIds = [...placementByReg.keys()]
       if (!regIds.length) continue
       const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
@@ -202,9 +192,9 @@ export async function drawsRoutes(app: FastifyInstance) {
         const points = pointsMap.get(placement) ?? 0
         if (points === 0) continue
 
-        // Upsert: busca entrada existente no ranking
+        // Upsert no ranking correto da disciplina
         const existing = await db.select().from(rankingEntries)
-          .where(and(eq(rankingEntries.rankingId, tournament.rankingId!), eq(rankingEntries.athleteId, reg.athleteId)))
+          .where(and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId)))
 
         if (existing.length) {
           await db.update(rankingEntries)
@@ -213,26 +203,26 @@ export async function drawsRoutes(app: FastifyInstance) {
         } else {
           await db.insert(rankingEntries).values({
             id: randomUUID(),
-            rankingId: tournament.rankingId!,
+            rankingId: ranking.id,
             athleteId: reg.athleteId,
             athlete2Id: reg.athlete2Id ?? null,
             points,
-            position: 0, // reordenado depois
+            position: 0,
           })
         }
 
-        awarded.push({ registrationId: regId, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, placement, points })
+        awarded.push({ categoryName: category.name, registrationId: regId, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, placement, points })
+      }
+
+      // Reordena posições no ranking desta disciplina
+      const allEntries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, ranking.id))
+      const sorted = [...allEntries].sort((a, b) => b.points - a.points)
+      for (let i = 0; i < sorted.length; i++) {
+        await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sorted[i].id))
       }
     }
 
-    // Reordena posições no ranking após distribuição
-    const allEntries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, tournament.rankingId!))
-    const sorted = allEntries.sort((a, b) => b.points - a.points)
-    for (let i = 0; i < sorted.length; i++) {
-      await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sorted[i].id))
-    }
-
-    return { awarded, rankingId: tournament.rankingId }
+    return { awarded, skipped }
   })
 
   app.patch('/draws/matches/:matchId/schedule', async (request, reply) => {
