@@ -59,11 +59,11 @@ function getMatchScore(match: Match, results: MatchResult[]): string {
 }
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
-  pending: { label: 'Aguardando', dot: 'bg-gray-300' },
-  in_progress: { label: 'Ao vivo', dot: 'bg-green-500 animate-pulse' },
-  completed: { label: 'Encerrada', dot: 'bg-blue-400' },
-  walkover: { label: 'W.O.', dot: 'bg-yellow-400' },
-  retired: { label: 'Ret.', dot: 'bg-red-400' },
+  pending:     { label: 'Aguardando', dot: 'bg-gray-300' },
+  in_progress: { label: 'Ao vivo',    dot: 'bg-green-500 animate-pulse' },
+  completed:   { label: 'Encerrada',  dot: 'bg-blue-400' },
+  walkover:    { label: 'W.O.',       dot: 'bg-yellow-400' },
+  retired:     { label: 'Ret.',       dot: 'bg-red-400' },
 }
 
 export function BracketDraw({ matches, registrations, athletes, results, activeCategory, drawId, readonly = false }: Props) {
@@ -101,7 +101,11 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
                     const status = statusLabel[match.status] ?? statusLabel.pending
                     const isFinal = round === 1
                     const isCompleted = ['completed', 'walkover', 'retired'].includes(match.status)
-                    const canInteract = !readonly && (match.status === 'pending' || isCompleted) && match.registration1Id && match.registration2Id
+                    // Fix: in_progress também é editável
+                    const canInteract = !readonly
+                      && (match.status === 'pending' || match.status === 'in_progress' || isCompleted)
+                      && match.registration1Id
+                      && match.registration2Id
 
                     return (
                       <div key={match.id} className="flex items-center">
