@@ -104,9 +104,25 @@ export const rankings = pgTable('rankings', {
   id: id(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),
   name: text('name').notNull(),
+  description: text('description'),
   discipline: disciplineEnum('discipline').notNull(),
   year: integer('year').notNull(),
+  // autoInclude: se true, todos os torneios do tenant com pointsAwarded=true
+  // entram automaticamente ao rodar award-points (comportamento legado)
+  // se false, apenas torneios explicitamente vinculados em rankingTournaments
+  autoInclude: boolean('auto_include').notNull().default(true),
   active: boolean('active').notNull().default(true),
+  ...timestamps,
+})
+
+// ---------------------------------------------------------------------------
+// Ranking <-> Tournament join table
+// Usado quando autoInclude = false para controle granular
+// ---------------------------------------------------------------------------
+export const rankingTournaments = pgTable('ranking_tournaments', {
+  id: id(),
+  rankingId: text('ranking_id').notNull().references(() => rankings.id),
+  tournamentId: text('tournament_id').notNull().references(() => tournaments.id),
   ...timestamps,
 })
 

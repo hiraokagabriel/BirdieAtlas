@@ -1,0 +1,366 @@
+'use client'
+
+import { use, useEffect, useState, useMemo } from 'react'
+import { apiFetch } from '@/lib/api'
+import {
+  TrendingUp, ChevronLeft, RefreshCw, Plus, Trash2,
+  ChevronRight, Users, User, Zap, Calendar, MapPin, CheckCircle2, Clock,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+
+type Ranking = {
+  id: string; name: string; description: string | null
+  discipline: string; year: number; autoInclude: boolean
+}
+type Tournament = {
+  id: string; name: string; slug: string; status: string; level: string
+  startDate: string; endDate: string; city: string | null; state: string | null
+  pointsAwarded: boolean; tenantId: string
+}
+type AthleteData = { id: string; name: string; gender: string }
+type Entry = {
+  id: string; position: number; points: number
+  athleteId: string; athlete2Id: string | null
+  athlete: AthleteData | null; athlete2: AthleteData | null
+}
+type RankingResponse = {
+  ranking: Ranking; entries: Entry[]
+  pagination: { page: number; perPage: number; total: number; totalPages: number }
+}
+
+const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? ''
+
+const disciplineLabel: Record<string, string> = {
+  MS: 'Simples Masc.', WS: 'Simples Fem.',
+  MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
+}
+const disciplineColors: Record<string, string> = {
+  MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
+  WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
+  MD: 'bg-cyan-500/10 text-cyan-700 border-cyan-200',
+  WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
+  XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
+}
+
+const statusLabel: Record<string, string> = {
+  draft: 'Rascunho', registration_open: 'Inscrições abertas',
+  registration_closed: 'Inscrições encerradas',
+  in_progress: 'Em andamento', completed: 'Encerrado', cancelled: 'Cancelado',
+}
+
+function PositionBadge({ pos }: { pos: number }) {
+  if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400 text-yellow-900 font-bold text-sm">🥇</span>
+  if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 text-gray-800 font-bold text-sm">🥈</span>
+  if (pos === 3) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-600/80 text-white font-bold text-sm">🥉</span>
+  return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
+}
+
+export default function RankingDetailPage({ params }: { params: Promise<{ rankingId: string }> }) {
+  const { rankingId } = use(params)
+  const router = useRouter()
+
+  const [ranking, setRanking] = useState<Ranking | null>(null)
+  const [data, setData]       = useState<RankingResponse | null>(null)
+  const [linkedTournaments, setLinkedTournaments] = useState<Tournament[]>([])
+  const [allTournaments, setAllTournaments]       = useState<Tournament[]>([])
+  const [page, setPage]           = useState(1)
+  const [loading, setLoading]     = useState(false)
+  const [recalcLoading, setRecalc] = useState(false)
+  const [tab, setTab]             = useState<'entries' | 'tournaments'>('entries')
+  const [unlinking, setUnlinking] = useState<string | null>(null)
+  const [linking, setLinking]     = useState<string | null>(null)
+  const PER_PAGE = 25
+
+  // Load ranking metadata
+  useEffect(() => {
+    apiFetch<Ranking>(`/rankings/${rankingId}`).then(setRanking)
+  }, [rankingId])
+
+  // Load entries
+  useEffect(() => {
+    if (!rankingId) return
+    setLoading(true)
+    apiFetch<RankingResponse>(`/rankings/${rankingId}/entries?page=${page}&perPage=${PER_PAGE}`)
+      .then(setData).finally(() => setLoading(false))
+  }, [rankingId, page])
+
+  // Load linked tournaments
+  useEffect(() => {
+    apiFetch<Tournament[]>(`/rankings/${rankingId}/tournaments`).then(setLinkedTournaments)
+  }, [rankingId])
+
+  // Load all tournaments (to allow linking)
+  useEffect(() => {
+    if (TENANT_ID) {
+      apiFetch<Tournament[]>(`/tournaments?tenantId=${TENANT_ID}`).then(setAllTournaments)
+    } else {
+      apiFetch<Tournament[]>('/tournaments').then(setAllTournaments)
+    }
+  }, [])
+
+  const linkedIds = new Set(linkedTournaments.map((t) => t.id))
+  const unlinkable = linkedTournaments
+  const linkable   = allTournaments.filter((t) => !linkedIds.has(t.id) && t.pointsAwarded)
+
+  async function handleRecalculate() {
+    setRecalc(true)
+    try {
+      await apiFetch(`/rankings/${rankingId}/recalculate`, { method: 'POST' })
+      setPage(1)
+      const res = await apiFetch<RankingResponse>(`/rankings/${rankingId}/entries?page=1&perPage=${PER_PAGE}`)
+      setData(res)
+    } finally {
+      setRecalc(false)
+    }
+  }
+
+  async function handleLink(tournamentId: string) {
+    setLinking(tournamentId)
+    try {
+      await apiFetch(`/rankings/${rankingId}/tournaments/${tournamentId}`, { method: 'POST' })
+      const t = allTournaments.find((t) => t.id === tournamentId)!
+      setLinkedTournaments((prev) => [...prev, t])
+    } finally {
+      setLinking(null)
+    }
+  }
+
+  async function handleUnlink(tournamentId: string) {
+    setUnlinking(tournamentId)
+    try {
+      await apiFetch(`/rankings/${rankingId}/tournaments/${tournamentId}`, { method: 'DELETE' })
+      setLinkedTournaments((prev) => prev.filter((t) => t.id !== tournamentId))
+    } finally {
+      setUnlinking(null)
+    }
+  }
+
+  const isDoubles = ranking ? ['MD', 'WD', 'XD'].includes(ranking.discipline) : false
+  const pagination = data?.pagination
+
+  if (!ranking) return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-8 w-32 rounded bg-muted" />
+      <div className="h-24 rounded-xl bg-muted" />
+      <div className="h-72 rounded-xl bg-muted" />
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+
+      {/* VOLTAR */}
+      <button
+        onClick={() => router.push('/rankings')}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Voltar para Rankings
+      </button>
+
+      {/* HEADER */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-2xl font-bold tracking-tight">{ranking.name}</h2>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
+              disciplineColors[ranking.discipline] ?? ''
+            }`}>
+              {isDoubles ? <Users className="w-3 h-3" /> : <User className="w-3 h-3" />}
+              {disciplineLabel[ranking.discipline] ?? ranking.discipline}
+            </span>
+            {ranking.autoInclude && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700 text-xs">
+                <Zap className="w-3 h-3" />
+                Inclusão automática
+              </span>
+            )}
+          </div>
+          {ranking.description && <p className="text-sm text-muted-foreground">{ranking.description}</p>}
+        </div>
+
+        <button
+          onClick={handleRecalculate}
+          disabled={recalcLoading}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${recalcLoading ? 'animate-spin' : ''}`} />
+          {recalcLoading ? 'Recalculando...' : 'Recalcular'}
+        </button>
+      </div>
+
+      {/* TABS */}
+      <div className="flex border-b border-border">
+        {(['entries', 'tournaments'] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t === 'entries'
+              ? `Classificação${data ? ` (${data.pagination.total})` : ''}`
+              : `Torneios (${linkedTournaments.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* TAB: ENTRIES */}
+      {tab === 'entries' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <span>#</span>
+              <span>{isDoubles ? 'Dupla' : 'Atleta'}</span>
+              <span className="text-right">Pontos</span>
+            </div>
+
+            {loading ? (
+              <div>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3.5 border-b border-border/50 animate-pulse">
+                    <div className="w-8 h-8 rounded-full bg-muted" />
+                    <div className="h-3.5 w-40 bg-muted rounded self-center" />
+                    <div className="h-4 w-16 bg-muted rounded self-center" />
+                  </div>
+                ))}
+              </div>
+            ) : !data?.entries.length ? (
+              <div className="p-12 text-center text-muted-foreground">
+                <p className="font-medium">Nenhuma entrada ainda.</p>
+                <p className="text-sm mt-1">Vincule torneios e clique em Recalcular.</p>
+              </div>
+            ) : (
+              data.entries.map((entry) => {
+                const isTop3 = entry.position <= 3
+                return (
+                  <div key={entry.id}
+                    className={`grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 ${
+                      isTop3 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
+                    }`}
+                  >
+                    <div className="flex items-center"><PositionBadge pos={entry.position} /></div>
+                    <div className="flex flex-col justify-center min-w-0">
+                      {isDoubles ? (
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-sm">
+                            <Link href={`/a/${entry.athleteId}`} className="hover:underline">{entry.athlete?.name ?? '—'}</Link>
+                            {' & '}
+                            <Link href={entry.athlete2Id ? `/a/${entry.athlete2Id}` : '#'} className="hover:underline">{entry.athlete2?.name ?? '—'}</Link>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <Link href={`/a/${entry.athleteId}`} className="font-medium text-sm hover:underline">
+                            {entry.athlete?.name ?? '—'}
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-end">
+                      <span className={`font-semibold tabular-nums ${
+                        isTop3 ? 'text-yellow-700 text-base' : 'text-sm'
+                      }`}>{entry.points.toLocaleString('pt-BR')}</span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {((page - 1) * PER_PAGE) + 1}–{Math.min(page * PER_PAGE, pagination.total)} de {pagination.total}
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                  className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium px-2">{page} / {pagination.totalPages}</span>
+                <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
+                  className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: TOURNAMENTS */}
+      {tab === 'tournaments' && (
+        <div className="space-y-6">
+          {ranking.autoInclude && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center gap-2">
+              <Zap className="w-4 h-4 shrink-0" />
+              Este ranking usa inclusão automática — todos os torneios com pontos distribuídos são considerados ao recalcular.
+              Os vínculos manuais abaixo são ignorados nesse modo.
+            </div>
+          )}
+
+          {/* Vinculados */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold">Torneios vinculados</h3>
+            {unlinkable.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum torneio vinculado ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {unlinkable.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(t.startDate).toLocaleDateString('pt-BR')} · {statusLabel[t.status] ?? t.status}
+                        {t.pointsAwarded && ' · ✅ Pontos distribuídos'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleUnlink(t.id)}
+                      disabled={unlinking === t.id}
+                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Disponíveis para vincular */}
+          {linkable.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">Disponíveis para vincular</h3>
+              <div className="space-y-2">
+                {linkable.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3">
+                    <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-muted-foreground">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(t.startDate).toLocaleDateString('pt-BR')} · {statusLabel[t.status] ?? t.status}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleLink(t.id)}
+                      disabled={linking === t.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {linking === t.id ? 'Vinculando...' : 'Vincular'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

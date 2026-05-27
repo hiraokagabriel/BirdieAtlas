@@ -15,11 +15,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 const navItems = [
-  { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard },
-  { label: 'Atletas',    href: '/athletes',   icon: Users },
-  { label: 'Clubes',     href: '/clubs',      icon: Building2 },
-  { label: 'Torneios',   href: '/tournaments', icon: Trophy },
-  { label: 'Rankings',   href: '/r/fpb-sp',   icon: TrendingUp, external: true },
+  { label: 'Dashboard',  href: '/dashboard',    icon: LayoutDashboard },
+  { label: 'Atletas',    href: '/athletes',     icon: Users },
+  { label: 'Clubes',     href: '/clubs',        icon: Building2 },
+  { label: 'Torneios',   href: '/tournaments',  icon: Trophy },
+  { label: 'Rankings',   href: '/rankings',     icon: TrendingUp },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -41,14 +41,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Separator />
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ label, href, icon: Icon, external }) => {
-            const active = !external && (pathname === href || pathname.startsWith(href + '/'))
+          {navItems.map(({ label, href, icon: Icon }) => {
+            const active = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link
                 key={href}
                 href={href}
-                target={external ? '_blank' : undefined}
-                rel={external ? 'noopener noreferrer' : undefined}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   active
@@ -59,7 +57,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Icon className="w-4 h-4 shrink-0" />
                 {label}
                 {active && <ChevronRight className="w-3 h-3 ml-auto" />}
-                {external && <ExternalLink className="w-3 h-3 ml-auto opacity-50" />}
               </Link>
             )
           })}
