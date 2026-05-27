@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
-import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings } from '../db/schema'
+import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, athletes } from '../db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -14,6 +14,14 @@ const scheduleMatchSchema = z.object({
   scheduledAt: z.string().nullable(),
   courtNumber: z.number().nullable(),
 })
+
+// Gender compatibility per discipline
+function isGenderCompatible(discipline: string, gender: 'M' | 'F', slot: 'primary' | 'secondary'): boolean {
+  if (discipline === 'MS' || discipline === 'MD') return gender === 'M'
+  if (discipline === 'WS' || discipline === 'WD') return gender === 'F'
+  if (discipline === 'XD') return slot === 'primary' ? gender === 'M' : gender === 'F'
+  return true
+}
 
 function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
   const wins1 = sets.filter((s) => s.score1 > s.score2).length
@@ -112,7 +120,8 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // ---------------------------------------------------------------------------
   // Distribuir pontos de ranking
-  // Idempotente: bloqueia se pointsAwarded já for true no torneio
+  // Idempotente: bloqueia se pointsAwarded já for true
+  // Valida gênero: pula atletas incompatíveis com a disciplina
   // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
@@ -120,7 +129,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
 
-    // Idempotency guard
     if (tournament.pointsAwarded) {
       return reply.status(409).send({ error: 'Points have already been awarded for this tournament' })
     }
@@ -186,9 +194,30 @@ export async function drawsRoutes(app: FastifyInstance) {
       if (!regIds.length) continue
       const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
 
+      // Busca atletas para validação de gênero
+      const allAthleteIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
+      const athleteRows = allAthleteIds.length
+        ? await db.select().from(athletes).where(inArray(athletes.id, allAthleteIds))
+        : []
+      const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
+
       for (const [regId, placement] of placementByReg.entries()) {
         const reg = regs.find((r) => r.id === regId)
         if (!reg) continue
+
+        // Validação de gênero por disciplina
+        const a1 = athleteMap.get(reg.athleteId)
+        const a2 = reg.athlete2Id ? athleteMap.get(reg.athlete2Id) : null
+
+        if (a1 && !isGenderCompatible(category.discipline, a1.gender, 'primary')) {
+          skipped.push({ categoryName: category.name, reason: `Athlete ${a1.id} gender incompatible with ${category.discipline}` })
+          continue
+        }
+        if (a2 && !isGenderCompatible(category.discipline, a2.gender, 'secondary')) {
+          skipped.push({ categoryName: category.name, reason: `Athlete ${a2.id} gender incompatible with ${category.discipline}` })
+          continue
+        }
+
         const points = pointsMap.get(placement) ?? 0
         if (points === 0) continue
 
@@ -220,7 +249,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       }
     }
 
-    // Marca torneio como pontos distribuídos — impede execução dupla
     await db.update(tournaments)
       .set({ pointsAwarded: true, updatedAt: new Date() })
       .where(eq(tournaments.id, tournamentId))

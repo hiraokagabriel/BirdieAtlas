@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
-import { tournaments, tournamentCategories, tournamentRegistrations } from '../db/schema'
+import { tournaments, tournamentCategories, tournamentRegistrations, athletes } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -21,7 +21,7 @@ const createTournamentSchema = z.object({
 
 const createCategorySchema = z.object({
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
-  name: z.string().min(1), // ex: "Simples Masculino A", "A-Especial", "Sub-17"
+  name: z.string().min(1),
   drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination']).default('single_elimination'),
   maxEntries: z.number().optional(),
   seedCount: z.number().default(4),
@@ -33,6 +33,46 @@ const createRegistrationSchema = z.object({
   seed: z.number().optional(),
   rankingPointsAtEntry: z.number().optional(),
 })
+
+// ---------------------------------------------------------------------------
+// Gender rules per discipline
+// MS / MD  → all athletes must be M
+// WS / WD  → all athletes must be F
+// XD       → athleteId must be M, athlete2Id must be F
+// ---------------------------------------------------------------------------
+function genderError(discipline: string, reason: string) {
+  return { error: `Gender violation for discipline ${discipline}: ${reason}` }
+}
+
+async function validateGender(
+  discipline: string,
+  athleteId: string,
+  athlete2Id: string | undefined,
+): Promise<{ error: string } | null> {
+  const ids = [athleteId, athlete2Id].filter(Boolean) as string[]
+  const athleteRows = await Promise.all(ids.map((id) => db.select().from(athletes).where(eq(athletes.id, id)).limit(1)))
+  const [a1Row, a2Row] = athleteRows.map((r) => r[0])
+
+  if (!a1Row) return { error: 'Athlete not found' }
+
+  if (discipline === 'MS' || discipline === 'MD') {
+    if (a1Row.gender !== 'M') return genderError(discipline, 'athlete must be male')
+    if (a2Row && a2Row.gender !== 'M') return genderError(discipline, 'athlete2 must be male')
+  }
+
+  if (discipline === 'WS' || discipline === 'WD') {
+    if (a1Row.gender !== 'F') return genderError(discipline, 'athlete must be female')
+    if (a2Row && a2Row.gender !== 'F') return genderError(discipline, 'athlete2 must be female')
+  }
+
+  if (discipline === 'XD') {
+    if (!a2Row) return genderError(discipline, 'XD requires two athletes')
+    const genders = [a1Row.gender, a2Row.gender].sort().join('')
+    if (genders !== 'FM') return genderError(discipline, 'XD requires one male and one female athlete')
+  }
+
+  return null
+}
 
 export async function tournamentsRoutes(app: FastifyInstance) {
   app.get('/tournaments', async (request) => {
@@ -94,6 +134,13 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   app.post('/tournaments/categories/:categoryId/registrations', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
     const body = createRegistrationSchema.parse(request.body)
+
+    const [category] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
+    if (!category) return reply.status(404).send({ error: 'Category not found' })
+
+    const genderViolation = await validateGender(category.discipline, body.athleteId, body.athlete2Id)
+    if (genderViolation) return reply.status(422).send(genderViolation)
+
     const [registration] = await db
       .insert(tournamentRegistrations)
       .values({ id: randomUUID(), categoryId, ...body })
