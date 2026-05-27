@@ -4,12 +4,6 @@ import { use, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
-import { Input } from '@/components/ui/input'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 
 type RosterAthlete = {
   id: string; name: string; gender: 'M' | 'F'
@@ -47,6 +41,8 @@ const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 type SortField = 'name' | 'totalPoints' | 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
 type SortDir  = 'asc' | 'desc'
 
+const selectCls = 'h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer'
+
 function StatCard({ label, value, sub, icon: Icon, primary }: {
   label: string; value: string | number; sub?: string
   icon: React.ElementType; primary: string
@@ -68,13 +64,12 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
   const [profile, setProfile] = useState<ClubProfile | null>(null)
   const [notFound, setNotFound] = useState(false)
 
-  // Filtros
-  const [search, setSearch]       = useState('')
-  const [genderFilter, setGender] = useState<'all' | 'M' | 'F'>('all')
-  const [disciplineFilter, setDiscipline] = useState<'all' | string>('all')
-  const [activeFilter, setActive] = useState<'all' | 'true' | 'false'>('all')
-  const [sortField, setSortField] = useState<SortField>('totalPoints')
-  const [sortDir,   setSortDir]   = useState<SortDir>('desc')
+  const [search, setSearch]             = useState('')
+  const [genderFilter, setGender]       = useState<'all' | 'M' | 'F'>('all')
+  const [disciplineFilter, setDiscipline] = useState<string>('all')
+  const [activeFilter, setActive]       = useState<'all' | 'true' | 'false'>('all')
+  const [sortField, setSortField]       = useState<SortField>('totalPoints')
+  const [sortDir, setSortDir]           = useState<SortDir>('desc')
 
   useEffect(() => {
     apiFetch<ClubProfile>(`/clubs/${clubId}/profile`)
@@ -93,15 +88,15 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
         return true
       })
       .sort((a, b) => {
-        let va = sortField === 'name' ? a.name : sortField === 'totalPoints' ? a.totalPoints : (a.byDiscipline[sortField] ?? 0)
-        let vb = sortField === 'name' ? b.name : sortField === 'totalPoints' ? b.totalPoints : (b.byDiscipline[sortField] ?? 0)
+        const va = sortField === 'name' ? a.name : sortField === 'totalPoints' ? a.totalPoints : (a.byDiscipline[sortField] ?? 0)
+        const vb = sortField === 'name' ? b.name : sortField === 'totalPoints' ? b.totalPoints : (b.byDiscipline[sortField] ?? 0)
         if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb as string) : (vb as string).localeCompare(va)
         return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number)
       })
   }, [profile, search, genderFilter, disciplineFilter, activeFilter, sortField, sortDir])
 
   function toggleSort(field: SortField) {
-    if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     else { setSortField(field); setSortDir('desc') }
   }
 
@@ -120,11 +115,11 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
 
   if (!profile) return (
     <div className="space-y-6 animate-pulse">
-      <Skeleton className="h-52 rounded-2xl" />
+      <div className="h-52 rounded-2xl bg-muted" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        {[...Array(4)].map((_, i) => <div key={i} className="h-24 rounded-xl bg-muted" />)}
       </div>
-      <Skeleton className="h-72 rounded-xl" />
+      <div className="h-72 rounded-xl bg-muted" />
     </div>
   )
 
@@ -135,11 +130,8 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
   return (
     <div className="space-y-8">
 
-      {/* ------------------------------------------------------------------ */}
-      {/* HERO                                                                 */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="rounded-2xl overflow-hidden border border-border relative">
-        {/* Capa */}
+      {/* HERO */}
+      <div className="rounded-2xl overflow-hidden border border-border">
         <div
           className="h-40 w-full"
           style={{
@@ -148,19 +140,13 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
               : `linear-gradient(135deg, ${primary}, ${secondary})`,
           }}
         />
-
-        {/* Overlay inferior com logo + nome */}
         <div className="px-6 pb-6 pt-0 bg-card">
           <div className="flex items-end gap-5 -mt-10">
-            {/* Logo */}
-            <div
-              className="w-20 h-20 rounded-2xl border-4 border-background shadow-lg flex items-center justify-center overflow-hidden shrink-0 bg-white"
-            >
+            <div className="w-20 h-20 rounded-2xl border-4 border-background shadow-lg flex items-center justify-center overflow-hidden shrink-0 bg-white">
               {club.logoUrl
                 ? <img src={club.logoUrl} alt={club.name} className="w-full h-full object-contain p-1" />
                 : <span className="text-3xl font-black" style={{ color: primary }}>{club.name.charAt(0)}</span>}
             </div>
-
             <div className="pb-1 flex-1 min-w-0">
               <h1 className="text-2xl font-bold tracking-tight">{club.name}</h1>
               <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap mt-0.5">
@@ -180,97 +166,48 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* STATS CARDS                                                          */}
-      {/* ------------------------------------------------------------------ */}
+      {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Pontos totais"
-          value={totalPoints.toLocaleString('pt-BR')}
-          sub="soma do plantel"
-          icon={TrendingUp}
-          primary={primary}
-        />
-        <StatCard
-          label="Média por atleta"
-          value={avgPoints.toLocaleString('pt-BR')}
-          sub="pts / atleta"
-          icon={TrendingUp}
-          primary={primary}
-        />
-        <StatCard
-          label="Ranking de clubes"
-          value={rankAmongClubs ? `${rankAmongClubs}º` : '—'}
-          sub={rankAmongClubs ? `de ${totalClubs} clubes` : 'sem dados'}
-          icon={Trophy}
-          primary={primary}
-        />
-        <StatCard
-          label="Plantel ativo"
-          value={roster.filter((a) => a.active).length}
-          sub={`${roster.filter((a) => !a.active).length} inativo(s)`}
-          icon={Users}
-          primary={primary}
-        />
+        <StatCard label="Pontos totais"     value={totalPoints.toLocaleString('pt-BR')}       sub="soma do plantel"   icon={TrendingUp} primary={primary} />
+        <StatCard label="Média por atleta"  value={avgPoints.toLocaleString('pt-BR')}         sub="pts / atleta"      icon={TrendingUp} primary={primary} />
+        <StatCard label="Ranking de clubes" value={rankAmongClubs ? `${rankAmongClubs}º` : '—'} sub={rankAmongClubs ? `de ${totalClubs} clubes` : 'sem dados'} icon={Trophy} primary={primary} />
+        <StatCard label="Plantel ativo"     value={roster.filter((a) => a.active).length}     sub={`${roster.filter((a) => !a.active).length} inativo(s)`} icon={Users} primary={primary} />
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* TABELA DE ATLETAS                                                    */}
-      {/* ------------------------------------------------------------------ */}
+      {/* TABELA */}
       <div className="space-y-4">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <Users className="w-4 h-4" style={{ color: primary }} />
           Plantel
         </h2>
 
-        {/* Filtros */}
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
               placeholder="Buscar atleta..."
-              className="pl-9"
+              className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          <Select value={genderFilter} onValueChange={(v) => setGender(v as 'all' | 'M' | 'F')}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Gênero" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="M">Masculino</SelectItem>
-              <SelectItem value="F">Feminino</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={disciplineFilter} onValueChange={setDiscipline}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Disciplina" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {DISCIPLINES.map((d) => (
-                <SelectItem key={d} value={d}>{disciplineLabel[d]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={activeFilter} onValueChange={(v) => setActive(v as 'all' | 'true' | 'false')}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="true">Ativos</SelectItem>
-              <SelectItem value="false">Inativos</SelectItem>
-            </SelectContent>
-          </Select>
+          <select value={genderFilter} onChange={(e) => setGender(e.target.value as 'all' | 'M' | 'F')} className={selectCls}>
+            <option value="all">Gênero: Todos</option>
+            <option value="M">Masculino</option>
+            <option value="F">Feminino</option>
+          </select>
+          <select value={disciplineFilter} onChange={(e) => setDiscipline(e.target.value)} className={selectCls}>
+            <option value="all">Disciplina: Todas</option>
+            {DISCIPLINES.map((d) => <option key={d} value={d}>{disciplineLabel[d]}</option>)}
+          </select>
+          <select value={activeFilter} onChange={(e) => setActive(e.target.value as 'all' | 'true' | 'false')} className={selectCls}>
+            <option value="all">Status: Todos</option>
+            <option value="true">Ativos</option>
+            <option value="false">Inativos</option>
+          </select>
         </div>
 
-        {/* Tabela */}
         {filtered.length === 0 ? (
           <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
             Nenhum atleta encontrado com os filtros aplicados.
@@ -309,8 +246,10 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                       <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                            style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}>
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                            style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}
+                          >
                             {athlete.name.charAt(0)}
                           </div>
                           <div>
@@ -326,7 +265,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                         {athlete.totalPoints.toLocaleString('pt-BR')}
                       </td>
                       {DISCIPLINES.map((d) => (
-                        <td key={d} className="px-4 py-3 text-center tabular-nums text-sm text-muted-foreground">
+                        <td key={d} className="px-4 py-3 text-center tabular-nums">
                           {athlete.byDiscipline[d] ? (
                             <span className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${disciplineColors[d]}`}>
                               {athlete.byDiscipline[d].toLocaleString('pt-BR')}
@@ -335,12 +274,11 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                         </td>
                       ))}
                       <td className="px-4 py-3">
-                        <Badge
-                          variant="secondary"
-                          className={athlete.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}
-                        >
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          athlete.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                        }`}>
                           {athlete.active ? 'Ativo' : 'Inativo'}
-                        </Badge>
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <Link href={`/a/${athlete.id}`} target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
@@ -352,7 +290,6 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                 </tbody>
               </table>
             </div>
-
             <div className="px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground">
               {filtered.length} de {roster.length} atleta{roster.length !== 1 ? 's' : ''}
             </div>
