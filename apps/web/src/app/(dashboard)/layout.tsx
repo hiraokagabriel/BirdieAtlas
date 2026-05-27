@@ -3,36 +3,23 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  Trophy,
-  TrendingUp,
-  Feather,
-  ChevronRight,
-  Bell,
-  Settings,
-  LogOut,
-  ExternalLink,
+  LayoutDashboard, Users, Building2, Trophy, TrendingUp,
+  Feather, ChevronRight, Bell, Settings, LogOut, ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
 const navItems = [
-  { label: 'Dashboard',  href: '/dashboard',   icon: LayoutDashboard },
-  { label: 'Atletas',    href: '/athletes',     icon: Users },
-  { label: 'Clubes',     href: '/clubs',        icon: Building2 },
-  { label: 'Torneios',   href: '/tournaments',  icon: Trophy },
-  // Rankings aponta para a central pública da federação
-  { label: 'Rankings',   href: '/r/fpb-sp',     icon: TrendingUp, external: true },
+  { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard },
+  { label: 'Atletas',    href: '/athletes',   icon: Users },
+  { label: 'Clubes',     href: '/clubs',      icon: Building2 },
+  { label: 'Torneios',   href: '/tournaments', icon: Trophy },
+  { label: 'Rankings',   href: '/r/fpb-sp',   icon: TrendingUp, external: true },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -40,9 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-64 flex flex-col border-r border-border bg-sidebar shrink-0">
-        {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-5">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
             <Feather className="w-5 h-5 text-primary-foreground" />
@@ -55,7 +40,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <Separator />
 
-        {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map(({ label, href, icon: Icon, external }) => {
             const active = !external && (pathname === href || pathname.startsWith(href + '/'))
@@ -83,7 +67,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <Separator />
 
-        {/* User */}
         <div className="px-3 py-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -105,9 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
         <header className="flex items-center justify-between px-8 py-4 border-b border-border shrink-0">
           <div>
             <h1 className="text-xl font-semibold">Campeonato Paulista de Badminton 2026</h1>
@@ -122,7 +103,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-auto p-8">
           {children}
         </main>

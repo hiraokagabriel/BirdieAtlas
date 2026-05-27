@@ -23,34 +23,20 @@ const timestamps = {
 export const genderEnum = pgEnum('gender', ['M', 'F'])
 
 export const disciplineEnum = pgEnum('discipline', [
-  'MS',
-  'WS',
-  'MD',
-  'WD',
-  'XD',
+  'MS', 'WS', 'MD', 'WD', 'XD',
 ])
 
 export const drawTypeEnum = pgEnum('draw_type', [
-  'single_elimination',
-  'round_robin',
-  'group_then_elimination',
+  'single_elimination', 'round_robin', 'group_then_elimination',
 ])
 
 export const matchStatusEnum = pgEnum('match_status', [
-  'pending',
-  'in_progress',
-  'completed',
-  'walkover',
-  'retired',
+  'pending', 'in_progress', 'completed', 'walkover', 'retired',
 ])
 
 export const tournamentStatusEnum = pgEnum('tournament_status', [
-  'draft',
-  'registration_open',
-  'registration_closed',
-  'in_progress',
-  'completed',
-  'cancelled',
+  'draft', 'registration_open', 'registration_closed',
+  'in_progress', 'completed', 'cancelled',
 ])
 
 // ---------------------------------------------------------------------------
@@ -76,6 +62,9 @@ export const clubs = pgTable('clubs', {
   city: text('city'),
   state: text('state'),
   logoUrl: text('logo_url'),
+  coverUrl: text('cover_url'),
+  primaryColor: text('primary_color'),
+  secondaryColor: text('secondary_color'),
   active: boolean('active').notNull().default(true),
   ...timestamps,
 })
@@ -161,7 +150,6 @@ export const tournaments = pgTable('tournaments', {
   state: text('state'),
   pointsTableId: text('points_table_id').references(() => pointsTables.id),
   rankingId: text('ranking_id').references(() => rankings.id),
-  // Idempotency guard: prevents double point distribution
   pointsAwarded: boolean('points_awarded').notNull().default(false),
   ...timestamps,
 })
