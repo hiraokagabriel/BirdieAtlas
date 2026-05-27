@@ -2,8 +2,9 @@
 
 import { use, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
-import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react'
+import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type RosterAthlete = {
   id: string; name: string; gender: 'M' | 'F'
@@ -61,6 +62,7 @@ function StatCard({ label, value, sub, icon: Icon, primary }: {
 
 export default function ClubProfilePage({ params }: { params: Promise<{ clubId: string }> }) {
   const { clubId } = use(params)
+  const router = useRouter()
   const [profile, setProfile] = useState<ClubProfile | null>(null)
   const [notFound, setNotFound] = useState(false)
 
@@ -108,13 +110,17 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
   }
 
   if (notFound) return (
-    <div className="flex items-center justify-center h-64 text-muted-foreground">
-      Clube não encontrado.
+    <div className="space-y-4">
+      <BackButton onClick={() => router.push('/clubs')} />
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        Clube não encontrado.
+      </div>
     </div>
   )
 
   if (!profile) return (
     <div className="space-y-6 animate-pulse">
+      <div className="h-8 w-32 rounded-lg bg-muted" />
       <div className="h-52 rounded-2xl bg-muted" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => <div key={i} className="h-24 rounded-xl bg-muted" />)}
@@ -129,6 +135,9 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
 
   return (
     <div className="space-y-8">
+
+      {/* VOLTAR */}
+      <BackButton onClick={() => router.push('/clubs')} />
 
       {/* HERO */}
       <div className="rounded-2xl overflow-hidden border border-border">
@@ -297,5 +306,17 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
         )}
       </div>
     </div>
+  )
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <ChevronLeft className="w-4 h-4" />
+      Voltar para Clubes
+    </button>
   )
 }

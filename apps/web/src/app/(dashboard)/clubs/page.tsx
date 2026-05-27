@@ -1,6 +1,9 @@
+'use client'
+
+import { useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import Link from 'next/link'
-import { MapPin, Users } from 'lucide-react'
+import { MapPin, Search } from 'lucide-react'
 
 type Club = {
   id: string; name: string; slug: string
@@ -10,18 +13,51 @@ type Club = {
   active: boolean
 }
 
-export default async function ClubsPage() {
-  const clubs = await apiFetch<Club[]>('/clubs')
+export default function ClubsPage() {
+  const [clubs, setClubs] = useState<Club[]>([])
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    apiFetch<Club[]>('/clubs').then(setClubs)
+  }, [])
+
+  const filtered = useMemo(() =>
+    clubs.filter((c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.city ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.state ?? '').toLowerCase().includes(search.toLowerCase())
+    ),
+    [clubs, search]
+  )
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Clubes</h2>
-        <p className="text-muted-foreground">Clubes filiados à federação.</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Clubes</h2>
+          <p className="text-muted-foreground">Clubes filiados à federação.</p>
+        </div>
+
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar clube..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
       </div>
 
+      {filtered.length === 0 && (
+        <div className="text-center py-16 text-sm text-muted-foreground">
+          Nenhum clube encontrado para “{search}”.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {clubs.map((club) => {
+        {filtered.map((club) => {
           const primary = club.primaryColor ?? '#6366f1'
           return (
             <Link
@@ -29,7 +65,6 @@ export default async function ClubsPage() {
               href={`/clubs/${club.id}`}
               className="group rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow bg-card"
             >
-              {/* Capa */}
               <div
                 className="h-20 w-full relative"
                 style={{
@@ -38,7 +73,6 @@ export default async function ClubsPage() {
                     : `linear-gradient(135deg, ${primary}cc, ${club.secondaryColor ?? primary}66)`,
                 }}
               >
-                {/* Logo sobre a capa */}
                 <div className="absolute -bottom-5 left-4 w-12 h-12 rounded-full border-2 border-background bg-background flex items-center justify-center overflow-hidden shadow">
                   {club.logoUrl
                     ? <img src={club.logoUrl} alt={club.name} className="w-full h-full object-contain" />

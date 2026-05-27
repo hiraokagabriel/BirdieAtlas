@@ -4,8 +4,9 @@ import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
-import { Calendar, MapPin, ExternalLink } from 'lucide-react'
+import { Calendar, MapPin, ExternalLink, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: string
@@ -24,6 +25,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
 
 export default function TournamentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
+  const router = useRouter()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'bracket' | 'schedule'>('bracket')
@@ -43,6 +45,16 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="space-y-6">
+
+      {/* VOLTAR */}
+      <button
+        onClick={() => router.push('/tournaments')}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Voltar para Torneios
+      </button>
+
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
