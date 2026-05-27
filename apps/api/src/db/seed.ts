@@ -8,9 +8,48 @@ const pool = new Pool({
 })
 const db = drizzle(pool, { schema })
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+const maleFirstNames = [
+  'Lucas','Rafael','Matheus','Bruno','Pedro','Gabriel','Thiago','Diego','Felipe','André',
+  'Rodrigo','Gustavo','Henrique','Eduardo','Vinicius','Leonardo','Carlos','Paulo','Marcelo','Renato',
+  'Fábio','Caio','Danilo','Igor','Leandro','Maurício','Natan','Otávio','Patrick','Quirino',
+  'Sérgio','Tiago','Ulisses','Valério','Wagner','Xavier','Yuri','Zé','Alessandro','Bernardo',
+  'Cícero','Davi','Ezequiel','Frederico','Guilherme','Hélio','Ivan','João','Kléber','Lorenzo',
+]
+const femaleFirstNames = [
+  'Ana','Juliana','Camila','Fernanda','Beatriz','Larissa','Isabela','Vanessa','Mariana','Gabriela',
+  'Letícia','Natália','Rafaela','Simone','Tatiane','Úrsula','Viviane','Wanessa','Yasmin','Zélia',
+  'Amanda','Bruna','Caroline','Débora','Elaine','Flávia','Giovana','Helena','Ingrid','Joana',
+  'Késia','Lívia','Mônica','Naiara','Olivia','Patrícia','Roberta','Sandra','Talita','Ursula',
+  'Vitória','Walkiria','Xênia','Yara','Zelma','Alice','Bárbara','Cláudia','Denise','Érica',
+]
+const lastNames = [
+  'Silva','Santos','Oliveira','Souza','Lima','Ferreira','Costa','Pereira','Carvalho','Martins',
+  'Rocha','Alves','Nascimento','Araújo','Ribeiro','Mendes','Gomes','Barbosa','Cardoso','Moreira',
+  'Nunes','Campos','Cavalcanti','Dias','Freitas','Gonçalves','Henrique','Ito','Jardim','Kawaguchi',
+  'Luz','Monteiro','Nogueira','Ortiz','Pinto','Queiroz','Ramos','Teixeira','Vargas','Yamamoto',
+  'Tanaka','Nakamura','Suzuki','Watanabe','Kobayashi','Ishida','Fujita','Miyamoto','Sato','Endo',
+]
+
+function makeName(first: string, last: string) { return `${first} ${last}` }
+function makeEmail(first: string, last: string, i: number) {
+  return `${first.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '')}.${last.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '')}${i}@birdieseed.com`
+}
+function rndDate(from: number, to: number) {
+  const y = from + Math.floor(Math.random() * (to - from))
+  const m = String(1 + Math.floor(Math.random() * 12)).padStart(2, '0')
+  const d = String(1 + Math.floor(Math.random() * 28)).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 async function seed() {
   console.log('🌱 Seeding database...')
 
+  // ---------------------------------------------------------------------------
+  // Tenants
+  // ---------------------------------------------------------------------------
   const [tenantSP, tenantRJ] = await db
     .insert(schema.tenants)
     .values([
@@ -19,109 +58,134 @@ async function seed() {
     ])
     .returning()
 
-  const [clubSP1, clubSP2, clubSP3, clubRJ1, clubRJ2, clubRJ3] = await db
+  // ---------------------------------------------------------------------------
+  // Clubs — SP (5) + RJ (3)
+  // ---------------------------------------------------------------------------
+  const [clubSP1, clubSP2, clubSP3, clubSP4, clubSP5, clubRJ1, clubRJ2, clubRJ3] = await db
     .insert(schema.clubs)
     .values([
-      { id: randomUUID(), name: 'Clube Atlético Paulistano', slug: 'cap-sp', tenantId: tenantSP.id, city: 'São Paulo', state: 'SP' },
-      { id: randomUUID(), name: 'Esporte Clube Pinheiros', slug: 'ecp-sp', tenantId: tenantSP.id, city: 'São Paulo', state: 'SP' },
-      { id: randomUUID(), name: 'Associação Campineira de Badminton', slug: 'acb-campinas', tenantId: tenantSP.id, city: 'Campinas', state: 'SP' },
-      { id: randomUUID(), name: 'Clube de Regatas do Flamengo', slug: 'crf-rj', tenantId: tenantRJ.id, city: 'Rio de Janeiro', state: 'RJ' },
-      { id: randomUUID(), name: 'Botafogo de Futebol e Regatas', slug: 'bfr-rj', tenantId: tenantRJ.id, city: 'Rio de Janeiro', state: 'RJ' },
-      { id: randomUUID(), name: 'Niterói Badminton Clube', slug: 'nbc-rj', tenantId: tenantRJ.id, city: 'Niterói', state: 'RJ' },
+      { id: randomUUID(), name: 'Clube Atlético Paulistano',        slug: 'cap-sp',      tenantId: tenantSP.id, city: 'São Paulo',       state: 'SP' },
+      { id: randomUUID(), name: 'Esporte Clube Pinheiros',          slug: 'ecp-sp',      tenantId: tenantSP.id, city: 'São Paulo',       state: 'SP' },
+      { id: randomUUID(), name: 'Associação Campineira de Badminton',slug: 'acb-campinas',tenantId: tenantSP.id, city: 'Campinas',       state: 'SP' },
+      { id: randomUUID(), name: 'Badminton Clube de Santos',        slug: 'bcs-santos',  tenantId: tenantSP.id, city: 'Santos',         state: 'SP' },
+      { id: randomUUID(), name: 'São Bernardo Badminton',           slug: 'sbb-sp',      tenantId: tenantSP.id, city: 'São Bernardo',   state: 'SP' },
+      { id: randomUUID(), name: 'Clube de Regatas do Flamengo',     slug: 'crf-rj',      tenantId: tenantRJ.id, city: 'Rio de Janeiro', state: 'RJ' },
+      { id: randomUUID(), name: 'Botafogo de Futebol e Regatas',    slug: 'bfr-rj',      tenantId: tenantRJ.id, city: 'Rio de Janeiro', state: 'RJ' },
+      { id: randomUUID(), name: 'Niterói Badminton Clube',          slug: 'nbc-rj',      tenantId: tenantRJ.id, city: 'Niterói',       state: 'RJ' },
     ])
     .returning()
 
-  const [sp1, sp2, sp3, sp4, sp5, sp6, sp7, sp8] = await db
-    .insert(schema.athletes)
-    .values([
-      { id: randomUUID(), name: 'Lucas Tanaka', email: 'lucas.tanaka@email.com', gender: 'M', birthDate: '1998-03-15', nationality: 'BR' },
-      { id: randomUUID(), name: 'Rafael Souza', email: 'rafael.souza@email.com', gender: 'M', birthDate: '2000-07-22', nationality: 'BR' },
-      { id: randomUUID(), name: 'Matheus Lima', email: 'matheus.lima@email.com', gender: 'M', birthDate: '1997-11-08', nationality: 'BR' },
-      { id: randomUUID(), name: 'Bruno Oliveira', email: 'bruno.oliveira@email.com', gender: 'M', birthDate: '2001-05-30', nationality: 'BR' },
-      { id: randomUUID(), name: 'Ana Carolina Silva', email: 'ana.silva@email.com', gender: 'F', birthDate: '1999-09-12', nationality: 'BR' },
-      { id: randomUUID(), name: 'Juliana Ferreira', email: 'juliana.ferreira@email.com', gender: 'F', birthDate: '2002-01-25', nationality: 'BR' },
-      { id: randomUUID(), name: 'Camila Rocha', email: 'camila.rocha@email.com', gender: 'F', birthDate: '1996-06-18', nationality: 'BR' },
-      { id: randomUUID(), name: 'Fernanda Costa', email: 'fernanda.costa@email.com', gender: 'F', birthDate: '2003-12-04', nationality: 'BR' },
-    ])
-    .returning()
+  const spClubs = [clubSP1, clubSP2, clubSP3, clubSP4, clubSP5]
+  const rjClubs = [clubRJ1, clubRJ2, clubRJ3]
 
-  const [rj1, rj2, rj3, rj4, rj5, rj6, rj7, rj8] = await db
-    .insert(schema.athletes)
-    .values([
-      { id: randomUUID(), name: 'Pedro Alves', email: 'pedro.alves@email.com', gender: 'M', birthDate: '1997-04-10', nationality: 'BR' },
-      { id: randomUUID(), name: 'Gabriel Santos', email: 'gabriel.santos@email.com', gender: 'M', birthDate: '1999-08-14', nationality: 'BR' },
-      { id: randomUUID(), name: 'Thiago Martins', email: 'thiago.martins@email.com', gender: 'M', birthDate: '2001-02-28', nationality: 'BR' },
-      { id: randomUUID(), name: 'Diego Carvalho', email: 'diego.carvalho@email.com', gender: 'M', birthDate: '1998-10-05', nationality: 'BR' },
-      { id: randomUUID(), name: 'Beatriz Nunes', email: 'beatriz.nunes@email.com', gender: 'F', birthDate: '2000-03-17', nationality: 'BR' },
-      { id: randomUUID(), name: 'Larissa Mendes', email: 'larissa.mendes@email.com', gender: 'F', birthDate: '1997-07-23', nationality: 'BR' },
-      { id: randomUUID(), name: 'Isabela Pereira', email: 'isabela.pereira@email.com', gender: 'F', birthDate: '2002-11-09', nationality: 'BR' },
-      { id: randomUUID(), name: 'Vanessa Torres', email: 'vanessa.torres@email.com', gender: 'F', birthDate: '1995-05-31', nationality: 'BR' },
-    ])
-    .returning()
+  // ---------------------------------------------------------------------------
+  // 100 Athletes — 60 M (SP) + 40 F (SP), depois afiliações em RJ também
+  // Split: 70 SP, 30 RJ
+  // ---------------------------------------------------------------------------
+  const athleteValues: Parameters<typeof db.insert>[0] extends never ? never :
+    { id: string; name: string; email: string; gender: 'M' | 'F'; birthDate: string; nationality: string }[] = []
 
-  await db.insert(schema.athleteAffiliations).values([
-    { id: randomUUID(), athleteId: sp1.id, clubId: clubSP1.id, tenantId: tenantSP.id, startedAt: '2022-01-01', endedAt: '2024-06-30' },
-    { id: randomUUID(), athleteId: sp1.id, clubId: clubSP2.id, tenantId: tenantSP.id, startedAt: '2024-07-01', endedAt: null },
-    { id: randomUUID(), athleteId: sp2.id, clubId: clubSP1.id, tenantId: tenantSP.id, startedAt: '2021-03-01', endedAt: null },
-    { id: randomUUID(), athleteId: sp3.id, clubId: clubSP2.id, tenantId: tenantSP.id, startedAt: '2020-08-15', endedAt: null },
-    { id: randomUUID(), athleteId: sp4.id, clubId: clubSP3.id, tenantId: tenantSP.id, startedAt: '2023-02-10', endedAt: null },
-    { id: randomUUID(), athleteId: sp5.id, clubId: clubSP1.id, tenantId: tenantSP.id, startedAt: '2019-05-20', endedAt: null },
-    { id: randomUUID(), athleteId: sp6.id, clubId: clubSP2.id, tenantId: tenantSP.id, startedAt: '2022-09-01', endedAt: null },
-    { id: randomUUID(), athleteId: sp7.id, clubId: clubSP3.id, tenantId: tenantSP.id, startedAt: '2021-11-15', endedAt: null },
-    { id: randomUUID(), athleteId: sp8.id, clubId: clubSP1.id, tenantId: tenantSP.id, startedAt: '2023-07-01', endedAt: null },
-    { id: randomUUID(), athleteId: rj1.id, clubId: clubRJ1.id, tenantId: tenantRJ.id, startedAt: '2020-01-15', endedAt: null },
-    { id: randomUUID(), athleteId: rj2.id, clubId: clubRJ1.id, tenantId: tenantRJ.id, startedAt: '2021-06-01', endedAt: null },
-    { id: randomUUID(), athleteId: rj3.id, clubId: clubRJ2.id, tenantId: tenantRJ.id, startedAt: '2022-03-10', endedAt: null },
-    { id: randomUUID(), athleteId: rj4.id, clubId: clubRJ2.id, tenantId: tenantRJ.id, startedAt: '2020-09-20', endedAt: null },
-    { id: randomUUID(), athleteId: rj5.id, clubId: clubRJ3.id, tenantId: tenantRJ.id, startedAt: '2023-01-05', endedAt: null },
-    { id: randomUUID(), athleteId: rj6.id, clubId: clubRJ1.id, tenantId: tenantRJ.id, startedAt: '2019-04-12', endedAt: null },
-    { id: randomUUID(), athleteId: rj7.id, clubId: clubRJ3.id, tenantId: tenantRJ.id, startedAt: '2022-07-30', endedAt: null },
-    { id: randomUUID(), athleteId: rj8.id, clubId: clubRJ2.id, tenantId: tenantRJ.id, startedAt: '2021-10-01', endedAt: null },
-  ])
+  // 50 homens
+  for (let i = 0; i < 50; i++) {
+    const first = maleFirstNames[i % maleFirstNames.length]
+    const last  = lastNames[i % lastNames.length]
+    athleteValues.push({ id: randomUUID(), name: makeName(first, last), email: makeEmail(first, last, i), gender: 'M', birthDate: rndDate(1990, 2005), nationality: 'BR' })
+  }
+  // 50 mulheres
+  for (let i = 0; i < 50; i++) {
+    const first = femaleFirstNames[i % femaleFirstNames.length]
+    const last  = lastNames[(i + 7) % lastNames.length]
+    athleteValues.push({ id: randomUUID(), name: makeName(first, last), email: makeEmail(first, last, i + 100), gender: 'F', birthDate: rndDate(1990, 2005), nationality: 'BR' })
+  }
 
+  const allAthletes = await db.insert(schema.athletes).values(athleteValues).returning()
+  const males   = allAthletes.filter((a) => a.gender === 'M')
+  const females = allAthletes.filter((a) => a.gender === 'F')
+
+  // Afiliações — primeiros 70 em SP, últimos 30 em RJ
+  const affiliationValues = allAthletes.map((a, i) => {
+    if (i < 70) {
+      return { id: randomUUID(), athleteId: a.id, clubId: spClubs[i % spClubs.length].id, tenantId: tenantSP.id, startedAt: '2022-01-01', endedAt: null as string | null }
+    } else {
+      return { id: randomUUID(), athleteId: a.id, clubId: rjClubs[i % rjClubs.length].id, tenantId: tenantRJ.id, startedAt: '2022-01-01', endedAt: null as string | null }
+    }
+  })
+  await db.insert(schema.athleteAffiliations).values(affiliationValues)
+
+  // ---------------------------------------------------------------------------
+  // Points Tables — Tabela Estadual SP 2026
+  // ---------------------------------------------------------------------------
+  const ptRows = [
+    { placement: 1, points: 1000 },
+    { placement: 2, points: 700 },
+    { placement: 3, points: 500 },
+    { placement: 4, points: 500 },
+    { placement: 5, points: 300 },
+    { placement: 6, points: 300 },
+    { placement: 7, points: 300 },
+    { placement: 8, points: 300 },
+    { placement: 9, points: 150 },
+    { placement: 16, points: 100 },
+    { placement: 17, points: 50 },
+    { placement: 32, points: 25 },
+  ]
   const [ptSP] = await db
     .insert(schema.pointsTables)
-    .values([{ id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: 1, points: 1000 }])
+    .values({ id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: ptRows[0].placement, points: ptRows[0].points })
     .returning()
+  if (ptRows.length > 1) {
+    await db.insert(schema.pointsTables).values(
+      ptRows.slice(1).map((r) => ({ id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: r.placement, points: r.points }))
+    )
+  }
 
-  await db.insert(schema.pointsTables).values([
-    { id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: 2, points: 700 },
-    { id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: 3, points: 500 },
-    { id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: 4, points: 500 },
-    { id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: 5, points: 300 },
-    { id: randomUUID(), tenantId: tenantSP.id, name: 'Tabela Estadual SP 2026', tournamentLevel: 'estadual', placement: 8, points: 200 },
-  ])
-
+  // ---------------------------------------------------------------------------
+  // Rankings — MS, WS, MD, WD, XD para SP 2026
+  // ---------------------------------------------------------------------------
   const [rankMS, rankWS, rankMD, rankWD, rankXD] = await db
     .insert(schema.rankings)
     .values([
-      { id: randomUUID(), tenantId: tenantSP.id, name: 'Simples Masculino A', discipline: 'MS', year: 2026 },
-      { id: randomUUID(), tenantId: tenantSP.id, name: 'Simples Feminino A', discipline: 'WS', year: 2026 },
-      { id: randomUUID(), tenantId: tenantSP.id, name: 'Duplas Masculino A', discipline: 'MD', year: 2026 },
-      { id: randomUUID(), tenantId: tenantSP.id, name: 'Duplas Feminino A', discipline: 'WD', year: 2026 },
-      { id: randomUUID(), tenantId: tenantSP.id, name: 'Duplas Misto A', discipline: 'XD', year: 2026 },
+      { id: randomUUID(), tenantId: tenantSP.id, name: 'Ranking Simples Masculino A — 2026', discipline: 'MS', year: 2026 },
+      { id: randomUUID(), tenantId: tenantSP.id, name: 'Ranking Simples Feminino A — 2026',  discipline: 'WS', year: 2026 },
+      { id: randomUUID(), tenantId: tenantSP.id, name: 'Ranking Duplas Masculino A — 2026',  discipline: 'MD', year: 2026 },
+      { id: randomUUID(), tenantId: tenantSP.id, name: 'Ranking Duplas Feminino A — 2026',   discipline: 'WD', year: 2026 },
+      { id: randomUUID(), tenantId: tenantSP.id, name: 'Ranking Duplas Misto A — 2026',      discipline: 'XD', year: 2026 },
     ])
     .returning()
 
-  await db.insert(schema.rankingEntries).values([
-    { id: randomUUID(), rankingId: rankMS.id, athleteId: sp1.id, points: 2400, position: 1 },
-    { id: randomUUID(), rankingId: rankMS.id, athleteId: sp2.id, points: 1800, position: 2 },
-    { id: randomUUID(), rankingId: rankMS.id, athleteId: sp3.id, points: 1200, position: 3 },
-    { id: randomUUID(), rankingId: rankMS.id, athleteId: sp4.id, points: 800, position: 4 },
-    { id: randomUUID(), rankingId: rankWS.id, athleteId: sp5.id, points: 2100, position: 1 },
-    { id: randomUUID(), rankingId: rankWS.id, athleteId: sp6.id, points: 1600, position: 2 },
-    { id: randomUUID(), rankingId: rankWS.id, athleteId: sp7.id, points: 1100, position: 3 },
-    { id: randomUUID(), rankingId: rankWS.id, athleteId: sp8.id, points: 600, position: 4 },
-    { id: randomUUID(), rankingId: rankMD.id, athleteId: sp1.id, athlete2Id: sp2.id, points: 1900, position: 1 },
-    { id: randomUUID(), rankingId: rankMD.id, athleteId: sp3.id, athlete2Id: sp4.id, points: 1300, position: 2 },
-    { id: randomUUID(), rankingId: rankWD.id, athleteId: sp5.id, athlete2Id: sp6.id, points: 1700, position: 1 },
-    { id: randomUUID(), rankingId: rankWD.id, athleteId: sp7.id, athlete2Id: sp8.id, points: 900, position: 2 },
-    { id: randomUUID(), rankingId: rankXD.id, athleteId: sp1.id, athlete2Id: sp5.id, points: 2000, position: 1 },
-    { id: randomUUID(), rankingId: rankXD.id, athleteId: sp2.id, athlete2Id: sp6.id, points: 1400, position: 2 },
-    { id: randomUUID(), rankingId: rankXD.id, athleteId: sp3.id, athlete2Id: sp7.id, points: 800, position: 3 },
-    { id: randomUUID(), rankingId: rankXD.id, athleteId: sp4.id, athlete2Id: sp8.id, points: 400, position: 4 },
-  ])
+  // MS — 50 homens com pontos decrescentes realistas
+  const msPoints = [3200,2900,2600,2400,2200,2100,1950,1800,1700,1600,1500,1450,1400,1350,1300,1250,1200,1150,1100,1050,1000,980,960,940,920,900,880,860,840,820,800,780,760,740,720,700,680,660,640,620,600,580,560,540,520,500,480,460,440,420]
+  await db.insert(schema.rankingEntries).values(
+    males.map((a, i) => ({ id: randomUUID(), rankingId: rankMS.id, athleteId: a.id, points: msPoints[i] ?? 100, position: i + 1 }))
+  )
 
+  // WS — 50 mulheres
+  const wsPoints = [2800,2500,2300,2100,1950,1800,1700,1600,1500,1400,1350,1300,1250,1200,1150,1100,1050,1000,980,960,940,920,900,880,860,840,820,800,780,760,740,720,700,680,660,640,620,600,580,560,540,520,500,480,460,440,420,400,380,360]
+  await db.insert(schema.rankingEntries).values(
+    females.map((a, i) => ({ id: randomUUID(), rankingId: rankWS.id, athleteId: a.id, points: wsPoints[i] ?? 100, position: i + 1 }))
+  )
+
+  // MD — 25 duplas masculinas
+  const mdDuos = Array.from({ length: 25 }, (_, i) => ({ a1: males[i * 2], a2: males[i * 2 + 1] }))
+  await db.insert(schema.rankingEntries).values(
+    mdDuos.map(({ a1, a2 }, i) => ({ id: randomUUID(), rankingId: rankMD.id, athleteId: a1.id, athlete2Id: a2.id, points: 2600 - i * 100, position: i + 1 }))
+  )
+
+  // WD — 25 duplas femininas
+  const wdDuos = Array.from({ length: 25 }, (_, i) => ({ a1: females[i * 2], a2: females[i * 2 + 1] }))
+  await db.insert(schema.rankingEntries).values(
+    wdDuos.map(({ a1, a2 }, i) => ({ id: randomUUID(), rankingId: rankWD.id, athleteId: a1.id, athlete2Id: a2.id, points: 2400 - i * 90, position: i + 1 }))
+  )
+
+  // XD — 25 duplas mistas
+  const xdDuos = Array.from({ length: 25 }, (_, i) => ({ a1: males[i], a2: females[i] }))
+  await db.insert(schema.rankingEntries).values(
+    xdDuos.map(({ a1, a2 }, i) => ({ id: randomUUID(), rankingId: rankXD.id, athleteId: a1.id, athlete2Id: a2.id, points: 2700 - i * 95, position: i + 1 }))
+  )
+
+  // ---------------------------------------------------------------------------
+  // Tournament — Campeonato Paulista 2026
+  // ---------------------------------------------------------------------------
   const [tournSP] = await db
     .insert(schema.tournaments)
     .values([{
@@ -142,64 +206,51 @@ async function seed() {
     location: 'Arena Carioca 1', city: 'Rio de Janeiro', state: 'RJ',
   }])
 
-  // Categorias com discipline + name livre
+  // Categorias
   const [catMS, catWS, catMD, catWD, catXD] = await db
     .insert(schema.tournamentCategories)
     .values([
       { id: randomUUID(), tournamentId: tournSP.id, discipline: 'MS', name: 'Simples Masculino A', drawType: 'single_elimination', seedCount: 4, maxEntries: 8 },
-      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'WS', name: 'Simples Feminino A', drawType: 'single_elimination', seedCount: 4, maxEntries: 8 },
-      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'MD', name: 'Duplas Masculino A', drawType: 'single_elimination', seedCount: 2, maxEntries: 4 },
-      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'WD', name: 'Duplas Feminino A', drawType: 'single_elimination', seedCount: 2, maxEntries: 4 },
-      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'XD', name: 'Duplas Misto A', drawType: 'single_elimination', seedCount: 4, maxEntries: 8 },
+      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'WS', name: 'Simples Feminino A',  drawType: 'single_elimination', seedCount: 4, maxEntries: 8 },
+      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'MD', name: 'Duplas Masculino A',  drawType: 'single_elimination', seedCount: 2, maxEntries: 4 },
+      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'WD', name: 'Duplas Feminino A',   drawType: 'single_elimination', seedCount: 2, maxEntries: 4 },
+      { id: randomUUID(), tournamentId: tournSP.id, discipline: 'XD', name: 'Duplas Misto A',      drawType: 'single_elimination', seedCount: 4, maxEntries: 8 },
     ])
     .returning()
 
-  const [regMS1, regMS2, regMS3, regMS4] = await db
-    .insert(schema.tournamentRegistrations)
-    .values([
-      { id: randomUUID(), categoryId: catMS.id, athleteId: sp1.id, seed: 1, confirmed: true, rankingPointsAtEntry: 2400 },
-      { id: randomUUID(), categoryId: catMS.id, athleteId: sp2.id, seed: 2, confirmed: true, rankingPointsAtEntry: 1800 },
-      { id: randomUUID(), categoryId: catMS.id, athleteId: sp3.id, seed: 3, confirmed: true, rankingPointsAtEntry: 1200 },
-      { id: randomUUID(), categoryId: catMS.id, athleteId: sp4.id, seed: 4, confirmed: true, rankingPointsAtEntry: 800 },
-    ])
-    .returning()
+  // Inscrições usando os primeiros atletas do ranking
+  const [regMS1, regMS2, regMS3, regMS4] = await db.insert(schema.tournamentRegistrations).values([
+    { id: randomUUID(), categoryId: catMS.id, athleteId: males[0].id, seed: 1, confirmed: true, rankingPointsAtEntry: msPoints[0] },
+    { id: randomUUID(), categoryId: catMS.id, athleteId: males[1].id, seed: 2, confirmed: true, rankingPointsAtEntry: msPoints[1] },
+    { id: randomUUID(), categoryId: catMS.id, athleteId: males[2].id, seed: 3, confirmed: true, rankingPointsAtEntry: msPoints[2] },
+    { id: randomUUID(), categoryId: catMS.id, athleteId: males[3].id, seed: 4, confirmed: true, rankingPointsAtEntry: msPoints[3] },
+  ]).returning()
 
-  const [regWS1, regWS2, regWS3, regWS4] = await db
-    .insert(schema.tournamentRegistrations)
-    .values([
-      { id: randomUUID(), categoryId: catWS.id, athleteId: sp5.id, seed: 1, confirmed: true, rankingPointsAtEntry: 2100 },
-      { id: randomUUID(), categoryId: catWS.id, athleteId: sp6.id, seed: 2, confirmed: true, rankingPointsAtEntry: 1600 },
-      { id: randomUUID(), categoryId: catWS.id, athleteId: sp7.id, seed: 3, confirmed: true, rankingPointsAtEntry: 1100 },
-      { id: randomUUID(), categoryId: catWS.id, athleteId: sp8.id, seed: 4, confirmed: true, rankingPointsAtEntry: 600 },
-    ])
-    .returning()
+  const [regWS1, regWS2, regWS3, regWS4] = await db.insert(schema.tournamentRegistrations).values([
+    { id: randomUUID(), categoryId: catWS.id, athleteId: females[0].id, seed: 1, confirmed: true, rankingPointsAtEntry: wsPoints[0] },
+    { id: randomUUID(), categoryId: catWS.id, athleteId: females[1].id, seed: 2, confirmed: true, rankingPointsAtEntry: wsPoints[1] },
+    { id: randomUUID(), categoryId: catWS.id, athleteId: females[2].id, seed: 3, confirmed: true, rankingPointsAtEntry: wsPoints[2] },
+    { id: randomUUID(), categoryId: catWS.id, athleteId: females[3].id, seed: 4, confirmed: true, rankingPointsAtEntry: wsPoints[3] },
+  ]).returning()
 
-  const [regMD1, regMD2] = await db
-    .insert(schema.tournamentRegistrations)
-    .values([
-      { id: randomUUID(), categoryId: catMD.id, athleteId: sp1.id, athlete2Id: sp2.id, seed: 1, confirmed: true, rankingPointsAtEntry: 1900 },
-      { id: randomUUID(), categoryId: catMD.id, athleteId: sp3.id, athlete2Id: sp4.id, seed: 2, confirmed: true, rankingPointsAtEntry: 1300 },
-    ])
-    .returning()
+  const [regMD1, regMD2] = await db.insert(schema.tournamentRegistrations).values([
+    { id: randomUUID(), categoryId: catMD.id, athleteId: males[0].id, athlete2Id: males[1].id, seed: 1, confirmed: true, rankingPointsAtEntry: 2600 },
+    { id: randomUUID(), categoryId: catMD.id, athleteId: males[2].id, athlete2Id: males[3].id, seed: 2, confirmed: true, rankingPointsAtEntry: 2500 },
+  ]).returning()
 
-  const [regWD1, regWD2] = await db
-    .insert(schema.tournamentRegistrations)
-    .values([
-      { id: randomUUID(), categoryId: catWD.id, athleteId: sp5.id, athlete2Id: sp6.id, seed: 1, confirmed: true, rankingPointsAtEntry: 1700 },
-      { id: randomUUID(), categoryId: catWD.id, athleteId: sp7.id, athlete2Id: sp8.id, seed: 2, confirmed: true, rankingPointsAtEntry: 900 },
-    ])
-    .returning()
+  const [regWD1, regWD2] = await db.insert(schema.tournamentRegistrations).values([
+    { id: randomUUID(), categoryId: catWD.id, athleteId: females[0].id, athlete2Id: females[1].id, seed: 1, confirmed: true, rankingPointsAtEntry: 2400 },
+    { id: randomUUID(), categoryId: catWD.id, athleteId: females[2].id, athlete2Id: females[3].id, seed: 2, confirmed: true, rankingPointsAtEntry: 2310 },
+  ]).returning()
 
-  const [regXD1, regXD2, regXD3, regXD4] = await db
-    .insert(schema.tournamentRegistrations)
-    .values([
-      { id: randomUUID(), categoryId: catXD.id, athleteId: sp1.id, athlete2Id: sp5.id, seed: 1, confirmed: true, rankingPointsAtEntry: 2000 },
-      { id: randomUUID(), categoryId: catXD.id, athleteId: sp2.id, athlete2Id: sp6.id, seed: 2, confirmed: true, rankingPointsAtEntry: 1400 },
-      { id: randomUUID(), categoryId: catXD.id, athleteId: sp3.id, athlete2Id: sp7.id, seed: 3, confirmed: true, rankingPointsAtEntry: 800 },
-      { id: randomUUID(), categoryId: catXD.id, athleteId: sp4.id, athlete2Id: sp8.id, seed: 4, confirmed: true, rankingPointsAtEntry: 400 },
-    ])
-    .returning()
+  const [regXD1, regXD2, regXD3, regXD4] = await db.insert(schema.tournamentRegistrations).values([
+    { id: randomUUID(), categoryId: catXD.id, athleteId: males[0].id, athlete2Id: females[0].id, seed: 1, confirmed: true, rankingPointsAtEntry: 2700 },
+    { id: randomUUID(), categoryId: catXD.id, athleteId: males[1].id, athlete2Id: females[1].id, seed: 2, confirmed: true, rankingPointsAtEntry: 2605 },
+    { id: randomUUID(), categoryId: catXD.id, athleteId: males[2].id, athlete2Id: females[2].id, seed: 3, confirmed: true, rankingPointsAtEntry: 2510 },
+    { id: randomUUID(), categoryId: catXD.id, athleteId: males[3].id, athlete2Id: females[3].id, seed: 4, confirmed: true, rankingPointsAtEntry: 2415 },
+  ]).returning()
 
+  // Chaveamentos e partidas
   const [drawMS] = await db.insert(schema.draws).values([{ id: randomUUID(), categoryId: catMS.id, published: true }]).returning()
   const [sf1] = await db.insert(schema.matches).values([{ id: randomUUID(), drawId: drawMS.id, round: 2, position: 1, registration1Id: regMS1.id, registration2Id: regMS4.id, status: 'completed' }]).returning()
   const [sf2] = await db.insert(schema.matches).values([{ id: randomUUID(), drawId: drawMS.id, round: 2, position: 2, registration1Id: regMS2.id, registration2Id: regMS3.id, status: 'completed' }]).returning()
@@ -251,7 +302,9 @@ async function seed() {
     { id: randomUUID(), matchId: xdSF2.id, setNumber: 3, score1: 21, score2: 19 },
   ])
 
-  console.log('🎉 Seed concluído com sucesso!')
+  console.log(`✅ ${allAthletes.length} atletas criados`)
+  console.log(`✅ Rankings: MS(${males.length}), WS(${females.length}), MD(${mdDuos.length}), WD(${wdDuos.length}), XD(${xdDuos.length})`)
+  console.log('🎉 Seed concluído!')
   await pool.end()
 }
 
