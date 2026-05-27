@@ -38,12 +38,8 @@ const createRegistrationSchema = z.object({
 // Gender rules per discipline
 // MS / MD  → all athletes must be M
 // WS / WD  → all athletes must be F
-// XD       → athleteId must be M, athlete2Id must be F
+// XD       → one M and one F, any order
 // ---------------------------------------------------------------------------
-function genderError(discipline: string, reason: string) {
-  return { error: `Gender violation for discipline ${discipline}: ${reason}` }
-}
-
 async function validateGender(
   discipline: string,
   athleteId: string,
@@ -56,19 +52,21 @@ async function validateGender(
   if (!a1Row) return { error: 'Athlete not found' }
 
   if (discipline === 'MS' || discipline === 'MD') {
-    if (a1Row.gender !== 'M') return genderError(discipline, 'athlete must be male')
-    if (a2Row && a2Row.gender !== 'M') return genderError(discipline, 'athlete2 must be male')
+    if (a1Row.gender !== 'M') return { error: `Gender violation for discipline ${discipline}: athlete must be male` }
+    if (a2Row && a2Row.gender !== 'M') return { error: `Gender violation for discipline ${discipline}: athlete2 must be male` }
   }
 
   if (discipline === 'WS' || discipline === 'WD') {
-    if (a1Row.gender !== 'F') return genderError(discipline, 'athlete must be female')
-    if (a2Row && a2Row.gender !== 'F') return genderError(discipline, 'athlete2 must be female')
+    if (a1Row.gender !== 'F') return { error: `Gender violation for discipline ${discipline}: athlete must be female` }
+    if (a2Row && a2Row.gender !== 'F') return { error: `Gender violation for discipline ${discipline}: athlete2 must be female` }
   }
 
   if (discipline === 'XD') {
-    if (!a2Row) return genderError(discipline, 'XD requires two athletes')
-    const genders = [a1Row.gender, a2Row.gender].sort().join('')
-    if (genders !== 'FM') return genderError(discipline, 'XD requires one male and one female athlete')
+    if (!a2Row) return { error: 'Gender violation for discipline XD: XD requires two athletes' }
+    const genders = new Set([a1Row.gender, a2Row.gender])
+    if (!genders.has('M') || !genders.has('F')) {
+      return { error: 'Gender violation for discipline XD: XD requires one male and one female athlete' }
+    }
   }
 
   return null

@@ -15,11 +15,20 @@ const scheduleMatchSchema = z.object({
   courtNumber: z.number().nullable(),
 })
 
-// Gender compatibility per discipline
-function isGenderCompatible(discipline: string, gender: 'M' | 'F', slot: 'primary' | 'secondary'): boolean {
-  if (discipline === 'MS' || discipline === 'MD') return gender === 'M'
-  if (discipline === 'WS' || discipline === 'WD') return gender === 'F'
-  if (discipline === 'XD') return slot === 'primary' ? gender === 'M' : gender === 'F'
+// ---------------------------------------------------------------------------
+// Gender compatibility — XD accepts any order (M+F or F+M)
+// ---------------------------------------------------------------------------
+function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M' | 'F'): boolean {
+  if (discipline === 'MS' || discipline === 'MD') {
+    return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
+  }
+  if (discipline === 'WS' || discipline === 'WD') {
+    return gender1 === 'F' && (gender2 === undefined || gender2 === 'F')
+  }
+  if (discipline === 'XD') {
+    if (!gender2) return false
+    return (gender1 === 'M' && gender2 === 'F') || (gender1 === 'F' && gender2 === 'M')
+  }
   return true
 }
 
@@ -118,11 +127,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
-  // ---------------------------------------------------------------------------
-  // Distribuir pontos de ranking
-  // Idempotente: bloqueia se pointsAwarded já for true
-  // Valida gênero: pula atletas incompatíveis com a disciplina
-  // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
@@ -143,10 +147,8 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (!allPointsRows.length) return reply.status(400).send({ error: 'Points table rows not found' })
 
     const pointsMap = new Map(allPointsRows.map((p) => [p.placement, p.points]))
-
     const tenantRankings = await db.select().from(rankings).where(eq(rankings.tenantId, tournament.tenantId))
     const rankingByDiscipline = new Map(tenantRankings.map((r) => [r.discipline, r]))
-
     const categories = await db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, tournamentId))
 
     const awarded: { categoryName: string; registrationId: string; athleteId: string; athlete2Id: string | null; placement: number; points: number }[] = []
@@ -154,37 +156,23 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     for (const category of categories) {
       const ranking = rankingByDiscipline.get(category.discipline)
-      if (!ranking) {
-        skipped.push({ categoryName: category.name, reason: `No ranking found for discipline ${category.discipline}` })
-        continue
-      }
+      if (!ranking) { skipped.push({ categoryName: category.name, reason: `No ranking found for discipline ${category.discipline}` }); continue }
 
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, category.id))
-      if (!drawList.length) {
-        skipped.push({ categoryName: category.name, reason: 'No draw generated' })
-        continue
-      }
-      const draw = drawList[0]
+      if (!drawList.length) { skipped.push({ categoryName: category.name, reason: 'No draw generated' }); continue }
 
-      const allMatches = await db.select().from(matches).where(eq(matches.drawId, draw.id))
-      const completedStatuses = ['completed', 'walkover', 'retired']
-      const pendingMatches = allMatches.filter((m) => !completedStatuses.includes(m.status))
-      if (pendingMatches.length > 0) {
-        skipped.push({ categoryName: category.name, reason: `${pendingMatches.length} match(es) still pending` })
-        continue
-      }
+      const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
+      const pendingMatches = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
+      if (pendingMatches.length > 0) { skipped.push({ categoryName: category.name, reason: `${pendingMatches.length} match(es) still pending` }); continue }
 
       const placementByReg = new Map<string, number>()
-
       for (const match of allMatches) {
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
         if (!sets.length) continue
         const winner = getWinnerSlot(sets)
         if (!winner) continue
-
         const loserRegId = winner === 1 ? match.registration2Id : match.registration1Id
         const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
-
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
@@ -194,27 +182,20 @@ export async function drawsRoutes(app: FastifyInstance) {
       if (!regIds.length) continue
       const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
 
-      // Busca atletas para validação de gênero
       const allAthleteIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
-      const athleteRows = allAthleteIds.length
-        ? await db.select().from(athletes).where(inArray(athletes.id, allAthleteIds))
-        : []
+      const athleteRows = allAthleteIds.length ? await db.select().from(athletes).where(inArray(athletes.id, allAthleteIds)) : []
       const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
 
       for (const [regId, placement] of placementByReg.entries()) {
         const reg = regs.find((r) => r.id === regId)
         if (!reg) continue
 
-        // Validação de gênero por disciplina
         const a1 = athleteMap.get(reg.athleteId)
-        const a2 = reg.athlete2Id ? athleteMap.get(reg.athlete2Id) : null
+        const a2 = reg.athlete2Id ? athleteMap.get(reg.athlete2Id) : undefined
+        if (!a1) continue
 
-        if (a1 && !isGenderCompatible(category.discipline, a1.gender, 'primary')) {
-          skipped.push({ categoryName: category.name, reason: `Athlete ${a1.id} gender incompatible with ${category.discipline}` })
-          continue
-        }
-        if (a2 && !isGenderCompatible(category.discipline, a2.gender, 'secondary')) {
-          skipped.push({ categoryName: category.name, reason: `Athlete ${a2.id} gender incompatible with ${category.discipline}` })
+        if (!isGenderCompatible(category.discipline, a1.gender, a2?.gender)) {
+          skipped.push({ categoryName: category.name, reason: `Gender incompatible: ${a1.id} in ${category.discipline}` })
           continue
         }
 
@@ -229,14 +210,7 @@ export async function drawsRoutes(app: FastifyInstance) {
             .set({ points: existing[0].points + points, updatedAt: new Date() })
             .where(eq(rankingEntries.id, existing[0].id))
         } else {
-          await db.insert(rankingEntries).values({
-            id: randomUUID(),
-            rankingId: ranking.id,
-            athleteId: reg.athleteId,
-            athlete2Id: reg.athlete2Id ?? null,
-            points,
-            position: 0,
-          })
+          await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, points, position: 0 })
         }
 
         awarded.push({ categoryName: category.name, registrationId: regId, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, placement, points })
@@ -249,10 +223,7 @@ export async function drawsRoutes(app: FastifyInstance) {
       }
     }
 
-    await db.update(tournaments)
-      .set({ pointsAwarded: true, updatedAt: new Date() })
-      .where(eq(tournaments.id, tournamentId))
-
+    await db.update(tournaments).set({ pointsAwarded: true, updatedAt: new Date() }).where(eq(tournaments.id, tournamentId))
     return { awarded, skipped }
   })
 
@@ -261,11 +232,9 @@ export async function drawsRoutes(app: FastifyInstance) {
     const body = scheduleMatchSchema.parse(request.body)
     const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
     if (!match) return reply.status(404).send({ error: 'Match not found' })
-    const [updated] = await db
-      .update(matches)
+    const [updated] = await db.update(matches)
       .set({ scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null, courtNumber: body.courtNumber, updatedAt: new Date() })
-      .where(eq(matches.id, matchId))
-      .returning()
+      .where(eq(matches.id, matchId)).returning()
     return updated
   })
 
@@ -288,7 +257,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (prevResults.length) await db.delete(matchResults).where(eq(matchResults.matchId, matchId))
 
     await db.update(matches).set({ status: body.status, updatedAt: new Date() }).where(eq(matches.id, matchId))
-
     const results = await db.insert(matchResults).values(
       body.sets.map((s) => ({ id: randomUUID(), matchId, setNumber: s.setNumber, score1: s.score1, score2: s.score2 }))
     ).returning()
