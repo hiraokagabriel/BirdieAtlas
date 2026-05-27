@@ -74,7 +74,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     return reply.status(201).send({ draw, matchCount: matchDefs.length })
   })
 
-  app.post('/draws/:drawId/migrate-next-match-id', async (request, reply) => {
+  app.post('/draws/:drawId/migrate-next-match-id', async (request) => {
     const { drawId } = request.params as { drawId: string }
     const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
     let updated = 0
@@ -94,7 +94,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return db.select().from(matches).where(eq(matches.drawId, drawId))
   })
 
-  // Agendamento de partida
   app.patch('/draws/matches/:matchId/schedule', async (request, reply) => {
     const { matchId } = request.params as { matchId: string }
     const body = scheduleMatchSchema.parse(request.body)
@@ -102,11 +101,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (!match) return reply.status(404).send({ error: 'Match not found' })
     const [updated] = await db
       .update(matches)
-      .set({
-        scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null,
-        courtNumber: body.courtNumber,
-        updatedAt: new Date(),
-      })
+      .set({ scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null, courtNumber: body.courtNumber, updatedAt: new Date() })
       .where(eq(matches.id, matchId))
       .returning()
     return updated
@@ -160,12 +155,8 @@ async function cascadeReset(matchId: string, regIdToRemove: string | null): Prom
   const prevWinner = prevResults.length ? getWinnerSlot(prevResults) : null
   const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
   await db.delete(matchResults).where(eq(matchResults.matchId, matchId))
-  await db.update(matches).set({ [isSlot1 ? 'registration1Id' : 'registration2Id']: null, status: 'pending', updatedAt: new Date() }).where(eq(matches.id, matchId))
+  await db.update(matches)
+    .set({ [isSlot1 ? 'registration1Id' : 'registration2Id']: null, status: 'pending', updatedAt: new Date() })
+    .where(eq(matches.id, matchId))
   if (match.nextMatchId && prevWinnerRegId) await cascadeReset(match.nextMatchId, prevWinnerRegId)
-}
-
-function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
-  const wins1 = sets.filter((s) => s.score1 > s.score2).length
-  const wins2 = sets.filter((s) => s.score2 > s.score1).length
-  return wins1 > wins2 ? 1 : wins2 > wins1 ? 2 : null
 }
