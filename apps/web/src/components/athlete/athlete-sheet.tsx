@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Building2, Calendar, Mail, MapPin } from 'lucide-react'
+import { Building2, Calendar, Mail, MapPin, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 
 type Affiliation = {
   id: string
@@ -57,17 +58,27 @@ export function AthleteSheet({
         {athlete && (
           <>
             <SheetHeader className="pb-4">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-4">
                 <Avatar className="w-14 h-14">
                   <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
                     {getInitials(athlete.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-1 min-w-0">
                   <SheetTitle className="text-xl">{athlete.name}</SheetTitle>
                   <SheetDescription className="mt-0.5">
                     {athlete.clubName ?? 'Sem clube'}
                   </SheetDescription>
+                  {/* Link para página pública */}
+                  <Link
+                    href={`/a/${athlete.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Ver página pública
+                  </Link>
                 </div>
               </div>
             </SheetHeader>

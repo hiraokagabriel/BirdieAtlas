@@ -21,11 +21,19 @@ type TournamentEntry = {
   tournamentStatus: string; startDate: string; endDate: string; level: string
   city: string; state: string; rankingPointsAtEntry: number | null
 }
+type TournamentResult = {
+  tournamentName: string; tournamentSlug: string
+  categoryName: string; discipline: string
+  placement: number; points: number
+  startDate: string
+  partnerName: string | null
+}
 type Profile = {
   athlete: Athlete
   currentClub: Club | null
   rankingPositions: RankingPosition[]
   tournamentHistory: TournamentEntry[]
+  recentResults?: TournamentResult[]
 }
 
 const disciplineLabel: Record<string, string> = {
@@ -40,18 +48,26 @@ const disciplineColors: Record<string, string> = {
   XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
 }
 const statusLabel: Record<string, { label: string; color: string }> = {
-  draft:               { label: 'Rascunho',             color: 'text-gray-400' },
-  registration_open:   { label: 'Inscrições abertas',   color: 'text-blue-500' },
+  draft:               { label: 'Rascunho',              color: 'text-gray-400' },
+  registration_open:   { label: 'Inscrições abertas',    color: 'text-blue-500' },
   registration_closed: { label: 'Inscrições encerradas', color: 'text-yellow-500' },
-  in_progress:         { label: 'Em andamento',         color: 'text-green-500' },
-  completed:           { label: 'Encerrado',             color: 'text-gray-400' },
+  in_progress:         { label: 'Em andamento',          color: 'text-green-500' },
+  completed:           { label: 'Encerrado',              color: 'text-gray-400' },
 }
+
+const placementEmoji = (p: number) => p === 1 ? '🥇' : p === 2 ? '🥈' : p === 3 ? '🥉' : null
 
 function positionLabel(pos: number) {
   if (pos === 1) return { emoji: '🥇', text: '1º lugar' }
   if (pos === 2) return { emoji: '🥈', text: '2º lugar' }
   if (pos === 3) return { emoji: '🥉', text: '3º lugar' }
   return { emoji: null, text: `${pos}º lugar` }
+}
+
+// Mostra apenas o ano de nascimento
+function birthYear(birthDate: string | null): string | null {
+  if (!birthDate) return null
+  return String(new Date(birthDate).getFullYear())
 }
 
 function age(birthDate: string | null) {
@@ -91,21 +107,21 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ athle
     )
   }
 
-  const { athlete, currentClub, rankingPositions, tournamentHistory } = profile
+  const { athlete, currentClub, rankingPositions, tournamentHistory, recentResults } = profile
   const yearsOld = age(athlete.birthDate)
-
-  // Rankings singulares (position <= top rank por disciplina)
-  const singlesRankings = rankingPositions.filter((r) => ['MS', 'WS'].includes(r.discipline))
-  const doublesRankings = rankingPositions.filter((r) => ['MD', 'WD', 'XD'].includes(r.discipline))
+  const year = birthYear(athlete.birthDate)
 
   const activeTournaments = tournamentHistory.filter((t) => !t.withdrew)
+
+  // Deriva colocações a partir do histórico se recentResults não vier da API
+  // (compatibilidade retroativa — a API pode não retornar recentResults ainda)
+  const results: TournamentResult[] = recentResults ?? []
 
   return (
     <div className="space-y-8">
       {/* Hero */}
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
         <div className="flex items-start gap-5">
-          {/* Avatar */}
           <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-muted flex items-center justify-center shrink-0 text-3xl font-bold text-muted-foreground border-2 border-border">
             {athlete.photoUrl
               ? <img src={athlete.photoUrl} alt={athlete.name} className="w-full h-full rounded-full object-cover" />
@@ -128,10 +144,11 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ athle
                   {currentClub.city && ` · ${currentClub.city}, ${currentClub.state}`}
                 </span>
               )}
-              {yearsOld && (
+              {/* Somente ano de nascimento — sem dia/mês */}
+              {year && (
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
-                  {yearsOld} anos
+                  {yearsOld} anos · {year}
                 </span>
               )}
               <span className="flex items-center gap-1.5">
@@ -140,7 +157,6 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ athle
               </span>
             </div>
 
-            {/* Disciplinas */}
             <div className="flex items-center gap-2 flex-wrap pt-1">
               {rankingPositions.map((r) => (
                 <span
@@ -155,7 +171,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ athle
         </div>
       </div>
 
-      {/* Cards de ranking */}
+      {/* Rankings */}
       {rankingPositions.length > 0 && (
         <div>
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
@@ -197,7 +213,48 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ athle
         </div>
       )}
 
-      {/* Histórico de torneios */}
+      {/* Últimos Resultados */}
+      {results.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+            <Medal className="w-4 h-4 text-orange-500" /> Últimos Resultados
+          </h2>
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            {results.slice(0, 10).map((r, i) => {
+              const emoji = placementEmoji(r.placement)
+              return (
+                <Link
+                  key={i}
+                  href={`/t/${r.tournamentSlug}`}
+                  className="flex items-center gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="w-8 text-center text-lg">{emoji ?? <span className="text-sm font-semibold text-muted-foreground">{r.placement}º</span>}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{r.tournamentName}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(r.startDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                      </span>
+                      {r.partnerName && (
+                        <span className="text-xs text-muted-foreground">· com {r.partnerName}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${disciplineColors[r.discipline] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                    {r.categoryName}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+                    +{r.points.toLocaleString('pt-BR')} pts
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Histórico de Torneios */}
       <div>
         <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
           <Medal className="w-4 h-4 text-blue-500" /> Histórico de Torneios
