@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from './bracket-draw'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Eye, EyeOff, Loader2, Trophy, AlertTriangle } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -36,10 +36,19 @@ const disciplineActiveColors: Record<string, string> = {
   XD: 'bg-orange-500 text-white border-orange-500',
 }
 
-export function BracketView({ tournamentId, categories }: { tournamentId: string; categories: Category[] }) {
+export function BracketView({
+  tournamentId,
+  categories,
+  pointsAwarded = false,
+}: {
+  tournamentId: string
+  categories: Category[]
+  pointsAwarded?: boolean
+}) {
   const [activeCategoryId, setActiveCategoryId] = useState(categories[0]?.id ?? '')
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
   const queryClient = useQueryClient()
+  const [alreadyAwarded, setAlreadyAwarded] = useState(pointsAwarded)
 
   const { data: tournamentData } = useQuery({
     queryKey: ['tournament', tournamentId],
@@ -89,7 +98,6 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
     enabled: !!matches?.length,
   })
 
-  // Verifica se todas as partidas de TODAS as categorias estão concluídas
   const { data: allDrawsData } = useQuery({
     queryKey: ['all-draws-status', tournamentId],
     queryFn: async () => {
@@ -109,7 +117,6 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
   const allTournamentDone = allDrawsData?.every((d) => d.allDone) ?? false
   const hasRankingConfig = !!(tournamentData?.rankingId && tournamentData?.pointsTableId)
 
-  // Mutation: publicar/despublicar
   const { mutate: togglePublish, isPending: isTogglingPublish } = useMutation({
     mutationFn: async () => {
       const action = draw?.published ? 'unpublish' : 'publish'
@@ -122,12 +129,14 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
     },
   })
 
-  // Mutation: distribuir pontos
   const { mutate: awardPoints, isPending: isAwarding, data: awardResult } = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${API_URL}/tournaments/${tournamentId}/award-points`, { method: 'POST' })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao distribuir pontos') }
       return res.json() as Promise<{ awarded: { athleteId: string; placement: number; points: number }[] }>
+    },
+    onSuccess: () => {
+      setAlreadyAwarded(true)
     },
   })
 
@@ -135,7 +144,6 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
 
   return (
     <div className="space-y-4">
-      {/* Seletor de categorias */}
       <div className="flex items-center gap-2 flex-wrap">
         {categories.map((cat) => {
           const isActive = cat.id === activeCategoryId
@@ -152,7 +160,6 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
         })}
       </div>
 
-      {/* Barra de publicação */}
       {draw && (
         <div className={`flex items-center justify-between px-4 py-2.5 rounded-lg border ${
           draw.published
@@ -186,17 +193,21 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
       {/* Botão de distribuição de pontos */}
       {allTournamentDone && (
         <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
-          awardResult ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
+          alreadyAwarded || awardResult ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
         }`}>
           <div className="flex items-center gap-2">
-            <Trophy className={`w-4 h-4 ${awardResult ? 'text-green-600' : 'text-blue-600'}`} />
+            {alreadyAwarded || awardResult
+              ? <CheckCircle2 className="w-4 h-4 text-green-600" />
+              : <Trophy className="w-4 h-4 text-blue-600" />}
             <div>
-              <p className={`text-sm font-medium ${awardResult ? 'text-green-800' : 'text-blue-800'}`}>
-                {awardResult
-                  ? `Pontos distribuídos — ${awardResult.awarded.length} atletas premiados`
-                  : 'Todas as partidas encerradas'}
+              <p className={`text-sm font-medium ${alreadyAwarded || awardResult ? 'text-green-800' : 'text-blue-800'}`}>
+                {alreadyAwarded
+                  ? 'Pontos já distribuídos'
+                  : awardResult
+                    ? `Pontos distribuídos — ${awardResult.awarded.length} atletas premiados`
+                    : 'Todas as partidas encerradas'}
               </p>
-              {!awardResult && (
+              {!alreadyAwarded && !awardResult && (
                 <p className="text-xs text-blue-600 mt-0.5">
                   {hasRankingConfig
                     ? 'Pronto para distribuir pontos de ranking'
@@ -205,7 +216,7 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
               )}
             </div>
           </div>
-          {!awardResult && (
+          {!alreadyAwarded && !awardResult && (
             <button
               onClick={() => awardPoints()}
               disabled={isAwarding || !hasRankingConfig}
@@ -219,15 +230,13 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
         </div>
       )}
 
-      {/* Aviso de configuração faltando */}
-      {allTournamentDone && !hasRankingConfig && !awardResult && (
+      {allTournamentDone && !hasRankingConfig && !alreadyAwarded && !awardResult && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           Para distribuir pontos, vincule um <strong>Ranking</strong> e uma <strong>Tabela de pontos</strong> ao torneio nas configurações.
         </div>
       )}
 
-      {/* Bracket */}
       <div className="rounded-xl border border-border bg-card overflow-auto">
         {isLoading ? (
           <div className="p-8 space-y-3">
