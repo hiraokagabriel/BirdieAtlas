@@ -4,13 +4,13 @@ import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
-import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, ExternalLink } from 'lucide-react'
+import { Calendar, MapPin, ExternalLink, Trophy, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: string
   startDate: string; endDate: string; city: string; state: string; location: string
+  pointsAwarded: boolean
 }
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number }
 
@@ -27,6 +27,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'bracket' | 'schedule'>('bracket')
+  const [awarding, setAwarding] = useState(false)
 
   useEffect(() => {
     apiFetch<Tournament[]>('/tournaments').then((list) => {
@@ -36,6 +37,20 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
       apiFetch<Category[]>(`/tournaments/${t.id}/categories`).then(setCategories)
     })
   }, [slug])
+
+  async function handleAwardPoints() {
+    if (!tournament) return
+    setAwarding(true)
+    try {
+      await apiFetch(`/tournaments/${tournament.id}/award-points`, { method: 'POST' })
+      setTournament((prev) => prev ? { ...prev, pointsAwarded: true } : prev)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao distribuir pontos'
+      alert(message)
+    } finally {
+      setAwarding(false)
+    }
+  }
 
   if (!tournament) return null
 
@@ -48,6 +63,11 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight">{tournament.name}</h2>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${status.color}`}>{status.label}</span>
+            {tournament.pointsAwarded && (
+              <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                <CheckCircle2 className="w-3 h-3" /> Pontos distribuídos
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1.5">
@@ -62,14 +82,32 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
             )}
           </div>
         </div>
-        <Link
-          href={`/t/${tournament.slug}`}
-          target="_blank"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Página pública
-        </Link>
+
+        <div className="flex items-center gap-3 shrink-0">
+          {!tournament.pointsAwarded ? (
+            <button
+              onClick={handleAwardPoints}
+              disabled={awarding}
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trophy className="w-4 h-4" />
+              {awarding ? 'Distribuindo...' : 'Distribuir Pontos'}
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              Pontos já distribuídos
+            </span>
+          )}
+          <Link
+            href={`/t/${tournament.slug}`}
+            target="_blank"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Página pública
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}

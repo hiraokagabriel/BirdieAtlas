@@ -111,19 +111,22 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   // ---------------------------------------------------------------------------
-  // Distribuir pontos de ranking ao encerrar torneio
-  // Fix 1: ranking resolvido por disciplina da categoria (não o rankingId fixo do torneio)
-  // Fix 2: pointsTable buscada por name + tournamentLevel (todas as linhas, não por id)
-  // Fix 3: categorias incompletas reportadas no response, não silenciadas
+  // Distribuir pontos de ranking
+  // Idempotente: bloqueia se pointsAwarded já for true no torneio
   // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+
+    // Idempotency guard
+    if (tournament.pointsAwarded) {
+      return reply.status(409).send({ error: 'Points have already been awarded for this tournament' })
+    }
+
     if (!tournament.pointsTableId) return reply.status(400).send({ error: 'Tournament has no pointsTableId configured' })
 
-    // Fix 2: busca todas as linhas da tabela de pontos pelo name que pertence ao pointsTableId de referência
     const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
     if (!refTable) return reply.status(400).send({ error: 'Points table not found' })
 
@@ -133,7 +136,6 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     const pointsMap = new Map(allPointsRows.map((p) => [p.placement, p.points]))
 
-    // Fix 1: busca todos os rankings do tenant para resolver por disciplina
     const tenantRankings = await db.select().from(rankings).where(eq(rankings.tenantId, tournament.tenantId))
     const rankingByDiscipline = new Map(tenantRankings.map((r) => [r.discipline, r]))
 
@@ -143,7 +145,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     const skipped: { categoryName: string; reason: string }[] = []
 
     for (const category of categories) {
-      // Fix 1: resolve o ranking correto pela disciplina da categoria
       const ranking = rankingByDiscipline.get(category.discipline)
       if (!ranking) {
         skipped.push({ categoryName: category.name, reason: `No ranking found for discipline ${category.discipline}` })
@@ -161,7 +162,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       const completedStatuses = ['completed', 'walkover', 'retired']
       const pendingMatches = allMatches.filter((m) => !completedStatuses.includes(m.status))
       if (pendingMatches.length > 0) {
-        // Fix 3: reporta ao invés de silenciar
         skipped.push({ categoryName: category.name, reason: `${pendingMatches.length} match(es) still pending` })
         continue
       }
@@ -192,7 +192,6 @@ export async function drawsRoutes(app: FastifyInstance) {
         const points = pointsMap.get(placement) ?? 0
         if (points === 0) continue
 
-        // Upsert no ranking correto da disciplina
         const existing = await db.select().from(rankingEntries)
           .where(and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId)))
 
@@ -214,13 +213,17 @@ export async function drawsRoutes(app: FastifyInstance) {
         awarded.push({ categoryName: category.name, registrationId: regId, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, placement, points })
       }
 
-      // Reordena posições no ranking desta disciplina
       const allEntries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, ranking.id))
       const sorted = [...allEntries].sort((a, b) => b.points - a.points)
       for (let i = 0; i < sorted.length; i++) {
         await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sorted[i].id))
       }
     }
+
+    // Marca torneio como pontos distribuídos — impede execução dupla
+    await db.update(tournaments)
+      .set({ pointsAwarded: true, updatedAt: new Date() })
+      .where(eq(tournaments.id, tournamentId))
 
     return { awarded, skipped }
   })

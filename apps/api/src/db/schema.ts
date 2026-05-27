@@ -22,14 +22,12 @@ const timestamps = {
 // ---------------------------------------------------------------------------
 export const genderEnum = pgEnum('gender', ['M', 'F'])
 
-// Discipline define as regras do jogo (simples/duplas, masculino/feminino/misto)
-// O nome livre da categoria é definido no campo `name` de cada tabela
 export const disciplineEnum = pgEnum('discipline', [
-  'MS', // Men's Singles
-  'WS', // Women's Singles
-  'MD', // Men's Doubles
-  'WD', // Women's Doubles
-  'XD', // Mixed Doubles
+  'MS',
+  'WS',
+  'MD',
+  'WD',
+  'XD',
 ])
 
 export const drawTypeEnum = pgEnum('draw_type', [
@@ -56,7 +54,7 @@ export const tournamentStatusEnum = pgEnum('tournament_status', [
 ])
 
 // ---------------------------------------------------------------------------
-// Tenants (federações)
+// Tenants
 // ---------------------------------------------------------------------------
 export const tenants = pgTable('tenants', {
   id: id(),
@@ -112,8 +110,6 @@ export const athleteAffiliations = pgTable('athlete_affiliations', {
 
 // ---------------------------------------------------------------------------
 // Rankings
-// discipline: tipo de jogo (regras)
-// name: nome livre, ex: "Ranking A", "Ranking B", "A-Especial"
 // ---------------------------------------------------------------------------
 export const rankings = pgTable('rankings', {
   id: id(),
@@ -165,19 +161,19 @@ export const tournaments = pgTable('tournaments', {
   state: text('state'),
   pointsTableId: text('points_table_id').references(() => pointsTables.id),
   rankingId: text('ranking_id').references(() => rankings.id),
+  // Idempotency guard: prevents double point distribution
+  pointsAwarded: boolean('points_awarded').notNull().default(false),
   ...timestamps,
 })
 
 // ---------------------------------------------------------------------------
 // Tournament Categories
-// discipline: tipo de jogo (regras de composição e pontuação)
-// name: nome livre da categoria, ex: "Simples Masculino A", "A-Especial", "Sub-17"
 // ---------------------------------------------------------------------------
 export const tournamentCategories = pgTable('tournament_categories', {
   id: id(),
   tournamentId: text('tournament_id').notNull().references(() => tournaments.id),
   discipline: disciplineEnum('discipline').notNull(),
-  name: text('name').notNull(), // nome livre da categoria
+  name: text('name').notNull(),
   drawType: drawTypeEnum('draw_type').notNull().default('single_elimination'),
   maxEntries: integer('max_entries'),
   seedCount: integer('seed_count').notNull().default(4),
