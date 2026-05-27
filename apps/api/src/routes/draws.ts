@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
 import { draws, matches, matchResults, tournamentRegistrations } from '../db/schema'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -20,6 +20,12 @@ function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null
   const wins1 = sets.filter((s) => s.score1 > s.score2).length
   const wins2 = sets.filter((s) => s.score2 > s.score1).length
   return wins1 > wins2 ? 1 : wins2 > wins1 ? 2 : null
+}
+
+// Vencedor de (round R, pos P) vai para (round R-1, pos ceil(P/2))
+// Posição ímpar → slot 1 (registration1Id), posição par → slot 2 (registration2Id)
+function getSlotForPosition(position: number): 'registration1Id' | 'registration2Id' {
+  return position % 2 === 1 ? 'registration1Id' : 'registration2Id'
 }
 
 export async function drawsRoutes(app: FastifyInstance) {
@@ -49,8 +55,7 @@ export async function drawsRoutes(app: FastifyInstance) {
       return (b.rankingPointsAtEntry ?? 0) - (a.rankingPointsAtEntry ?? 0)
     })
 
-    const numEntries = sorted.length
-    const numRounds = Math.ceil(Math.log2(numEntries))
+    const numRounds = Math.ceil(Math.log2(sorted.length))
     const bracketSize = Math.pow(2, numRounds)
 
     const [draw] = await db
@@ -58,7 +63,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       .values({ id: randomUUID(), categoryId })
       .returning()
 
-    // Gera IDs antecipadamente para poder linkar nextMatchId
     type MatchDef = {
       id: string
       drawId: string
@@ -72,10 +76,9 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     const matchDefs: MatchDef[] = []
 
-    // Cria todas as partidas de todos os rounds com IDs pre-gerados
     for (let round = numRounds; round >= 1; round--) {
-      const numMatchesInRound = round === numRounds ? bracketSize / 2 : Math.pow(2, round - 1)
-      for (let pos = 1; pos <= numMatchesInRound; pos++) {
+      const count = Math.pow(2, round - 1)
+      for (let pos = 1; pos <= count; pos++) {
         matchDefs.push({
           id: randomUUID(),
           drawId: draw.id,
@@ -89,19 +92,18 @@ export async function drawsRoutes(app: FastifyInstance) {
       }
     }
 
-    // Preenche atletas no primeiro round (maior número)
+    // Preenche atletas no round inicial (round mais alto = 1ª fase)
     const firstRoundMatches = matchDefs.filter((m) => m.round === numRounds)
-    for (let i = 0; i < firstRoundMatches.length; i++) {
-      const pos = firstRoundMatches[i].position
-      const idx1 = pos - 1
-      const idx2 = bracketSize - pos
-      firstRoundMatches[i].registration1Id = sorted[idx1]?.id ?? null
-      firstRoundMatches[i].registration2Id = sorted[idx2]?.id ?? null
+    for (const fm of firstRoundMatches) {
+      const idx1 = fm.position - 1
+      const idx2 = bracketSize - fm.position
+      fm.registration1Id = sorted[idx1]?.id ?? null
+      fm.registration2Id = sorted[idx2]?.id ?? null
     }
 
-    // Liga nextMatchId: vencedor de (round R, pos P) vai para (round R-1, pos ceil(P/2))
+    // Liga nextMatchId
     for (const match of matchDefs) {
-      if (match.round === 1) continue // final não tem próxima
+      if (match.round === 1) continue
       const nextRound = match.round - 1
       const nextPos = Math.ceil(match.position / 2)
       const next = matchDefs.find((m) => m.round === nextRound && m.position === nextPos)
@@ -112,12 +114,32 @@ export async function drawsRoutes(app: FastifyInstance) {
     return reply.status(201).send({ draw, matchCount: matchDefs.length })
   })
 
+  // Migração: popula nextMatchId em draws gerados antes dessa feature
+  app.post('/draws/:drawId/migrate-next-match-id', async (request, reply) => {
+    const { drawId } = request.params as { drawId: string }
+    const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+
+    let updated = 0
+    for (const match of allMatches) {
+      if (match.round === 1) continue
+      const nextRound = match.round - 1
+      const nextPos = Math.ceil(match.position / 2)
+      const next = allMatches.find((m) => m.round === nextRound && m.position === nextPos)
+      if (next && match.nextMatchId !== next.id) {
+        await db.update(matches).set({ nextMatchId: next.id }).where(eq(matches.id, match.id))
+        updated++
+      }
+    }
+
+    return { updated, total: allMatches.length }
+  })
+
   app.get('/draws/:drawId/matches', async (request) => {
     const { drawId } = request.params as { drawId: string }
     return db.select().from(matches).where(eq(matches.drawId, drawId))
   })
 
-  // Cria ou edita resultado de uma partida com propagação em cascata
+  // Cria ou edita resultado com propagação em cascata
   app.post('/draws/matches/:matchId/result', async (request, reply) => {
     const { matchId } = request.params as { matchId: string }
     const body = upsertMatchResultSchema.parse(request.body)
@@ -136,23 +158,21 @@ export async function drawsRoutes(app: FastifyInstance) {
     const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
     const winnerChanged = prevResults.length > 0 && prevWinnerRegId !== newWinnerRegId
 
-    // Se vencedor mudou, reseta em cascata todas as partidas dependentes
+    // Se vencedor mudou, reseta cascata a partir da próxima partida
     if (winnerChanged && match.nextMatchId) {
       await cascadeReset(match.nextMatchId, prevWinnerRegId)
     }
 
-    // Apaga resultados antigos
+    // Apaga resultados antigos e salva novos
     if (prevResults.length) {
       await db.delete(matchResults).where(eq(matchResults.matchId, matchId))
     }
 
-    // Atualiza status da partida
     await db
       .update(matches)
       .set({ status: body.status, updatedAt: new Date() })
       .where(eq(matches.id, matchId))
 
-    // Insere novos parciais
     const results = await db
       .insert(matchResults)
       .values(
@@ -166,17 +186,13 @@ export async function drawsRoutes(app: FastifyInstance) {
       )
       .returning()
 
-    // Avança o vencedor para a próxima partida
+    // Avança vencedor para a próxima partida
     if (match.nextMatchId) {
-      const [nextMatch] = await db.select().from(matches).where(eq(matches.id, match.nextMatchId))
-      if (nextMatch) {
-        // Slot: partidas em posição ímpar alimentam slot 1, par alimentam slot 2
-        const slot = match.position % 2 === 1 ? 'registration1Id' : 'registration2Id'
-        await db
-          .update(matches)
-          .set({ [slot]: newWinnerRegId, updatedAt: new Date() })
-          .where(eq(matches.id, match.nextMatchId))
-      }
+      const slot = getSlotForPosition(match.position)
+      await db
+        .update(matches)
+        .set({ [slot]: newWinnerRegId, updatedAt: new Date() })
+        .where(eq(matches.id, match.nextMatchId))
     }
 
     return { match: { ...match, status: body.status }, results }
@@ -188,25 +204,20 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 }
 
-// Reseta em cascata: remove o regId do slot correspondente e limpa resultados
+// Reseta em cascata: remove o regId do slot e propaga se havia vencedor
 async function cascadeReset(matchId: string, regIdToRemove: string | null): Promise<void> {
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
   if (!match) return
 
-  // Remove o atleta do slot correto
   const isSlot1 = match.registration1Id === regIdToRemove
   const isSlot2 = match.registration2Id === regIdToRemove
+  if (!isSlot1 && !isSlot2) return
 
-  if (!isSlot1 && !isSlot2) return // atleta não está nessa partida, para cascata
-
-  // Apaga resultados dessa partida
   const prevResults = await db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
   const prevWinner = prevResults.length ? getWinnerSlot(prevResults) : null
   const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
 
   await db.delete(matchResults).where(eq(matchResults.matchId, matchId))
-
-  // Reseta o slot e o status
   await db
     .update(matches)
     .set({
@@ -216,7 +227,6 @@ async function cascadeReset(matchId: string, regIdToRemove: string | null): Prom
     })
     .where(eq(matches.id, matchId))
 
-  // Propaga para próxima se havia um vencedor que avançou
   if (match.nextMatchId && prevWinnerRegId) {
     await cascadeReset(match.nextMatchId, prevWinnerRegId)
   }
