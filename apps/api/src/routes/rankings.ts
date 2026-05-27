@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
 import { rankings, rankingEntries, athletes, tenants } from '../db/schema'
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and, asc, inArray } from 'drizzle-orm'
 
 export async function rankingsRoutes(app: FastifyInstance) {
   // Lista rankings de um tenant
@@ -48,7 +48,7 @@ export async function rankingsRoutes(app: FastifyInstance) {
       ? await db.select().from(athletes).where(
           athleteIds.length === 1
             ? eq(athletes.id, athleteIds[0])
-            : (() => { const { inArray } = require('drizzle-orm'); return inArray(athletes.id, athleteIds) })()
+            : inArray(athletes.id, athleteIds)
         )
       : []
 
