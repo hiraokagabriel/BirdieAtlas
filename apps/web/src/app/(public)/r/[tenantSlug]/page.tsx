@@ -3,27 +3,19 @@
 import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { Trophy, ChevronLeft, ChevronRight, Users, User } from 'lucide-react'
+import Link from 'next/link'
 
 type Ranking = {
-  id: string
-  name: string
+  id: string; name: string
   discipline: 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
-  year: number
-  tenantId: string
+  year: number; tenantId: string
 }
-
 type AthleteData = { id: string; name: string; gender: string }
-
 type Entry = {
-  id: string
-  position: number
-  points: number
-  athleteId: string
-  athlete2Id: string | null
-  athlete: AthleteData | null
-  athlete2: AthleteData | null
+  id: string; position: number; points: number
+  athleteId: string; athlete2Id: string | null
+  athlete: AthleteData | null; athlete2: AthleteData | null
 }
-
 type RankingResponse = {
   ranking: Ranking
   entries: Entry[]
@@ -31,13 +23,9 @@ type RankingResponse = {
 }
 
 const disciplineLabel: Record<string, string> = {
-  MS: 'Simples Masc.',
-  WS: 'Simples Fem.',
-  MD: 'Duplas Masc.',
-  WD: 'Duplas Fem.',
-  XD: 'Duplas Misto',
+  MS: 'Simples Masc.', WS: 'Simples Fem.',
+  MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Duplas Misto',
 }
-
 const disciplineColors: Record<string, string> = {
   MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
   WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
@@ -45,7 +33,6 @@ const disciplineColors: Record<string, string> = {
   WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
   XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
 }
-
 const disciplineActiveColors: Record<string, string> = {
   MS: 'bg-blue-500 text-white border-blue-500',
   WS: 'bg-purple-500 text-white border-purple-500',
@@ -63,7 +50,6 @@ function PositionBadge({ pos }: { pos: number }) {
 
 export default function RankingPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
   const { tenantSlug } = use(params)
-
   const [rankings, setRankings] = useState<Ranking[]>([])
   const [activeRankingId, setActiveRankingId] = useState('')
   const [data, setData] = useState<RankingResponse | null>(null)
@@ -83,16 +69,14 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
     setLoading(true)
     setPage(1)
     apiFetch<RankingResponse>(`/rankings/${activeRankingId}/entries?page=1&perPage=${PER_PAGE}`)
-      .then(setData)
-      .finally(() => setLoading(false))
+      .then(setData).finally(() => setLoading(false))
   }, [activeRankingId])
 
   useEffect(() => {
     if (!activeRankingId || page === 1) return
     setLoading(true)
     apiFetch<RankingResponse>(`/rankings/${activeRankingId}/entries?page=${page}&perPage=${PER_PAGE}`)
-      .then(setData)
-      .finally(() => setLoading(false))
+      .then(setData).finally(() => setLoading(false))
   }, [page])
 
   const activeRanking = rankings.find((r) => r.id === activeRankingId)
@@ -107,20 +91,16 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
           <Trophy className="w-6 h-6 text-yellow-500" />
           <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Classificação oficial dos atletas filiados à federação
-        </p>
+        <p className="text-sm text-muted-foreground">Classificação oficial dos atletas filiados à federação</p>
       </div>
 
-      {/* Seletor de ranking */}
+      {/* Seletor */}
       <div className="flex items-center gap-2 flex-wrap">
         {rankings.map((r) => {
           const isActive = r.id === activeRankingId
           const color = isActive ? disciplineActiveColors[r.discipline] : disciplineColors[r.discipline]
           return (
-            <button
-              key={r.id}
-              onClick={() => setActiveRankingId(r.id)}
+            <button key={r.id} onClick={() => setActiveRankingId(r.id)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}
             >
               {disciplineLabel[r.discipline] ?? r.discipline}
@@ -131,7 +111,6 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
 
       {/* Tabela */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        {/* Header da tabela */}
         <div className="grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           <span>#</span>
           <span>{isDoubles ? 'Dupla' : 'Atleta'}</span>
@@ -158,12 +137,10 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
         ) : (
           <div>
             {data.entries.map((entry, idx) => {
-              const globalPos = ((page - 1) * PER_PAGE) + idx + 1
               const isTop3 = entry.position <= 3
               return (
-                <div
-                  key={entry.id}
-                  className={`grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 transition-colors hover:bg-muted/30 ${
+                <div key={entry.id}
+                  className={`grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 ${
                     isTop3 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
                   }`}
                 >
@@ -173,18 +150,26 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
 
                   <div className="flex flex-col justify-center min-w-0">
                     {isDoubles ? (
-                      <>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="font-medium text-sm truncate">
-                            {entry.athlete?.name ?? '—'} &amp; {entry.athlete2?.name ?? '—'}
-                          </span>
-                        </div>
-                      </>
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="font-medium text-sm">
+                          <Link href={`/a/${entry.athleteId}`} className="hover:underline hover:text-foreground transition-colors">
+                            {entry.athlete?.name ?? '—'}
+                          </Link>
+                          {' & '}
+                          <Link href={entry.athlete2Id ? `/a/${entry.athlete2Id}` : '#'} className="hover:underline hover:text-foreground transition-colors">
+                            {entry.athlete2?.name ?? '—'}
+                          </Link>
+                        </span>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span className="font-medium text-sm truncate">{entry.athlete?.name ?? '—'}</span>
+                        <Link href={`/a/${entry.athleteId}`}
+                          className="font-medium text-sm hover:underline hover:text-foreground transition-colors"
+                        >
+                          {entry.athlete?.name ?? '—'}
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -210,19 +195,13 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
             {((page - 1) * PER_PAGE) + 1}–{Math.min(page * PER_PAGE, pagination.total)} de {pagination.total} atletas
           </p>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+              className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-sm font-medium px-3">{page} / {pagination.totalPages}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-              disabled={page === pagination.totalPages}
-              className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
+            <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
+              className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
