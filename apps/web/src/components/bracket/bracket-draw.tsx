@@ -1,6 +1,8 @@
 'use client'
 
-import { Trophy } from 'lucide-react'
+import { useState } from 'react'
+import { Trophy, Pencil } from 'lucide-react'
+import { MatchResultDialog } from './match-result-dialog'
 
 type Match = {
   id: string
@@ -42,6 +44,7 @@ type Props = {
   athletes: Athlete[]
   results: MatchResult[]
   activeCategory?: Category
+  drawId: string
 }
 
 const disciplineBorder: Record<string, string> = {
@@ -71,7 +74,7 @@ function getAthleteLabel(regId: string | null, registrations: Registration[], at
 }
 
 function getMatchWinner(match: Match, results: MatchResult[]): 1 | 2 | null {
-  if (match.status !== 'completed' && match.status !== 'walkover') return null
+  if (match.status !== 'completed' && match.status !== 'walkover' && match.status !== 'retired') return null
   const sets = results.filter((r) => r.matchId === match.id)
   if (!sets.length) return null
   const wins1 = sets.filter((s) => s.score1 > s.score2).length
@@ -95,131 +98,157 @@ const statusLabel: Record<string, { label: string; dot: string }> = {
   retired: { label: 'Ret.', dot: 'bg-red-400' },
 }
 
-export function BracketDraw({ matches, registrations, athletes, results, activeCategory }: Props) {
+export function BracketDraw({ matches, registrations, athletes, results, activeCategory, drawId }: Props) {
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
+
   const maxRound = Math.max(...matches.map((m) => m.round))
-  const rounds = Array.from({ length: maxRound }, (_, i) => maxRound - i) // ordem: round maior (1a fase) primeiro
+  const rounds = Array.from({ length: maxRound }, (_, i) => maxRound - i)
   const borderColor = disciplineBorder[activeCategory?.discipline ?? ''] ?? 'border-gray-300'
   const winnerColor = disciplineWinner[activeCategory?.discipline ?? ''] ?? 'bg-gray-50 border-gray-300'
 
+  const p1Selected = selectedMatch ? getAthleteLabel(selectedMatch.registration1Id, registrations, athletes) : { name: '', seed: null }
+  const p2Selected = selectedMatch ? getAthleteLabel(selectedMatch.registration2Id, registrations, athletes) : { name: '', seed: null }
+
   return (
-    <div className="p-6 overflow-x-auto">
-      <div className="flex gap-0 min-w-max">
-        {rounds.map((round, roundIdx) => {
-          const roundMatches = matches
-            .filter((m) => m.round === round)
-            .sort((a, b) => a.position - b.position)
+    <>
+      <div className="p-6 overflow-x-auto">
+        <div className="flex gap-0 min-w-max">
+          {rounds.map((round, roundIdx) => {
+            const roundMatches = matches
+              .filter((m) => m.round === round)
+              .sort((a, b) => a.position - b.position)
 
-          const roundLabel =
-            round === 1 ? 'Final'
-            : round === 2 ? 'Semifinal'
-            : round === 3 ? 'Quartas de Final'
-            : `Fase ${round}`
+            const roundLabel =
+              round === 1 ? 'Final'
+              : round === 2 ? 'Semifinal'
+              : round === 3 ? 'Quartas de Final'
+              : `Fase ${round}`
 
-          const isLastRound = roundIdx === rounds.length - 1
+            const isLastRound = roundIdx === rounds.length - 1
 
-          return (
-            <div key={round} className="flex flex-col" style={{ minWidth: 220 }}>
-              {/* Round header */}
-              <div className="text-center pb-4">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {roundLabel}
-                </span>
-              </div>
+            return (
+              <div key={round} className="flex flex-col" style={{ minWidth: 240 }}>
+                <div className="text-center pb-4">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {roundLabel}
+                  </span>
+                </div>
 
-              {/* Matches column */}
-              <div className="flex flex-col flex-1 justify-around gap-2 pr-0">
-                {roundMatches.map((match) => {
-                  const p1 = getAthleteLabel(match.registration1Id, registrations, athletes)
-                  const p2 = getAthleteLabel(match.registration2Id, registrations, athletes)
-                  const winner = getMatchWinner(match, results)
-                  const score = getMatchScore(match, results)
-                  const status = statusLabel[match.status] ?? statusLabel.pending
-                  const isFinal = round === 1
+                <div className="flex flex-col flex-1 justify-around gap-2">
+                  {roundMatches.map((match) => {
+                    const p1 = getAthleteLabel(match.registration1Id, registrations, athletes)
+                    const p2 = getAthleteLabel(match.registration2Id, registrations, athletes)
+                    const winner = getMatchWinner(match, results)
+                    const score = getMatchScore(match, results)
+                    const status = statusLabel[match.status] ?? statusLabel.pending
+                    const isFinal = round === 1
+                    const canEdit = match.status === 'pending' || match.status === 'in_progress'
+                    const hasPlayers = match.registration1Id && match.registration2Id
 
-                  return (
-                    <div key={match.id} className="flex items-center">
-                      <div className={`flex-1 rounded-lg border-2 overflow-hidden ${
-                        isFinal ? `${borderColor} shadow-sm` : 'border-border'
-                      }`}>
-                        {/* Player 1 */}
-                        <div className={`flex items-center gap-2 px-3 py-2 border-b border-border ${
-                          winner === 1 ? winnerColor : winner === 2 ? 'opacity-40' : ''
-                        }`}>
-                          {p1.seed && (
-                            <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">[{p1.seed}]</span>
-                          )}
-                          <span className={`text-sm flex-1 truncate ${
-                            winner === 1 ? 'font-semibold' : 'font-medium'
-                          }`}>{p1.name}</span>
-                          {winner === 1 && <Trophy className="w-3 h-3 shrink-0" />}
-                        </div>
-
-                        {/* Player 2 */}
-                        <div className={`flex items-center gap-2 px-3 py-2 ${
-                          winner === 2 ? winnerColor : winner === 1 ? 'opacity-40' : ''
-                        }`}>
-                          {p2.seed && (
-                            <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">[{p2.seed}]</span>
-                          )}
-                          <span className={`text-sm flex-1 truncate ${
-                            winner === 2 ? 'font-semibold' : 'font-medium'
-                          }`}>{p2.name}</span>
-                          {winner === 2 && <Trophy className="w-3 h-3 shrink-0" />}
-                        </div>
-
-                        {/* Score + status footer */}
-                        <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 border-t border-border">
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                            <span className="text-xs text-muted-foreground">{status.label}</span>
+                    return (
+                      <div key={match.id} className="flex items-center">
+                        <div
+                          className={`flex-1 rounded-lg border-2 overflow-hidden transition-shadow ${
+                            isFinal ? `${borderColor} shadow-sm` : 'border-border'
+                          } ${
+                            canEdit && hasPlayers ? 'cursor-pointer hover:shadow-md hover:border-primary/50' : ''
+                          }`}
+                          onClick={() => canEdit && hasPlayers && setSelectedMatch(match)}
+                        >
+                          {/* Player 1 */}
+                          <div className={`flex items-center gap-2 px-3 py-2 border-b border-border ${
+                            winner === 1 ? winnerColor : winner === 2 ? 'opacity-40' : ''
+                          }`}>
+                            {p1.seed && (
+                              <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">[{p1.seed}]</span>
+                            )}
+                            <span className={`text-sm flex-1 truncate ${
+                              winner === 1 ? 'font-semibold' : 'font-medium'
+                            }`}>{p1.name}</span>
+                            {winner === 1 && <Trophy className="w-3 h-3 shrink-0 text-yellow-500" />}
                           </div>
-                          {score && <span className="text-xs font-mono text-muted-foreground">{score}</span>}
+
+                          {/* Player 2 */}
+                          <div className={`flex items-center gap-2 px-3 py-2 ${
+                            winner === 2 ? winnerColor : winner === 1 ? 'opacity-40' : ''
+                          }`}>
+                            {p2.seed && (
+                              <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">[{p2.seed}]</span>
+                            )}
+                            <span className={`text-sm flex-1 truncate ${
+                              winner === 2 ? 'font-semibold' : 'font-medium'
+                            }`}>{p2.name}</span>
+                            {winner === 2 && <Trophy className="w-3 h-3 shrink-0 text-yellow-500" />}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 border-t border-border">
+                            <div className="flex items-center gap-1.5">
+                              <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                              <span className="text-xs text-muted-foreground">{status.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {score && <span className="text-xs font-mono text-muted-foreground">{score}</span>}
+                              {canEdit && hasPlayers && (
+                                <Pencil className="w-3 h-3 text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
                         </div>
+
+                        {!isLastRound && (
+                          <div className="w-8 flex items-center">
+                            <div className="w-full h-px bg-border" />
+                          </div>
+                        )}
                       </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
 
-                      {/* Connector line to next round */}
-                      {!isLastRound && (
-                        <div className="w-8 flex items-center">
-                          <div className="w-full h-px bg-border" />
-                        </div>
-                      )}
+          {/* Champion */}
+          {matches.some((m) => m.round === 1 && ['completed', 'walkover', 'retired'].includes(m.status)) && (() => {
+            const finalMatch = matches.find((m) => m.round === 1)
+            if (!finalMatch) return null
+            const winner = getMatchWinner(finalMatch, results)
+            if (!winner) return null
+            const champ = getAthleteLabel(
+              winner === 1 ? finalMatch.registration1Id : finalMatch.registration2Id,
+              registrations,
+              athletes
+            )
+            return (
+              <div className="flex flex-col" style={{ minWidth: 180 }}>
+                <div className="text-center pb-4">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campeão</span>
+                </div>
+                <div className="flex flex-col flex-1 justify-around">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 flex items-center"><div className="w-full h-px bg-border" /></div>
+                    <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 ${disciplineBorder[activeCategory?.discipline ?? '']} ${disciplineWinner[activeCategory?.discipline ?? '']} shadow-md`}>
+                      <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />
+                      <span className="text-sm font-bold">{champ.name}</span>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-
-        {/* Champion placeholder after final */}
-        {matches.some((m) => m.round === 1 && (m.status === 'completed' || m.status === 'walkover')) && (() => {
-          const finalMatch = matches.find((m) => m.round === 1)
-          if (!finalMatch) return null
-          const winner = getMatchWinner(finalMatch, results)
-          if (!winner) return null
-          const champ = getAthleteLabel(
-            winner === 1 ? finalMatch.registration1Id : finalMatch.registration2Id,
-            registrations,
-            athletes
-          )
-          return (
-            <div className="flex flex-col" style={{ minWidth: 180 }}>
-              <div className="text-center pb-4">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campeão</span>
-              </div>
-              <div className="flex flex-col flex-1 justify-around">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 flex items-center"><div className="w-full h-px bg-border" /></div>
-                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 ${disciplineBorder[activeCategory?.discipline ?? '']} ${disciplineWinner[activeCategory?.discipline ?? '']} shadow-md`}>
-                    <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />
-                    <span className="text-sm font-bold">{champ.name}</span>
                   </div>
                 </div>
               </div>
-            </div>
-          )
-        })()}
+            )
+          })()}
+        </div>
       </div>
-    </div>
+
+      <MatchResultDialog
+        match={selectedMatch}
+        open={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        player1Name={p1Selected.name}
+        player2Name={p2Selected.name}
+        drawId={drawId}
+        categoryId={activeCategory?.id ?? ''}
+      />
+    </>
   )
 }

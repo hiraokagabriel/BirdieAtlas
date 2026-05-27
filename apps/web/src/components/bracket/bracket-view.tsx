@@ -113,7 +113,6 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
 
   return (
     <div className="space-y-4">
-      {/* Category tabs */}
       <div className="flex items-center gap-2 flex-wrap">
         {categories.map((cat) => {
           const isActive = cat.id === activeCategoryId
@@ -130,7 +129,6 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
         })}
       </div>
 
-      {/* Bracket */}
       <div className="rounded-xl border border-border bg-card overflow-auto">
         {isLoading ? (
           <div className="p-8 space-y-3">
@@ -150,6 +148,7 @@ export function BracketView({ tournamentId, categories }: { tournamentId: string
             athletes={athletes ?? []}
             results={allResults ?? []}
             activeCategory={activeCategory}
+            drawId={draw.id}
           />
         )}
       </div>
