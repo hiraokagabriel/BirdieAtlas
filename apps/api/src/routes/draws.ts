@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
 import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, athletes } from '../db/schema'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -30,6 +30,14 @@ function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M
     return (gender1 === 'M' && gender2 === 'F') || (gender1 === 'F' && gender2 === 'M')
   }
   return true
+}
+
+const DOUBLES_DISCIPLINES = new Set(['MD', 'WD', 'XD'])
+
+// Para duplas, normaliza a ordem dos IDs para garantir lookup consistente
+// Usa ordem lexicográfica: menor ID sempre em athleteId
+function normalizePair(id1: string, id2: string): [string, string] {
+  return id1 < id2 ? [id1, id2] : [id2, id1]
 }
 
 function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
@@ -127,16 +135,19 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
+  // ---------------------------------------------------------------------------
+  // Distribuir pontos de ranking
+  // - Idempotente: bloqueia se pointsAwarded já for true
+  // - Valida gênero por disciplina
+  // - Duplas (MD/WD/XD): ranking por dupla (athleteId+athlete2Id normalizados)
+  // - Singles (MS/WS): ranking individual por athleteId
+  // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-
-    if (tournament.pointsAwarded) {
-      return reply.status(409).send({ error: 'Points have already been awarded for this tournament' })
-    }
-
+    if (tournament.pointsAwarded) return reply.status(409).send({ error: 'Points have already been awarded for this tournament' })
     if (!tournament.pointsTableId) return reply.status(400).send({ error: 'Tournament has no pointsTableId configured' })
 
     const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
@@ -186,6 +197,8 @@ export async function drawsRoutes(app: FastifyInstance) {
       const athleteRows = allAthleteIds.length ? await db.select().from(athletes).where(inArray(athletes.id, allAthleteIds)) : []
       const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
 
+      const isDoubles = DOUBLES_DISCIPLINES.has(category.discipline)
+
       for (const [regId, placement] of placementByReg.entries()) {
         const reg = regs.find((r) => r.id === regId)
         if (!reg) continue
@@ -194,6 +207,7 @@ export async function drawsRoutes(app: FastifyInstance) {
         const a2 = reg.athlete2Id ? athleteMap.get(reg.athlete2Id) : undefined
         if (!a1) continue
 
+        // Valida gênero
         if (!isGenderCompatible(category.discipline, a1.gender, a2?.gender)) {
           skipped.push({ categoryName: category.name, reason: `Gender incompatible: ${a1.id} in ${category.discipline}` })
           continue
@@ -202,24 +216,68 @@ export async function drawsRoutes(app: FastifyInstance) {
         const points = pointsMap.get(placement) ?? 0
         if (points === 0) continue
 
-        const existing = await db.select().from(rankingEntries)
-          .where(and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId)))
+        if (isDoubles) {
+          // Duplas: lookup e insert/update pela dupla normalizada
+          if (!reg.athlete2Id) {
+            skipped.push({ categoryName: category.name, reason: `Doubles category but registration ${regId} has no athlete2Id` })
+            continue
+          }
+          const [normA1, normA2] = normalizePair(reg.athleteId, reg.athlete2Id)
 
-        if (existing.length) {
-          await db.update(rankingEntries)
-            .set({ points: existing[0].points + points, updatedAt: new Date() })
-            .where(eq(rankingEntries.id, existing[0].id))
+          const existing = await db.select().from(rankingEntries).where(
+            and(
+              eq(rankingEntries.rankingId, ranking.id),
+              or(
+                and(eq(rankingEntries.athleteId, normA1), eq(rankingEntries.athlete2Id, normA2)),
+                and(eq(rankingEntries.athleteId, normA2), eq(rankingEntries.athlete2Id, normA1)),
+              )
+            )
+          )
+
+          if (existing.length) {
+            await db.update(rankingEntries)
+              .set({ points: existing[0].points + points, updatedAt: new Date() })
+              .where(eq(rankingEntries.id, existing[0].id))
+          } else {
+            await db.insert(rankingEntries).values({
+              id: randomUUID(),
+              rankingId: ranking.id,
+              athleteId: normA1,
+              athlete2Id: normA2,
+              points,
+              position: 0,
+            })
+          }
         } else {
-          await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, points, position: 0 })
+          // Singles: lookup e insert/update pelo athleteId individual
+          const existing = await db.select().from(rankingEntries).where(
+            and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId))
+          )
+
+          if (existing.length) {
+            await db.update(rankingEntries)
+              .set({ points: existing[0].points + points, updatedAt: new Date() })
+              .where(eq(rankingEntries.id, existing[0].id))
+          } else {
+            await db.insert(rankingEntries).values({
+              id: randomUUID(),
+              rankingId: ranking.id,
+              athleteId: reg.athleteId,
+              athlete2Id: null,
+              points,
+              position: 0,
+            })
+          }
         }
 
         awarded.push({ categoryName: category.name, registrationId: regId, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, placement, points })
       }
 
+      // Recalcula posições
       const allEntries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, ranking.id))
-      const sorted = [...allEntries].sort((a, b) => b.points - a.points)
-      for (let i = 0; i < sorted.length; i++) {
-        await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sorted[i].id))
+      const sortedEntries = [...allEntries].sort((a, b) => b.points - a.points)
+      for (let i = 0; i < sortedEntries.length; i++) {
+        await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sortedEntries[i].id))
       }
     }
 
