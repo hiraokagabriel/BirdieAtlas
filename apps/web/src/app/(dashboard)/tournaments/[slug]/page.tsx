@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
@@ -22,19 +22,20 @@ const statusMap: Record<string, { label: string; color: string }> = {
   completed: { label: 'Encerrado', color: 'bg-gray-100 text-gray-600' },
 }
 
-export default function TournamentPage({ params }: { params: { slug: string } }) {
+export default function TournamentPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'bracket' | 'schedule'>('bracket')
 
   useEffect(() => {
     apiFetch<Tournament[]>('/tournaments').then((list) => {
-      const t = list.find((t) => t.slug === params.slug)
+      const t = list.find((t) => t.slug === slug)
       if (!t) return
       setTournament(t)
       apiFetch<Category[]>(`/tournaments/${t.id}/categories`).then(setCategories)
     })
-  }, [params.slug])
+  }, [slug])
 
   if (!tournament) return null
 

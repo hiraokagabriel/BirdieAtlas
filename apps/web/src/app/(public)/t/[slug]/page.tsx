@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from '@/components/bracket/bracket-draw'
 import { ScheduleView } from '@/components/bracket/schedule-view'
@@ -11,7 +11,7 @@ type Tournament = {
   startDate: string; endDate: string; city: string; state: string; location: string
 }
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number }
-type Draw = { id: string; published: boolean }
+type Draw = { id: string }
 type Match = {
   id: string; round: number; position: number; status: string
   registration1Id: string | null; registration2Id: string | null
@@ -29,12 +29,12 @@ const statusMap: Record<string, { label: string; color: string; dot: string }> =
   completed: { label: 'Encerrado', color: 'text-gray-500', dot: 'bg-gray-300' },
 }
 
-export default function PublicTournamentPage({ params }: { params: { slug: string } }) {
+export default function PublicTournamentPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'bracket' | 'schedule'>('bracket')
 
-  // Bracket da categoria ativa
   const [activeCategoryId, setActiveCategoryId] = useState('')
   const [draw, setDraw] = useState<Draw | null>(null)
   const [matches, setMatches] = useState<Match[]>([])
@@ -44,7 +44,7 @@ export default function PublicTournamentPage({ params }: { params: { slug: strin
 
   useEffect(() => {
     apiFetch<Tournament[]>('/tournaments').then((list) => {
-      const t = list.find((t) => t.slug === params.slug)
+      const t = list.find((t) => t.slug === slug)
       if (!t) return
       setTournament(t)
       apiFetch<Category[]>(`/tournaments/${t.id}/categories`).then((cats) => {
@@ -52,7 +52,7 @@ export default function PublicTournamentPage({ params }: { params: { slug: strin
         if (cats.length) setActiveCategoryId(cats[0].id)
       })
     })
-  }, [params.slug])
+  }, [slug])
 
   useEffect(() => {
     if (!activeCategoryId) return
@@ -132,10 +132,8 @@ export default function PublicTournamentPage({ params }: { params: { slug: strin
         ))}
       </div>
 
-      {/* Bracket público (sem edição) */}
       {tab === 'bracket' && (
         <div className="space-y-4">
-          {/* Seletor de categoria */}
           <div className="flex items-center gap-2 flex-wrap">
             {categories.map((cat) => (
               <button
@@ -174,7 +172,6 @@ export default function PublicTournamentPage({ params }: { params: { slug: strin
         </div>
       )}
 
-      {/* Agenda pública (sem edição) */}
       {tab === 'schedule' && (
         <ScheduleView tournamentId={tournament.id} categories={categories} readonly />
       )}
