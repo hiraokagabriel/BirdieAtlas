@@ -20,7 +20,8 @@ const createTournamentSchema = z.object({
 })
 
 const createCategorySchema = z.object({
-  categoryType: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
+  discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
+  name: z.string().min(1), // ex: "Simples Masculino A", "A-Especial", "Sub-17"
   drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination']).default('single_elimination'),
   maxEntries: z.number().optional(),
   seedCount: z.number().default(4),
@@ -70,7 +71,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return tournament
   })
 
-  // Categorias de um torneio
   app.get('/tournaments/:id/categories', async (request) => {
     const { id } = request.params as { id: string }
     return db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
@@ -86,7 +86,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return reply.status(201).send(category)
   })
 
-  // Inscrições de uma categoria
   app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
     const { categoryId } = request.params as { categoryId: string }
     return db.select().from(tournamentRegistrations).where(eq(tournamentRegistrations.categoryId, categoryId))
