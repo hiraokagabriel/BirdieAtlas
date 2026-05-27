@@ -17,6 +17,12 @@ const updateMatchResultSchema = z.object({
 })
 
 export async function drawsRoutes(app: FastifyInstance) {
+  // Lista draws de uma categoria
+  app.get('/tournaments/categories/:categoryId/draws', async (request) => {
+    const { categoryId } = request.params as { categoryId: string }
+    return db.select().from(draws).where(eq(draws.categoryId, categoryId))
+  })
+
   // Gera chaveamento para uma categoria com base nas inscrições confirmadas
   app.post('/draws/generate/:categoryId', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
@@ -31,7 +37,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
     }
 
-    // Ordena por seed, depois por pontos de ranking
     const sorted = confirmed.sort((a, b) => {
       if (a.seed && b.seed) return a.seed - b.seed
       if (a.seed) return -1
@@ -39,7 +44,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       return (b.rankingPointsAtEntry ?? 0) - (a.rankingPointsAtEntry ?? 0)
     })
 
-    // Calcula número de rounds (single elimination)
     const numEntries = sorted.length
     const numRounds = Math.ceil(Math.log2(numEntries))
     const bracketSize = Math.pow(2, numRounds)
@@ -49,12 +53,10 @@ export async function drawsRoutes(app: FastifyInstance) {
       .values({ id: randomUUID(), categoryId })
       .returning()
 
-    // Cria partidas do primeiro round com os atletas
-    // Posições vazias são byes (sem registration)
     const matchesToCreate = []
     for (let pos = 1; pos <= bracketSize / 2; pos++) {
-      const idx1 = pos - 1                    // ex: pos 1 = índice 0 (cabeça)
-      const idx2 = bracketSize - pos          // ex: pos 1 = índice bracketSize-1 (último)
+      const idx1 = pos - 1
+      const idx2 = bracketSize - pos
       matchesToCreate.push({
         id: randomUUID(),
         drawId: draw.id,
@@ -66,7 +68,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       })
     }
 
-    // Cria rounds intermediários até a final (round 1)
     for (let round = numRounds - 1; round >= 1; round--) {
       const numMatches = Math.pow(2, round - 1)
       for (let pos = 1; pos <= numMatches; pos++) {
@@ -83,7 +84,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     }
 
     await db.insert(matches).values(matchesToCreate)
-
     return reply.status(201).send({ draw, matchCount: matchesToCreate.length })
   })
 
@@ -92,12 +92,10 @@ export async function drawsRoutes(app: FastifyInstance) {
     return db.select().from(matches).where(eq(matches.drawId, drawId))
   })
 
-  // Registra resultado de uma partida (parciais + status final)
   app.post('/draws/matches/:matchId/result', async (request, reply) => {
     const { matchId } = request.params as { matchId: string }
     const body = updateMatchResultSchema.parse(request.body)
 
-    // Atualiza status da partida
     const [match] = await db
       .update(matches)
       .set({ status: body.status, updatedAt: new Date() })
@@ -106,7 +104,6 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     if (!match) return reply.status(404).send({ error: 'Match not found' })
 
-    // Salva parciais
     const results = await db
       .insert(matchResults)
       .values(
