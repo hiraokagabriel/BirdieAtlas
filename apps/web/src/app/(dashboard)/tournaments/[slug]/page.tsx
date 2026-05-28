@@ -6,16 +6,17 @@ import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { RegistrationsTab } from '@/components/tournament/registrations-tab'
 import { FinalizeTournamentModal } from '@/components/tournament/finalize-tournament-modal'
-import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag, RotateCcw } from 'lucide-react'
+import { TournamentSetupTab } from '@/components/tournament/tournament-setup-tab'
+import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag, RotateCcw, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: string
   startDate: string; endDate: string; city: string; state: string; location: string
-  pointsAwarded: boolean
+  pointsAwarded: boolean; tenantId: string; pointsTableId: string | null
 }
-type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number }
+type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number; maxEntries: number | null }
 
 const statusMap: Record<string, { label: string; color: string }> = {
   draft:                { label: 'Rascunho',             color: 'bg-gray-100 text-gray-700' },
@@ -31,7 +32,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
   const router = useRouter()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
-  const [tab, setTab] = useState<'registrations' | 'bracket' | 'schedule'>('registrations')
+  const [tab, setTab] = useState<'registrations' | 'bracket' | 'schedule' | 'setup'>('registrations')
   const [finalizeOpen, setFinalizeOpen] = useState(false)
   const [reopening, setReopening] = useState(false)
 
@@ -66,6 +67,13 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
 
   const status      = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
   const isCompleted = tournament.status === 'completed'
+
+  const TABS = [
+    { key: 'registrations', label: 'Inscrições' },
+    { key: 'bracket',       label: 'Chaveamento' },
+    { key: 'schedule',      label: 'Agenda' },
+    { key: 'setup',         label: 'Configurações' },
+  ] as const
 
   return (
     <div className="space-y-6">
@@ -129,22 +137,30 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
       </div>
 
       <div className="flex border-b border-border">
-        {(['registrations', 'bracket', 'schedule'] as const).map((t) => (
+        {TABS.map((t) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === t.key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t === 'registrations' ? 'Inscrições' : t === 'bracket' ? 'Chaveamento' : 'Agenda'}
+            {t.key === 'setup' && <Settings className="w-3.5 h-3.5" />}
+            {t.label}
           </button>
         ))}
       </div>
 
       {tab === 'registrations' && <RegistrationsTab tournamentId={tournament.id} categories={categories} />}
-      {tab === 'bracket' && <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} />}
-      {tab === 'schedule' && <ScheduleView tournamentId={tournament.id} categories={categories} />}
+      {tab === 'bracket'       && <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} />}
+      {tab === 'schedule'      && <ScheduleView tournamentId={tournament.id} categories={categories} />}
+      {tab === 'setup'         && (
+        <TournamentSetupTab
+          tournament={tournament}
+          categories={categories}
+          onRefresh={fetchTournament}
+        />
+      )}
 
       <FinalizeTournamentModal
         tournamentId={tournament.id}
