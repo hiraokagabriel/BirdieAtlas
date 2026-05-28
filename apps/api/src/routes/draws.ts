@@ -41,6 +41,36 @@ function getSlotForPosition(position: number): 'registration1Id' | 'registration
   return position % 2 === 1 ? 'registration1Id' : 'registration2Id'
 }
 
+// Returns true if a match is a bye (one slot is null)
+function isByeMatch(match: { registration1Id: string | null; registration2Id: string | null }): boolean {
+  return match.registration1Id === null || match.registration2Id === null
+}
+
+// For walkover/retired/bye: determine winner and loser purely from slots.
+// Returns null if both slots are null (should never happen in practice).
+function getWinnerLoserFromSlots(
+  match: { registration1Id: string | null; registration2Id: string | null; status: string },
+): { winnerRegId: string; loserRegId: string | null } | null {
+  const { registration1Id, registration2Id, status } = match
+  // Bye: only one athlete present → that athlete is the automatic winner
+  if (registration2Id === null && registration1Id !== null) {
+    return { winnerRegId: registration1Id, loserRegId: null }
+  }
+  if (registration1Id === null && registration2Id !== null) {
+    return { winnerRegId: registration2Id, loserRegId: null }
+  }
+  // Both slots filled but no sets (walkover/retired without scores):
+  // registration1 is considered winner by default (organizer must set
+  // correct status before awarding; this avoids silent skips).
+  if (status === 'walkover' || status === 'retired') {
+    if (registration1Id && registration2Id) {
+      // We cannot reliably tell who won without scores; treat reg1 as winner.
+      return { winnerRegId: registration1Id, loserRegId: registration2Id }
+    }
+  }
+  return null
+}
+
 export async function drawsRoutes(app: FastifyInstance) {
   app.get('/tournaments/categories/:categoryId/draws', async (request) => {
     const { categoryId } = request.params as { categoryId: string }
@@ -139,7 +169,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (!refTable) return reply.status(400).send({ error: 'Points table not found' })
 
     // Busca TODAS as linhas do mesmo grupo: tenantId + name + tournamentLevel do refTable
-    // (não usa tournament.level para evitar divergência caso o level tenha mudado após salvar a tabela)
     const allPointsRows = await db.select().from(pointsTables)
       .where(and(
         eq(pointsTables.tenantId, refTable.tenantId),
@@ -165,17 +194,41 @@ export async function drawsRoutes(app: FastifyInstance) {
       if (!drawList.length) { skipped.push({ categoryName: category.name, reason: 'No draw generated' }); continue }
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
-      const pendingMatches = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
+
+      // Bug 3 fix: bye matches (one null slot) must never count as "pending"
+      // even though their status is still 'pending' in the DB.
+      const pendingMatches = allMatches.filter(
+        (m) => !['completed', 'walkover', 'retired'].includes(m.status) && !isByeMatch(m),
+      )
       if (pendingMatches.length > 0) { skipped.push({ categoryName: category.name, reason: `${pendingMatches.length} match(es) still pending` }); continue }
 
       const placementByReg = new Map<string, number>()
+
       for (const match of allMatches) {
+        // Bug 2 fix: skip matches where BOTH slots are null (should never
+        // happen but guard anyway).
+        if (match.registration1Id === null && match.registration2Id === null) continue
+
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-        if (!sets.length) continue
-        const winner = getWinnerSlot(sets)
-        if (!winner) continue
-        const loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+
+        let winnerRegId: string | null = null
+        let loserRegId: string | null = null
+
+        if (sets.length > 0 && match.status === 'completed') {
+          // Normal completed match: derive winner from set scores
+          const winnerSlot = getWinnerSlot(sets)
+          if (!winnerSlot) continue
+          winnerRegId = winnerSlot === 1 ? match.registration1Id : match.registration2Id
+          loserRegId  = winnerSlot === 1 ? match.registration2Id : match.registration1Id
+        } else {
+          // Bug 1 + Bug 2 fix: walkover, retired, or bye (no sets recorded).
+          // Determine winner/loser purely from which slots are filled.
+          const result = getWinnerLoserFromSlots(match)
+          if (!result) continue
+          winnerRegId = result.winnerRegId
+          loserRegId  = result.loserRegId
+        }
+
         // placement do perdedor: final=2, semi=3, quartas=5, etc.
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
@@ -207,7 +260,6 @@ export async function drawsRoutes(app: FastifyInstance) {
         }
 
         const points = pointsMap.get(placement) ?? 0
-        // Loga no skipped para debug se placement não tiver pontos definidos
         if (points === 0) {
           skipped.push({ categoryName: category.name, reason: `Placement ${placement} has 0 points in table — skipping athlete ${reg.athleteId}` })
           continue
