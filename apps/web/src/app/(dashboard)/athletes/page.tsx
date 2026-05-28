@@ -1,5 +1,11 @@
+'use client'
+
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { AthletesTable } from '@/components/athlete/athletes-table'
+import { CsvImportModal } from '@/components/athlete/csv-import-modal'
+import { Upload } from 'lucide-react'
 
 export type AthleteRow = {
   id: string
@@ -14,16 +20,37 @@ export type AthleteRow = {
   affiliationStart: string | null
 }
 
-export default async function AthletesPage() {
-  const athletes = await apiFetch<AthleteRow[]>('/athletes/with-club')
+export default function AthletesPage() {
+  const [importOpen, setImportOpen] = useState(false)
+
+  const { data: athletes = [], isLoading } = useQuery<AthleteRow[]>({
+    queryKey: ['athletes'],
+    queryFn: () => apiFetch('/athletes/with-club'),
+  })
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Atletas</h2>
-        <p className="text-muted-foreground">Gerencie os atletas filiados à federação.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Atletas</h2>
+          <p className="text-muted-foreground">Gerencie os atletas filiados à federação.</p>
+        </div>
+        <button
+          onClick={() => setImportOpen(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors shrink-0"
+        >
+          <Upload className="w-4 h-4" />
+          Importar CSV
+        </button>
       </div>
-      <AthletesTable athletes={athletes} />
+
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground p-8">Carregando...</div>
+      ) : (
+        <AthletesTable athletes={athletes} />
+      )}
+
+      <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   )
 }

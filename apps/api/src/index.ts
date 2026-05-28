@@ -7,6 +7,7 @@ import { drawsRoutes } from './routes/draws'
 import { tenantsRoutes } from './routes/tenants'
 import { rankingsRoutes } from './routes/rankings'
 import { dashboardRoutes } from './routes/dashboard'
+import { pointsTablesRoutes } from './routes/points-tables'
 
 const app = Fastify({ logger: true })
 
@@ -19,6 +20,7 @@ await app.register(drawsRoutes)
 await app.register(tenantsRoutes)
 await app.register(rankingsRoutes)
 await app.register(dashboardRoutes)
+await app.register(pointsTablesRoutes)
 
 const port = Number(process.env.PORT ?? 3001)
 await app.listen({ port, host: '0.0.0.0' })
