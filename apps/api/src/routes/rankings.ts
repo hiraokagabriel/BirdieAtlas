@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
 // ---------------------------------------------------------------------------
-// Helpers (mirrors draws.ts)
+// Helpers
 // ---------------------------------------------------------------------------
 function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M' | 'F'): boolean {
   if (discipline === 'MS' || discipline === 'MD') return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
@@ -35,6 +35,23 @@ function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null
   return w1 > w2 ? 1 : w2 > w1 ? 2 : null
 }
 
+// A bye match has one null slot — it must never be treated as "pending"
+function isByeMatch(match: { registration1Id: string | null; registration2Id: string | null }): boolean {
+  return match.registration1Id === null || match.registration2Id === null
+}
+
+function getWinnerLoserFromSlots(
+  match: { registration1Id: string | null; registration2Id: string | null; status: string },
+): { winnerRegId: string; loserRegId: string | null } | null {
+  const { registration1Id, registration2Id, status } = match
+  if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
+  if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
+  if ((status === 'walkover' || status === 'retired') && registration1Id && registration2Id) {
+    return { winnerRegId: registration1Id, loserRegId: registration2Id }
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
@@ -54,11 +71,9 @@ async function recalculateRanking(rankingId: string) {
   const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
   if (!ranking) throw new Error('Ranking not found')
 
-  // Determine which tournaments feed this ranking
   let tournamentIds: string[] = []
 
   if (ranking.autoInclude) {
-    // All completed tournaments of this tenant that have awarded points
     const allTournaments = await db.select().from(tournaments)
       .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true)))
     tournamentIds = allTournaments.map((t) => t.id)
@@ -68,14 +83,11 @@ async function recalculateRanking(rankingId: string) {
     tournamentIds = links.map((l) => l.tournamentId)
   }
 
-  // Wipe existing entries for this ranking
   await db.delete(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
 
   if (!tournamentIds.length) return { recalculated: 0 }
 
   const isDoubles = DOUBLES_DISCIPLINES.has(ranking.discipline)
-
-  // Accumulate points per athlete/pair across all linked tournaments
   const pointsAcc = new Map<string, { athleteId: string; athlete2Id: string | null; points: number }>()
 
   for (const tournamentId of tournamentIds) {
@@ -92,7 +104,7 @@ async function recalculateRanking(rankingId: string) {
     const categories = await db.select().from(tournamentCategories)
       .where(and(
         eq(tournamentCategories.tournamentId, tournamentId),
-        eq(tournamentCategories.discipline, ranking.discipline as any)
+        eq(tournamentCategories.discipline, ranking.discipline as any),
       ))
 
     for (const category of categories) {
@@ -100,17 +112,37 @@ async function recalculateRanking(rankingId: string) {
       if (!drawList.length) continue
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
-      const pendingMatches = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
-      if (pendingMatches.length > 0) continue // skip incomplete draws
+
+      // Fix: bye matches (one null slot) must not be counted as pending
+      const pendingMatches = allMatches.filter(
+        (m) => !['completed', 'walkover', 'retired'].includes(m.status) && !isByeMatch(m),
+      )
+      if (pendingMatches.length > 0) continue
 
       const placementByReg = new Map<string, number>()
+
       for (const match of allMatches) {
+        // Skip fully empty matches
+        if (match.registration1Id === null && match.registration2Id === null) continue
+
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-        if (!sets.length) continue
-        const winner = getWinnerSlot(sets)
-        if (!winner) continue
-        const loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+
+        let winnerRegId: string | null = null
+        let loserRegId: string | null = null
+
+        if (sets.length > 0 && match.status === 'completed') {
+          const winner = getWinnerSlot(sets)
+          if (!winner) continue
+          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
+        } else {
+          // bye, walkover, retired — derive winner from slots
+          const result = getWinnerLoserFromSlots(match)
+          if (!result) continue
+          winnerRegId = result.winnerRegId
+          loserRegId  = result.loserRegId
+        }
+
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
@@ -152,7 +184,6 @@ async function recalculateRanking(rankingId: string) {
     }
   }
 
-  // Insert fresh entries sorted by points
   const sorted = [...pointsAcc.values()].sort((a, b) => b.points - a.points)
   if (sorted.length) {
     await db.insert(rankingEntries).values(
@@ -175,10 +206,8 @@ async function recalculateRanking(rankingId: string) {
 // ---------------------------------------------------------------------------
 export async function rankingsRoutes(app: FastifyInstance) {
 
-  // List rankings (by tenant)
   app.get('/rankings', async (request) => {
     const { tenantId, tenantSlug } = request.query as { tenantId?: string; tenantSlug?: string }
-
     if (tenantSlug) {
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, tenantSlug))
       if (!tenant) return []
@@ -190,7 +219,6 @@ export async function rankingsRoutes(app: FastifyInstance) {
     return db.select().from(rankings)
   })
 
-  // Get single ranking
   app.get('/rankings/:rankingId', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
@@ -198,14 +226,12 @@ export async function rankingsRoutes(app: FastifyInstance) {
     return ranking
   })
 
-  // Create ranking
   app.post('/rankings', async (request, reply) => {
     const body = createRankingSchema.parse(request.body)
     const [ranking] = await db.insert(rankings).values({ id: randomUUID(), ...body }).returning()
     return reply.status(201).send(ranking)
   })
 
-  // Update ranking
   app.put('/rankings/:rankingId', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     const body = createRankingSchema.partial().parse(request.body)
@@ -215,47 +241,33 @@ export async function rankingsRoutes(app: FastifyInstance) {
     return ranking
   })
 
-  // Delete (soft: deactivate)
   app.delete('/rankings/:rankingId', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     await db.update(rankings).set({ active: false, updatedAt: new Date() }).where(eq(rankings.id, rankingId))
     return reply.status(204).send()
   })
 
-  // ---------------------------------------------------------------------------
-  // Ranking <-> Tournament association
-  // ---------------------------------------------------------------------------
-
-  // List tournaments linked to a ranking
   app.get('/rankings/:rankingId/tournaments', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     const links = await db.select().from(rankingTournaments).where(eq(rankingTournaments.rankingId, rankingId))
     if (!links.length) return []
     const tIds = links.map((l) => l.tournamentId)
-    const tournamentList = await db.select().from(tournaments).where(inArray(tournaments.id, tIds))
-    return tournamentList
+    return db.select().from(tournaments).where(inArray(tournaments.id, tIds))
   })
 
-  // Link a tournament to a ranking
   app.post('/rankings/:rankingId/tournaments/:tournamentId', async (request, reply) => {
     const { rankingId, tournamentId } = request.params as { rankingId: string; tournamentId: string }
     const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
     if (!ranking) return reply.status(404).send({ error: 'Ranking not found' })
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-
-    // Idempotent
     const existing = await db.select().from(rankingTournaments)
       .where(and(eq(rankingTournaments.rankingId, rankingId), eq(rankingTournaments.tournamentId, tournamentId)))
     if (existing.length) return existing[0]
-
-    const [link] = await db.insert(rankingTournaments)
-      .values({ id: randomUUID(), rankingId, tournamentId })
-      .returning()
+    const [link] = await db.insert(rankingTournaments).values({ id: randomUUID(), rankingId, tournamentId }).returning()
     return reply.status(201).send(link)
   })
 
-  // Unlink a tournament from a ranking
   app.delete('/rankings/:rankingId/tournaments/:tournamentId', async (request, reply) => {
     const { rankingId, tournamentId } = request.params as { rankingId: string; tournamentId: string }
     await db.delete(rankingTournaments)
@@ -263,10 +275,6 @@ export async function rankingsRoutes(app: FastifyInstance) {
     return reply.status(204).send()
   })
 
-  // ---------------------------------------------------------------------------
-  // Recalculate ranking from scratch
-  // POST /rankings/:rankingId/recalculate
-  // ---------------------------------------------------------------------------
   app.post('/rankings/:rankingId/recalculate', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     try {
@@ -277,9 +285,6 @@ export async function rankingsRoutes(app: FastifyInstance) {
     }
   })
 
-  // ---------------------------------------------------------------------------
-  // Entries with athlete data (paginated)
-  // ---------------------------------------------------------------------------
   app.get('/rankings/:rankingId/entries', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     const { page = '1', perPage = '50' } = request.query as { page?: string; perPage?: string }
@@ -304,7 +309,7 @@ export async function rankingsRoutes(app: FastifyInstance) {
 
     const enriched = entries.map((e) => ({
       ...e,
-      athlete: athleteMap.get(e.athleteId) ?? null,
+      athlete:  athleteMap.get(e.athleteId) ?? null,
       athlete2: e.athlete2Id ? (athleteMap.get(e.athlete2Id) ?? null) : null,
     }))
 
@@ -318,9 +323,6 @@ export async function rankingsRoutes(app: FastifyInstance) {
     }
   })
 
-  // ---------------------------------------------------------------------------
-  // Audit gender (unchanged)
-  // ---------------------------------------------------------------------------
   app.post('/rankings/audit-gender', async (_request, _reply) => {
     const allRankings = await db.select().from(rankings)
     const report: { rankingId: string; discipline: string; removed: string[]; kept: number }[] = []
