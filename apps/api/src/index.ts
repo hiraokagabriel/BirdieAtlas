@@ -11,7 +11,11 @@ import { pointsTablesRoutes } from './routes/points-tables'
 
 const app = Fastify({ logger: true })
 
-await app.register(cors, { origin: true })
+await app.register(cors, {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+})
 
 await app.register(tournamentsRoutes)
 await app.register(athletesRoutes)

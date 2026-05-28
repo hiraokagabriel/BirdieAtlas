@@ -49,7 +49,10 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
 
   async function handleReopen() {
     if (!tournament) return
-    if (!confirm('Reabrir o campeonato? O status voltará para "Em andamento" e novas inscrições serão permitidas.')) return
+    const msg = tournament.pointsAwarded
+      ? 'Reabrir o campeonato irá REVERTER os pontos distribuídos nos rankings. Esta ação não pode ser desfeita. Confirmar?'
+      : 'Reabrir o campeonato? O status voltará para "Em andamento".'
+    if (!confirm(msg)) return
     setReopening(true)
     try {
       await apiFetch(`/tournaments/${tournament.id}/reopen`, { method: 'POST' })
@@ -61,9 +64,8 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
 
   if (!tournament) return null
 
-  const status     = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
+  const status      = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
   const isCompleted = tournament.status === 'completed'
-  const canFinalize = !isCompleted
 
   return (
     <div className="space-y-6">
@@ -96,7 +98,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {isCompleted && !tournament.pointsAwarded && (
+          {isCompleted && (
             <button
               onClick={handleReopen}
               disabled={reopening}
@@ -106,7 +108,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
               {reopening ? 'Reabrindo...' : 'Reabrir campeonato'}
             </button>
           )}
-          {canFinalize && (
+          {!isCompleted && (
             <button
               onClick={() => setFinalizeOpen(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
