@@ -78,18 +78,10 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Builds the ordered slot array for the first round of a bracket.
- *
- * mode='random':
- *   All athletes shuffled randomly. Byes fill the end of the bracket.
- *
- * mode='seeded':
- *   Standard seeding: seed 1 at position 0, seed 2 at position bracketSize-1,
- *   seeds 3-4 at positions bracketSize/2-1 and bracketSize/2 (randomly),
- *   seeds 5-8 at the four quarter-final boundary positions (randomly), etc.
- *   Unseeded athletes are shuffled and fill remaining slots randomly.
- *
- * Returns an array of length bracketSize where null = bye.
+ * Builds the ordered slot array for the first round.
+ * mode='random': all athletes shuffled, byes at the end.
+ * mode='seeded': seeded athletes at fixed positions (BWF convention),
+ *   unseeded fill remaining slots randomly.
  */
 function buildSlots(
   confirmed: { id: string; seed: number | null }[],
@@ -104,48 +96,66 @@ function buildSlots(
     return slots
   }
 
-  // mode === 'seeded'
-  // Standard bracket seeding positions for up to 8 seeds:
-  // seed 1 → slot 0
-  // seed 2 → slot bracketSize - 1
-  // seeds 3-4 → slots bracketSize/2 - 1 and bracketSize/2 (random within pair)
-  // seeds 5-8 → slots bracketSize/4-1, bracketSize/4, 3*bracketSize/4-1, 3*bracketSize/4 (random within group)
-  const seeded = confirmed.filter((r) => r.seed !== null).sort((a, b) => a.seed! - b.seed!)
+  // seeded
+  const seeded   = confirmed.filter((r) => r.seed !== null).sort((a, b) => a.seed! - b.seed!)
   const unseeded = shuffle(confirmed.filter((r) => r.seed === null))
 
-  // Pre-compute seeded positions following ITF/BWF convention
-  const seededPositions: number[] = []
-  seededPositions.push(0)                          // seed 1
-  seededPositions.push(bracketSize - 1)            // seed 2
-  // seeds 3-4
-  const half = bracketSize / 2
-  const thirdFourth = shuffle([half - 1, half])
-  seededPositions.push(...thirdFourth)             // seeds 3, 4
-  // seeds 5-8
+  const half    = bracketSize / 2
   const quarter = bracketSize / 4
-  const fifthToEighth = shuffle([
-    quarter - 1,
-    quarter,
-    3 * quarter - 1,
-    3 * quarter,
-  ])
-  seededPositions.push(...fifthToEighth)           // seeds 5, 6, 7, 8
 
-  // Place seeded athletes
+  const seededPositions: number[] = [
+    0,
+    bracketSize - 1,
+    ...shuffle([half - 1, half]),
+    ...shuffle([quarter - 1, quarter, 3 * quarter - 1, 3 * quarter]),
+  ]
+
   for (let i = 0; i < seeded.length && i < seededPositions.length; i++) {
     slots[seededPositions[i]] = seeded[i].id
   }
 
-  // Fill remaining slots with unseeded athletes in random order
   let ui = 0
   for (let i = 0; i < bracketSize && ui < unseeded.length; i++) {
-    if (slots[i] === null) {
-      slots[i] = unseeded[ui].id
-      ui++
-    }
+    if (slots[i] === null) { slots[i] = unseeded[ui].id; ui++ }
   }
 
   return slots
+}
+
+/**
+ * Core bracket builder: creates all matchDef rows for a given set of slots.
+ * Returns matchDefs ready to be inserted.
+ */
+function buildMatchDefs(
+  drawId: string,
+  slots: (string | null)[],
+): { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' }[] {
+  const bracketSize = slots.length
+  const numRounds   = Math.log2(bracketSize)
+
+  type MatchDef = { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' }
+  const matchDefs: MatchDef[] = []
+
+  for (let round = numRounds; round >= 1; round--) {
+    const count = Math.pow(2, round - 1)
+    for (let pos = 1; pos <= count; pos++) {
+      matchDefs.push({ id: randomUUID(), drawId, round, position: pos, registration1Id: null, registration2Id: null, nextMatchId: null, status: 'pending' })
+    }
+  }
+
+  const firstRoundMatches = matchDefs.filter((m) => m.round === numRounds)
+  for (const fm of firstRoundMatches) {
+    fm.registration1Id = slots[fm.position - 1] ?? null
+    fm.registration2Id = slots[bracketSize - fm.position] ?? null
+  }
+
+  for (const match of matchDefs) {
+    if (match.round === 1) continue
+    const next = matchDefs.find((m) => m.round === match.round - 1 && m.position === Math.ceil(match.position / 2))
+    if (next) match.nextMatchId = next.id
+  }
+
+  return matchDefs
 }
 
 export async function drawsRoutes(app: FastifyInstance) {
@@ -154,6 +164,9 @@ export async function drawsRoutes(app: FastifyInstance) {
     return db.select().from(draws).where(eq(draws.categoryId, categoryId))
   })
 
+  // ---------------------------------------------------------------------------
+  // Generate draw (first time)
+  // ---------------------------------------------------------------------------
   app.post('/draws/generate/:categoryId', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
     const { mode } = generateDrawSchema.parse(request.body ?? {})
@@ -162,38 +175,56 @@ export async function drawsRoutes(app: FastifyInstance) {
     const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
 
-    const numRounds = Math.ceil(Math.log2(confirmed.length))
-    const bracketSize = Math.pow(2, numRounds)
-
-    const slots = buildSlots(confirmed, mode)
-
-    const [draw] = await db.insert(draws).values({ id: randomUUID(), categoryId, drawMode: mode }).returning()
-
-    type MatchDef = { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' }
-    const matchDefs: MatchDef[] = []
-
-    for (let round = numRounds; round >= 1; round--) {
-      const count = Math.pow(2, round - 1)
-      for (let pos = 1; pos <= count; pos++) {
-        matchDefs.push({ id: randomUUID(), drawId: draw.id, round, position: pos, registration1Id: null, registration2Id: null, nextMatchId: null, status: 'pending' })
-      }
-    }
-
-    // Assign slots to first round: position p gets slots[p-1] vs slots[bracketSize-p]
-    const firstRoundMatches = matchDefs.filter((m) => m.round === numRounds)
-    for (const fm of firstRoundMatches) {
-      fm.registration1Id = slots[fm.position - 1] ?? null
-      fm.registration2Id = slots[bracketSize - fm.position] ?? null
-    }
-
-    for (const match of matchDefs) {
-      if (match.round === 1) continue
-      const next = matchDefs.find((m) => m.round === match.round - 1 && m.position === Math.ceil(match.position / 2))
-      if (next) match.nextMatchId = next.id
-    }
+    const slots      = buildSlots(confirmed, mode)
+    const [draw]     = await db.insert(draws).values({ id: randomUUID(), categoryId, drawMode: mode }).returning()
+    const matchDefs  = buildMatchDefs(draw.id, slots)
 
     await db.insert(matches).values(matchDefs)
     return reply.status(201).send({ draw, matchCount: matchDefs.length, mode })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Redraw — full cascade reset, then regenerate
+  // ---------------------------------------------------------------------------
+  app.post('/draws/:drawId/redraw', async (request, reply) => {
+    const { drawId } = request.params as { drawId: string }
+    const { mode }   = generateDrawSchema.parse(request.body ?? {})
+
+    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
+    if (!draw) return reply.status(404).send({ error: 'Draw not found' })
+
+    // 1. Fetch all existing matches for this draw
+    const existingMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const matchIds = existingMatches.map((m) => m.id)
+
+    // 2. Delete all results (cascade effect on scores)
+    if (matchIds.length) {
+      await db.delete(matchResults).where(inArray(matchResults.matchId, matchIds))
+    }
+
+    // 3. Delete all matches
+    await db.delete(matches).where(eq(matches.drawId, drawId))
+
+    // 4. Fetch confirmed registrations for the category
+    const registrations = await db.select().from(tournamentRegistrations)
+      .where(eq(tournamentRegistrations.categoryId, draw.categoryId))
+    const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
+    if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
+
+    // 5. Build new slots and match definitions
+    const slots     = buildSlots(confirmed, mode)
+    const matchDefs = buildMatchDefs(drawId, slots)
+
+    // 6. Insert new matches
+    await db.insert(matches).values(matchDefs)
+
+    // 7. Update draw record: new mode, reset published to false, refresh generatedAt
+    const [updated] = await db.update(draws)
+      .set({ drawMode: mode, published: false, generatedAt: new Date(), updatedAt: new Date() })
+      .where(eq(draws.id, drawId))
+      .returning()
+
+    return reply.status(200).send({ draw: updated, matchCount: matchDefs.length, mode })
   })
 
   app.post('/draws/:drawId/migrate-next-match-id', async (request) => {
