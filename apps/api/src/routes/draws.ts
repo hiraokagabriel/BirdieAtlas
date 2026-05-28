@@ -15,16 +15,9 @@ const scheduleMatchSchema = z.object({
   courtNumber: z.number().nullable(),
 })
 
-// ---------------------------------------------------------------------------
-// Gender compatibility — XD accepts any order (M+F or F+M)
-// ---------------------------------------------------------------------------
 function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M' | 'F'): boolean {
-  if (discipline === 'MS' || discipline === 'MD') {
-    return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
-  }
-  if (discipline === 'WS' || discipline === 'WD') {
-    return gender1 === 'F' && (gender2 === undefined || gender2 === 'F')
-  }
+  if (discipline === 'MS' || discipline === 'MD') return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
+  if (discipline === 'WS' || discipline === 'WD') return gender1 === 'F' && (gender2 === undefined || gender2 === 'F')
   if (discipline === 'XD') {
     if (!gender2) return false
     return (gender1 === 'M' && gender2 === 'F') || (gender1 === 'F' && gender2 === 'M')
@@ -34,8 +27,6 @@ function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M
 
 const DOUBLES_DISCIPLINES = new Set(['MD', 'WD', 'XD'])
 
-// Para duplas, normaliza a ordem dos IDs para garantir lookup consistente
-// Usa ordem lexicográfica: menor ID sempre em athleteId
 function normalizePair(id1: string, id2: string): [string, string] {
   return id1 < id2 ? [id1, id2] : [id2, id1]
 }
@@ -135,13 +126,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
-  // ---------------------------------------------------------------------------
-  // Distribuir pontos de ranking
-  // - Idempotente: bloqueia se pointsAwarded já for true
-  // - Valida gênero por disciplina
-  // - Duplas (MD/WD/XD): ranking por dupla (athleteId+athlete2Id normalizados)
-  // - Singles (MS/WS): ranking individual por athleteId
-  // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
@@ -150,14 +134,22 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (tournament.pointsAwarded) return reply.status(409).send({ error: 'Points have already been awarded for this tournament' })
     if (!tournament.pointsTableId) return reply.status(400).send({ error: 'Tournament has no pointsTableId configured' })
 
+    // Busca a linha de referência
     const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
     if (!refTable) return reply.status(400).send({ error: 'Points table not found' })
 
+    // Busca TODAS as linhas do mesmo grupo: tenantId + name + tournamentLevel do refTable
+    // (não usa tournament.level para evitar divergência caso o level tenha mudado após salvar a tabela)
     const allPointsRows = await db.select().from(pointsTables)
-      .where(and(eq(pointsTables.name, refTable.name), eq(pointsTables.tournamentLevel, tournament.level)))
+      .where(and(
+        eq(pointsTables.tenantId, refTable.tenantId),
+        eq(pointsTables.name, refTable.name),
+        eq(pointsTables.tournamentLevel, refTable.tournamentLevel),
+      ))
     if (!allPointsRows.length) return reply.status(400).send({ error: 'Points table rows not found' })
 
     const pointsMap = new Map(allPointsRows.map((p) => [p.placement, p.points]))
+
     const tenantRankings = await db.select().from(rankings).where(eq(rankings.tenantId, tournament.tenantId))
     const rankingByDiscipline = new Map(tenantRankings.map((r) => [r.discipline, r]))
     const categories = await db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, tournamentId))
@@ -182,10 +174,12 @@ export async function drawsRoutes(app: FastifyInstance) {
         if (!sets.length) continue
         const winner = getWinnerSlot(sets)
         if (!winner) continue
-        const loserRegId = winner === 1 ? match.registration2Id : match.registration1Id
+        const loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
         const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+        // placement do perdedor: final=2, semi=3, quartas=5, etc.
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
+        // campeão só na final (round=1)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
       }
 
@@ -207,23 +201,24 @@ export async function drawsRoutes(app: FastifyInstance) {
         const a2 = reg.athlete2Id ? athleteMap.get(reg.athlete2Id) : undefined
         if (!a1) continue
 
-        // Valida gênero
         if (!isGenderCompatible(category.discipline, a1.gender, a2?.gender)) {
           skipped.push({ categoryName: category.name, reason: `Gender incompatible: ${a1.id} in ${category.discipline}` })
           continue
         }
 
         const points = pointsMap.get(placement) ?? 0
-        if (points === 0) continue
+        // Loga no skipped para debug se placement não tiver pontos definidos
+        if (points === 0) {
+          skipped.push({ categoryName: category.name, reason: `Placement ${placement} has 0 points in table — skipping athlete ${reg.athleteId}` })
+          continue
+        }
 
         if (isDoubles) {
-          // Duplas: lookup e insert/update pela dupla normalizada
           if (!reg.athlete2Id) {
             skipped.push({ categoryName: category.name, reason: `Doubles category but registration ${regId} has no athlete2Id` })
             continue
           }
           const [normA1, normA2] = normalizePair(reg.athleteId, reg.athlete2Id)
-
           const existing = await db.select().from(rankingEntries).where(
             and(
               eq(rankingEntries.rankingId, ranking.id),
@@ -233,40 +228,19 @@ export async function drawsRoutes(app: FastifyInstance) {
               )
             )
           )
-
           if (existing.length) {
-            await db.update(rankingEntries)
-              .set({ points: existing[0].points + points, updatedAt: new Date() })
-              .where(eq(rankingEntries.id, existing[0].id))
+            await db.update(rankingEntries).set({ points: existing[0].points + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
           } else {
-            await db.insert(rankingEntries).values({
-              id: randomUUID(),
-              rankingId: ranking.id,
-              athleteId: normA1,
-              athlete2Id: normA2,
-              points,
-              position: 0,
-            })
+            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: normA1, athlete2Id: normA2, points, position: 0 })
           }
         } else {
-          // Singles: lookup e insert/update pelo athleteId individual
           const existing = await db.select().from(rankingEntries).where(
             and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId))
           )
-
           if (existing.length) {
-            await db.update(rankingEntries)
-              .set({ points: existing[0].points + points, updatedAt: new Date() })
-              .where(eq(rankingEntries.id, existing[0].id))
+            await db.update(rankingEntries).set({ points: existing[0].points + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
           } else {
-            await db.insert(rankingEntries).values({
-              id: randomUUID(),
-              rankingId: ranking.id,
-              athleteId: reg.athleteId,
-              athlete2Id: null,
-              points,
-              position: 0,
-            })
+            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: null, points, position: 0 })
           }
         }
 
