@@ -5,7 +5,8 @@ import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { RegistrationsTab } from '@/components/tournament/registrations-tab'
-import { Calendar, MapPin, ExternalLink, ChevronLeft } from 'lucide-react'
+import { FinalizeTournamentModal } from '@/components/tournament/finalize-tournament-modal'
+import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -17,11 +18,12 @@ type Tournament = {
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number }
 
 const statusMap: Record<string, { label: string; color: string }> = {
-  draft: { label: 'Rascunho', color: 'bg-gray-100 text-gray-700' },
-  registration_open: { label: 'Inscri\u00e7\u00f5es abertas', color: 'bg-blue-100 text-blue-700' },
-  registration_closed: { label: 'Inscri\u00e7\u00f5es encerradas', color: 'bg-yellow-100 text-yellow-700' },
-  in_progress: { label: 'Em andamento', color: 'bg-green-100 text-green-700' },
-  completed: { label: 'Encerrado', color: 'bg-gray-100 text-gray-600' },
+  draft:                { label: 'Rascunho',               color: 'bg-gray-100 text-gray-700' },
+  registration_open:   { label: 'Inscrições abertas',      color: 'bg-blue-100 text-blue-700' },
+  registration_closed: { label: 'Inscrições encerradas',   color: 'bg-yellow-100 text-yellow-700' },
+  in_progress:         { label: 'Em andamento',            color: 'bg-green-100 text-green-700' },
+  finished:            { label: 'Encerrado',               color: 'bg-gray-100 text-gray-500' },
+  completed:           { label: 'Concluído',               color: 'bg-gray-100 text-gray-600' },
 }
 
 export default function TournamentPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -30,9 +32,9 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'registrations' | 'bracket' | 'schedule'>('registrations')
+  const [finalizeOpen, setFinalizeOpen] = useState(false)
 
-  useEffect(() => {
-    // Busca direto por slug — sem precisar carregar lista completa
+  function fetchTournament() {
     apiFetch<Tournament>(`/tournaments/by-slug/${slug}`)
       .then((t) => {
         setTournament(t)
@@ -40,15 +42,17 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
       })
       .then(setCategories)
       .catch(() => router.push('/tournaments'))
-  }, [slug])
+  }
+
+  useEffect(() => { fetchTournament() }, [slug])
 
   if (!tournament) return null
 
   const status = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
+  const isFinished = tournament.status === 'finished'
 
   return (
     <div className="space-y-6">
-
       <button
         onClick={() => router.push('/tournaments')}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -76,14 +80,26 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
             )}
           </div>
         </div>
-        <Link
-          href={`/t/${tournament.slug}`}
-          target="_blank"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          <ExternalLink className="w-4 h-4" />
-          P\u00e1gina p\u00fablica
-        </Link>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {!isFinished && (
+            <button
+              onClick={() => setFinalizeOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+            >
+              <Flag className="w-4 h-4" />
+              Encerrar campeonato
+            </button>
+          )}
+          <Link
+            href={`/t/${tournament.slug}`}
+            target="_blank"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Página pública
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -96,7 +112,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
               tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t === 'registrations' ? 'Inscri\u00e7\u00f5es' : t === 'bracket' ? 'Chaveamento' : 'Agenda'}
+            {t === 'registrations' ? 'Inscrições' : t === 'bracket' ? 'Chaveamento' : 'Agenda'}
           </button>
         ))}
       </div>
@@ -104,6 +120,14 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
       {tab === 'registrations' && <RegistrationsTab tournamentId={tournament.id} categories={categories} />}
       {tab === 'bracket' && <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} />}
       {tab === 'schedule' && <ScheduleView tournamentId={tournament.id} categories={categories} />}
+
+      <FinalizeTournamentModal
+        tournamentId={tournament.id}
+        tournamentName={tournament.name}
+        open={finalizeOpen}
+        onClose={() => setFinalizeOpen(false)}
+        onFinalized={fetchTournament}
+      />
     </div>
   )
 }
