@@ -15,6 +15,10 @@ const scheduleMatchSchema = z.object({
   courtNumber: z.number().nullable(),
 })
 
+const generateDrawSchema = z.object({
+  mode: z.enum(['random', 'seeded']).default('seeded'),
+})
+
 function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M' | 'F'): boolean {
   if (discipline === 'MS' || discipline === 'MD') return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
   if (discipline === 'WS' || discipline === 'WD') return gender1 === 'F' && (gender2 === undefined || gender2 === 'F')
@@ -41,34 +45,107 @@ function getSlotForPosition(position: number): 'registration1Id' | 'registration
   return position % 2 === 1 ? 'registration1Id' : 'registration2Id'
 }
 
-// Returns true if a match is a bye (one slot is null)
 function isByeMatch(match: { registration1Id: string | null; registration2Id: string | null }): boolean {
   return match.registration1Id === null || match.registration2Id === null
 }
 
-// For walkover/retired/bye: determine winner and loser purely from slots.
-// Returns null if both slots are null (should never happen in practice).
 function getWinnerLoserFromSlots(
   match: { registration1Id: string | null; registration2Id: string | null; status: string },
 ): { winnerRegId: string; loserRegId: string | null } | null {
   const { registration1Id, registration2Id, status } = match
-  // Bye: only one athlete present → that athlete is the automatic winner
   if (registration2Id === null && registration1Id !== null) {
     return { winnerRegId: registration1Id, loserRegId: null }
   }
   if (registration1Id === null && registration2Id !== null) {
     return { winnerRegId: registration2Id, loserRegId: null }
   }
-  // Both slots filled but no sets (walkover/retired without scores):
-  // registration1 is considered winner by default (organizer must set
-  // correct status before awarding; this avoids silent skips).
   if (status === 'walkover' || status === 'retired') {
     if (registration1Id && registration2Id) {
-      // We cannot reliably tell who won without scores; treat reg1 as winner.
       return { winnerRegId: registration1Id, loserRegId: registration2Id }
     }
   }
   return null
+}
+
+// Fisher-Yates shuffle
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+/**
+ * Builds the ordered slot array for the first round of a bracket.
+ *
+ * mode='random':
+ *   All athletes shuffled randomly. Byes fill the end of the bracket.
+ *
+ * mode='seeded':
+ *   Standard seeding: seed 1 at position 0, seed 2 at position bracketSize-1,
+ *   seeds 3-4 at positions bracketSize/2-1 and bracketSize/2 (randomly),
+ *   seeds 5-8 at the four quarter-final boundary positions (randomly), etc.
+ *   Unseeded athletes are shuffled and fill remaining slots randomly.
+ *
+ * Returns an array of length bracketSize where null = bye.
+ */
+function buildSlots(
+  confirmed: { id: string; seed: number | null }[],
+  mode: 'random' | 'seeded',
+): (string | null)[] {
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(confirmed.length)))
+  const slots: (string | null)[] = new Array(bracketSize).fill(null)
+
+  if (mode === 'random') {
+    const shuffled = shuffle(confirmed)
+    for (let i = 0; i < shuffled.length; i++) slots[i] = shuffled[i].id
+    return slots
+  }
+
+  // mode === 'seeded'
+  // Standard bracket seeding positions for up to 8 seeds:
+  // seed 1 → slot 0
+  // seed 2 → slot bracketSize - 1
+  // seeds 3-4 → slots bracketSize/2 - 1 and bracketSize/2 (random within pair)
+  // seeds 5-8 → slots bracketSize/4-1, bracketSize/4, 3*bracketSize/4-1, 3*bracketSize/4 (random within group)
+  const seeded = confirmed.filter((r) => r.seed !== null).sort((a, b) => a.seed! - b.seed!)
+  const unseeded = shuffle(confirmed.filter((r) => r.seed === null))
+
+  // Pre-compute seeded positions following ITF/BWF convention
+  const seededPositions: number[] = []
+  seededPositions.push(0)                          // seed 1
+  seededPositions.push(bracketSize - 1)            // seed 2
+  // seeds 3-4
+  const half = bracketSize / 2
+  const thirdFourth = shuffle([half - 1, half])
+  seededPositions.push(...thirdFourth)             // seeds 3, 4
+  // seeds 5-8
+  const quarter = bracketSize / 4
+  const fifthToEighth = shuffle([
+    quarter - 1,
+    quarter,
+    3 * quarter - 1,
+    3 * quarter,
+  ])
+  seededPositions.push(...fifthToEighth)           // seeds 5, 6, 7, 8
+
+  // Place seeded athletes
+  for (let i = 0; i < seeded.length && i < seededPositions.length; i++) {
+    slots[seededPositions[i]] = seeded[i].id
+  }
+
+  // Fill remaining slots with unseeded athletes in random order
+  let ui = 0
+  for (let i = 0; i < bracketSize && ui < unseeded.length; i++) {
+    if (slots[i] === null) {
+      slots[i] = unseeded[ui].id
+      ui++
+    }
+  }
+
+  return slots
 }
 
 export async function drawsRoutes(app: FastifyInstance) {
@@ -79,20 +156,18 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   app.post('/draws/generate/:categoryId', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
+    const { mode } = generateDrawSchema.parse(request.body ?? {})
+
     const registrations = await db.select().from(tournamentRegistrations).where(eq(tournamentRegistrations.categoryId, categoryId))
     const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
 
-    const sorted = confirmed.sort((a, b) => {
-      if (a.seed && b.seed) return a.seed - b.seed
-      if (a.seed) return -1
-      if (b.seed) return 1
-      return (b.rankingPointsAtEntry ?? 0) - (a.rankingPointsAtEntry ?? 0)
-    })
-
-    const numRounds = Math.ceil(Math.log2(sorted.length))
+    const numRounds = Math.ceil(Math.log2(confirmed.length))
     const bracketSize = Math.pow(2, numRounds)
-    const [draw] = await db.insert(draws).values({ id: randomUUID(), categoryId }).returning()
+
+    const slots = buildSlots(confirmed, mode)
+
+    const [draw] = await db.insert(draws).values({ id: randomUUID(), categoryId, drawMode: mode }).returning()
 
     type MatchDef = { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' }
     const matchDefs: MatchDef[] = []
@@ -104,10 +179,11 @@ export async function drawsRoutes(app: FastifyInstance) {
       }
     }
 
+    // Assign slots to first round: position p gets slots[p-1] vs slots[bracketSize-p]
     const firstRoundMatches = matchDefs.filter((m) => m.round === numRounds)
     for (const fm of firstRoundMatches) {
-      fm.registration1Id = sorted[fm.position - 1]?.id ?? null
-      fm.registration2Id = sorted[bracketSize - fm.position]?.id ?? null
+      fm.registration1Id = slots[fm.position - 1] ?? null
+      fm.registration2Id = slots[bracketSize - fm.position] ?? null
     }
 
     for (const match of matchDefs) {
@@ -117,7 +193,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     }
 
     await db.insert(matches).values(matchDefs)
-    return reply.status(201).send({ draw, matchCount: matchDefs.length })
+    return reply.status(201).send({ draw, matchCount: matchDefs.length, mode })
   })
 
   app.post('/draws/:drawId/migrate-next-match-id', async (request) => {
@@ -164,11 +240,9 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (tournament.pointsAwarded) return reply.status(409).send({ error: 'Points have already been awarded for this tournament' })
     if (!tournament.pointsTableId) return reply.status(400).send({ error: 'Tournament has no pointsTableId configured' })
 
-    // Busca a linha de referência
     const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
     if (!refTable) return reply.status(400).send({ error: 'Points table not found' })
 
-    // Busca TODAS as linhas do mesmo grupo: tenantId + name + tournamentLevel do refTable
     const allPointsRows = await db.select().from(pointsTables)
       .where(and(
         eq(pointsTables.tenantId, refTable.tenantId),
@@ -195,8 +269,6 @@ export async function drawsRoutes(app: FastifyInstance) {
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
 
-      // Bug 3 fix: bye matches (one null slot) must never count as "pending"
-      // even though their status is still 'pending' in the DB.
       const pendingMatches = allMatches.filter(
         (m) => !['completed', 'walkover', 'retired'].includes(m.status) && !isByeMatch(m),
       )
@@ -205,8 +277,6 @@ export async function drawsRoutes(app: FastifyInstance) {
       const placementByReg = new Map<string, number>()
 
       for (const match of allMatches) {
-        // Bug 2 fix: skip matches where BOTH slots are null (should never
-        // happen but guard anyway).
         if (match.registration1Id === null && match.registration2Id === null) continue
 
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
@@ -215,24 +285,19 @@ export async function drawsRoutes(app: FastifyInstance) {
         let loserRegId: string | null = null
 
         if (sets.length > 0 && match.status === 'completed') {
-          // Normal completed match: derive winner from set scores
           const winnerSlot = getWinnerSlot(sets)
           if (!winnerSlot) continue
           winnerRegId = winnerSlot === 1 ? match.registration1Id : match.registration2Id
           loserRegId  = winnerSlot === 1 ? match.registration2Id : match.registration1Id
         } else {
-          // Bug 1 + Bug 2 fix: walkover, retired, or bye (no sets recorded).
-          // Determine winner/loser purely from which slots are filled.
           const result = getWinnerLoserFromSlots(match)
           if (!result) continue
           winnerRegId = result.winnerRegId
           loserRegId  = result.loserRegId
         }
 
-        // placement do perdedor: final=2, semi=3, quartas=5, etc.
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
-        // campeão só na final (round=1)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
       }
 
@@ -299,7 +364,6 @@ export async function drawsRoutes(app: FastifyInstance) {
         awarded.push({ categoryName: category.name, registrationId: regId, athleteId: reg.athleteId, athlete2Id: reg.athlete2Id ?? null, placement, points })
       }
 
-      // Recalcula posições
       const allEntries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, ranking.id))
       const sortedEntries = [...allEntries].sort((a, b) => b.points - a.points)
       for (let i = 0; i < sortedEntries.length; i++) {
