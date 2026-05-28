@@ -49,10 +49,11 @@ function shortName(entry: RankingEntry): string {
   return entry.athlete?.name ?? '—'
 }
 
-// TooltipProps não expõe `payload` diretamente — acessamos via indexação segura
-function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
-  if (!active || !payload?.length) return null
-  const entry = payload[0] as { payload: { name: string }; value: number; fill: string }
+// `payload` não é destruído no parâmetro pois TooltipProps não o declara
+// diretamente — acessamos via props para evitar erro de tipo do Recharts
+function CustomTooltip(props: TooltipProps<number, string>) {
+  if (!props.active || !props.payload?.length) return null
+  const entry = props.payload[0] as { payload: { name: string }; value: number; fill: string }
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.payload.name}</p>
