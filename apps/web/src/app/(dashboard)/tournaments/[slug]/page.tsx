@@ -6,7 +6,7 @@ import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { RegistrationsTab } from '@/components/tournament/registrations-tab'
 import { FinalizeTournamentModal } from '@/components/tournament/finalize-tournament-modal'
-import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag } from 'lucide-react'
+import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -18,12 +18,12 @@ type Tournament = {
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number }
 
 const statusMap: Record<string, { label: string; color: string }> = {
-  draft:                { label: 'Rascunho',               color: 'bg-gray-100 text-gray-700' },
-  registration_open:   { label: 'Inscrições abertas',      color: 'bg-blue-100 text-blue-700' },
-  registration_closed: { label: 'Inscrições encerradas',   color: 'bg-yellow-100 text-yellow-700' },
-  in_progress:         { label: 'Em andamento',            color: 'bg-green-100 text-green-700' },
-  finished:            { label: 'Encerrado',               color: 'bg-gray-100 text-gray-500' },
-  completed:           { label: 'Concluído',               color: 'bg-gray-100 text-gray-600' },
+  draft:                { label: 'Rascunho',             color: 'bg-gray-100 text-gray-700' },
+  registration_open:   { label: 'Inscrições abertas',    color: 'bg-blue-100 text-blue-700' },
+  registration_closed: { label: 'Inscrições encerradas', color: 'bg-yellow-100 text-yellow-700' },
+  in_progress:         { label: 'Em andamento',          color: 'bg-green-100 text-green-700' },
+  completed:           { label: 'Encerrado',             color: 'bg-gray-100 text-gray-500' },
+  cancelled:           { label: 'Cancelado',             color: 'bg-red-100 text-red-500' },
 }
 
 export default function TournamentPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -33,6 +33,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'registrations' | 'bracket' | 'schedule'>('registrations')
   const [finalizeOpen, setFinalizeOpen] = useState(false)
+  const [reopening, setReopening] = useState(false)
 
   function fetchTournament() {
     apiFetch<Tournament>(`/tournaments/by-slug/${slug}`)
@@ -46,10 +47,23 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
 
   useEffect(() => { fetchTournament() }, [slug])
 
+  async function handleReopen() {
+    if (!tournament) return
+    if (!confirm('Reabrir o campeonato? O status voltará para "Em andamento" e novas inscrições serão permitidas.')) return
+    setReopening(true)
+    try {
+      await apiFetch(`/tournaments/${tournament.id}/reopen`, { method: 'POST' })
+      fetchTournament()
+    } finally {
+      setReopening(false)
+    }
+  }
+
   if (!tournament) return null
 
-  const status = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
-  const isFinished = tournament.status === 'finished'
+  const status     = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
+  const isCompleted = tournament.status === 'completed'
+  const canFinalize = !isCompleted
 
   return (
     <div className="space-y-6">
@@ -82,7 +96,17 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {!isFinished && (
+          {isCompleted && !tournament.pointsAwarded && (
+            <button
+              onClick={handleReopen}
+              disabled={reopening}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {reopening ? 'Reabrindo...' : 'Reabrir campeonato'}
+            </button>
+          )}
+          {canFinalize && (
             <button
               onClick={() => setFinalizeOpen(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
@@ -102,7 +126,6 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-border">
         {(['registrations', 'bracket', 'schedule'] as const).map((t) => (
           <button

@@ -80,7 +80,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     const [cat] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
     if (!cat) return reply.status(404).send({ error: 'Category not found' })
     const [t] = await db.select().from(tournaments).where(eq(tournaments.id, cat.tournamentId))
-    if (t?.status === 'finished') return reply.status(400).send({ error: 'Tournament is finished. No new registrations allowed.' })
+    if (t?.status === 'completed') return reply.status(400).send({ error: 'Tournament is finished. No new registrations allowed.' })
     const [reg] = await db.insert(tournamentRegistrations).values({
       id: randomUUID(), categoryId, ...body, confirmed: false, withdrew: false,
     }).returning()
@@ -107,19 +107,17 @@ export async function tournamentsRoutes(app: FastifyInstance) {
 
   // ---------------------------------------------------------------------------
   // POST /tournaments/:id/finalize
-  // Valida chaves completas → muda status para 'finished' → retorna relatório
-  // top 4 de cada categoria (baseado nos resultados das finais)
+  // Valida chaves completas → muda status para 'completed' → retorna relatório
   // ---------------------------------------------------------------------------
   app.post('/tournaments/:id/finalize', async (request, reply) => {
     const { id } = request.params as { id: string }
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-    if (tournament.status === 'finished') return reply.status(409).send({ error: 'Tournament already finished' })
+    if (tournament.status === 'completed') return reply.status(409).send({ error: 'Tournament already finished' })
 
     const categories = await db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
     if (!categories.length) return reply.status(400).send({ error: 'No categories found' })
 
-    // Verifica se todas as chaves estão completas
     const incomplete: string[] = []
     for (const cat of categories) {
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
@@ -129,17 +127,12 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       if (pending.length > 0) incomplete.push(`${cat.name}: ${pending.length} partida(s) pendente(s)`)
     }
     if (incomplete.length > 0) {
-      return reply.status(400).send({
-        error: 'Não é possível encerrar: existem chaves incompletas.',
-        incomplete,
-      })
+      return reply.status(400).send({ error: 'Não é possível encerrar: existem chaves incompletas.', incomplete })
     }
 
-    // Gera relatório top 4 por categoria
+    // Gera relatório top 4
     const report: {
-      categoryId: string
-      categoryName: string
-      discipline: string
+      categoryId: string; categoryName: string; discipline: string
       podium: { placement: number; medal: string; athleteId: string; athleteName: string; athlete2Id: string | null; athlete2Name: string | null }[]
     }[] = []
 
@@ -147,25 +140,20 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
 
-      // Reconstrói placements a partir dos resultados
       const placementByReg = new Map<string, number>()
       for (const match of allMatches) {
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
         if (!sets.length) continue
         const winner = getWinnerSlot(sets)
         if (!winner) continue
-        const loserRegId = winner === 1 ? match.registration2Id : match.registration1Id
+        const loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
         const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
       }
 
-      // Top 4
-      const top4 = [...placementByReg.entries()]
-        .sort((a, b) => a[1] - b[1])
-        .slice(0, 4)
-
+      const top4 = [...placementByReg.entries()].sort((a, b) => a[1] - b[1]).slice(0, 4)
       if (!top4.length) continue
 
       const regIds = top4.map(([regId]) => regId)
@@ -186,16 +174,25 @@ export async function tournamentsRoutes(app: FastifyInstance) {
           athlete2Name: reg?.athlete2Id ? (athleteMap.get(reg.athlete2Id) ?? null) : null,
         }
       })
-
       report.push({ categoryId: cat.id, categoryName: cat.name, discipline: cat.discipline, podium })
     }
 
-    // Encerra o torneio
-    await db.update(tournaments)
-      .set({ status: 'finished', updatedAt: new Date() })
-      .where(eq(tournaments.id, id))
-
+    await db.update(tournaments).set({ status: 'completed', updatedAt: new Date() }).where(eq(tournaments.id, id))
     return { message: 'Torneio encerrado com sucesso.', report }
+  })
+
+  // ---------------------------------------------------------------------------
+  // POST /tournaments/:id/reopen
+  // Volta status para 'in_progress'. Bloqueado se pontos já foram distribuídos.
+  // ---------------------------------------------------------------------------
+  app.post('/tournaments/:id/reopen', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+    if (tournament.status !== 'completed') return reply.status(409).send({ error: 'Only completed tournaments can be reopened' })
+    if (tournament.pointsAwarded) return reply.status(409).send({ error: 'Cannot reopen: ranking points have already been awarded for this tournament' })
+    const [t] = await db.update(tournaments).set({ status: 'in_progress', updatedAt: new Date() }).where(eq(tournaments.id, id)).returning()
+    return t
   })
 
   app.delete('/tournaments/:id', async (request, reply) => {
