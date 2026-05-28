@@ -15,7 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      {/* suppressHydrationWarning prevents false-positive mismatch caused by
+          browser extensions that inject attributes into <body> before React hydrates
+          (e.g. ColorZilla injects cz-shortcut-listen="true") */}
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
         <QueryProvider>
           <TooltipProvider>{children}</TooltipProvider>
         </QueryProvider>
