@@ -57,7 +57,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
   const [selectedP1, setSelectedP1] = useState('')
   const [selectedP2, setSelectedP2] = useState('')
 
-  // Busca todos os draws e partidas de todas as categorias
   const { data: allData } = useQuery({
     queryKey: ['schedule-all', tournamentId],
     queryFn: async () => {
@@ -81,9 +80,9 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
     queryFn: () => apiFetch<Athlete[]>('/athletes'),
   })
 
-  // Flatten e ordena por horário agendado (sem horário fica no fim)
+  // Flatten — inclui categoryId para satisfazer o tipo do selectedMatch
   const flatMatches = (allData ?? []).flatMap(({ category, matches, registrations }) =>
-    matches.map((m) => ({ ...m, category, registrations }))
+    matches.map((m) => ({ ...m, categoryId: category.id, category, registrations }))
   )
 
   const filtered = flatMatches
@@ -96,7 +95,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
       return 0
     })
 
-  // Agrupa por data
   const grouped: Record<string, typeof filtered> = {}
   for (const m of filtered) {
     const key = m.scheduledAt
@@ -107,7 +105,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
       <div className="flex items-center gap-2 flex-wrap">
         <select
           value={filterCategoryId}
@@ -130,7 +127,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
         </select>
       </div>
 
-      {/* Lista agrupada por data */}
       {Object.entries(grouped).length === 0 ? (
         <div className="rounded-xl border border-border p-12 text-center text-muted-foreground">
           <CalendarClock className="w-8 h-8 mx-auto mb-3 opacity-30" />
@@ -151,7 +147,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
 
                 return (
                   <div key={match.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
-                    {/* Hora + quadra */}
                     <div className="w-24 shrink-0 text-center">
                       {match.scheduledAt ? (
                         <>
@@ -167,7 +162,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
                       )}
                     </div>
 
-                    {/* Categoria + round */}
                     <div className="w-28 shrink-0 space-y-1">
                       <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${disciplineColor}`}>
                         {match.category.name}
@@ -175,20 +169,17 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
                       <p className="text-xs text-muted-foreground">{getRoundLabel(match.round)}</p>
                     </div>
 
-                    {/* Atletas */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p1}</p>
                       <p className="text-xs text-muted-foreground">vs</p>
                       <p className="text-sm font-medium truncate">{p2}</p>
                     </div>
 
-                    {/* Status */}
                     <div className="flex items-center gap-1.5 shrink-0">
                       <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                       <span className="text-xs text-muted-foreground hidden sm:block">{status.label}</span>
                     </div>
 
-                    {/* Botão agendar (só admin) */}
                     {!readonly && (
                       <button
                         onClick={() => {

@@ -54,12 +54,10 @@ export default function RankingsPage() {
     if (!form.name.trim()) return
     setCreating(true)
     try {
-      const body = { ...form, tenantId: TENANT_ID || rankings[0]?.id }
-      // fallback: use tenantId of first ranking if env not set
       const tenantId = TENANT_ID || ''
       const newRanking = await apiFetch<Ranking>('/rankings', {
         method: 'POST',
-        body: JSON.stringify({ ...form, tenantId }),
+        json: { ...form, tenantId },
       })
       setRankings((prev) => [...prev, newRanking])
       setShowCreate(false)

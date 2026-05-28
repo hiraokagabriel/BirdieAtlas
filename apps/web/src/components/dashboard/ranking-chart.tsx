@@ -49,9 +49,10 @@ function shortName(entry: RankingEntry): string {
   return entry.athlete?.name ?? '—'
 }
 
+// TooltipProps não expõe `payload` diretamente — acessamos via indexação segura
 function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null
-  const entry = payload[0]
+  const entry = payload[0] as { payload: { name: string }; value: number; fill: string }
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.payload.name}</p>
@@ -68,7 +69,6 @@ export function RankingChart() {
   const [data, setData] = useState<{ name: string; points: number }[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Busca os rankings da federação uma vez
   useEffect(() => {
     apiFetch<RankingMeta[]>('/rankings?tenantSlug=fpb-sp').then((list) => {
       const map: Partial<Record<Category, string>> = {}
@@ -81,7 +81,6 @@ export function RankingChart() {
     }).catch(() => null)
   }, [])
 
-  // Busca as entradas sempre que mudar a categoria ativa
   useEffect(() => {
     const id = rankingMap[active]
     if (!id) { setData([]); setLoading(false); return }
