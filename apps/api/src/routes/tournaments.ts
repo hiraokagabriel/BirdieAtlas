@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
 import { tournaments, tournamentCategories, tournamentRegistrations, athletes } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -34,12 +34,6 @@ const createRegistrationSchema = z.object({
   rankingPointsAtEntry: z.number().optional(),
 })
 
-// ---------------------------------------------------------------------------
-// Gender rules per discipline
-// MS / MD  → all athletes must be M
-// WS / WD  → all athletes must be F
-// XD       → one M and one F, any order
-// ---------------------------------------------------------------------------
 async function validateGender(
   discipline: string,
   athleteId: string,
@@ -73,12 +67,25 @@ async function validateGender(
 }
 
 export async function tournamentsRoutes(app: FastifyInstance) {
+  // ---------------------------------------------------------------------------
+  // Tournaments
+  // ---------------------------------------------------------------------------
+
   app.get('/tournaments', async (request) => {
     const { tenantId } = request.query as { tenantId?: string }
     if (tenantId) {
       return db.select().from(tournaments).where(eq(tournaments.tenantId, tenantId))
     }
     return db.select().from(tournaments)
+  })
+
+  // Rota dedicada por slug — usada pela p\u00e1gina p\u00fablica e pelo dashboard
+  // Precisa vir ANTES de /tournaments/:id para n\u00e3o conflitar
+  app.get('/tournaments/by-slug/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string }
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.slug, slug)).limit(1)
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+    return tournament
   })
 
   app.get('/tournaments/:id', async (request, reply) => {
@@ -109,6 +116,10 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return tournament
   })
 
+  // ---------------------------------------------------------------------------
+  // Categories
+  // ---------------------------------------------------------------------------
+
   app.get('/tournaments/:id/categories', async (request) => {
     const { id } = request.params as { id: string }
     return db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
@@ -124,9 +135,49 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return reply.status(201).send(category)
   })
 
+  // ---------------------------------------------------------------------------
+  // Registrations
+  // ---------------------------------------------------------------------------
+
+  // Retorna inscri\u00e7\u00f5es com dados dos atletas j\u00e1 embutidos (evita N+1 no front)
   app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
     const { categoryId } = request.params as { categoryId: string }
-    return db.select().from(tournamentRegistrations).where(eq(tournamentRegistrations.categoryId, categoryId))
+
+    const a1 = { id: athletes.id, name: athletes.name, gender: athletes.gender }
+
+    const rows = await db
+      .select({
+        id: tournamentRegistrations.id,
+        categoryId: tournamentRegistrations.categoryId,
+        athleteId: tournamentRegistrations.athleteId,
+        athlete2Id: tournamentRegistrations.athlete2Id,
+        seed: tournamentRegistrations.seed,
+        confirmed: tournamentRegistrations.confirmed,
+        withdrew: tournamentRegistrations.withdrew,
+        rankingPointsAtEntry: tournamentRegistrations.rankingPointsAtEntry,
+        createdAt: tournamentRegistrations.createdAt,
+        athleteName: athletes.name,
+        athleteGender: athletes.gender,
+      })
+      .from(tournamentRegistrations)
+      .leftJoin(athletes, eq(tournamentRegistrations.athleteId, athletes.id))
+      .where(
+        and(
+          eq(tournamentRegistrations.categoryId, categoryId),
+          eq(tournamentRegistrations.withdrew, false),
+        )
+      )
+
+    // Para duplas, buscar nome do segundo atleta separadamente
+    const withPartner = await Promise.all(
+      rows.map(async (row) => {
+        if (!row.athlete2Id) return { ...row, athlete2Name: null }
+        const [a2] = await db.select({ name: athletes.name }).from(athletes).where(eq(athletes.id, row.athlete2Id)).limit(1)
+        return { ...row, athlete2Name: a2?.name ?? null }
+      })
+    )
+
+    return withPartner
   })
 
   app.post('/tournaments/categories/:categoryId/registrations', async (request, reply) => {
@@ -144,5 +195,17 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       .values({ id: randomUUID(), categoryId, ...body })
       .returning()
     return reply.status(201).send(registration)
+  })
+
+  // Soft-delete: marca withdrew = true em vez de deletar
+  app.delete('/tournaments/registrations/:registrationId', async (request, reply) => {
+    const { registrationId } = request.params as { registrationId: string }
+    const [reg] = await db
+      .update(tournamentRegistrations)
+      .set({ withdrew: true, updatedAt: new Date() })
+      .where(eq(tournamentRegistrations.id, registrationId))
+      .returning()
+    if (!reg) return reply.status(404).send({ error: 'Registration not found' })
+    return { ok: true }
   })
 }
