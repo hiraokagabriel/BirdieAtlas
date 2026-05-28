@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, type TooltipProps,
+  ResponsiveContainer, Cell,
 } from 'recharts'
 import { apiFetch } from '@/lib/api'
 
@@ -49,11 +49,14 @@ function shortName(entry: RankingEntry): string {
   return entry.athlete?.name ?? '—'
 }
 
-// `payload` não é destruído no parâmetro pois TooltipProps não o declara
-// diretamente — acessamos via props para evitar erro de tipo do Recharts
-function CustomTooltip(props: TooltipProps<number, string>) {
-  if (!props.active || !props.payload?.length) return null
-  const entry = props.payload[0] as { payload: { name: string }; value: number; fill: string }
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: { payload: { name: string }; value: number; fill: string }[]
+}
+
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null
+  const entry = payload[0]
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.payload.name}</p>
