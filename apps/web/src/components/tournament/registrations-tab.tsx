@@ -38,6 +38,25 @@ const disciplineColors: Record<string, string> = {
 
 const isDoubles = (discipline: string) => ['MD', 'WD', 'XD'].includes(discipline)
 
+// Retorna qual gênero é permitido para o slot 1 de cada disciplina
+function allowedGender1(discipline: string): 'M' | 'F' | 'any' {
+  if (discipline === 'MS' || discipline === 'MD') return 'M'
+  if (discipline === 'WS' || discipline === 'WD') return 'F'
+  return 'any' // XD
+}
+
+// Para o slot 2 do XD, o gênero deve ser oposto ao do slot 1
+function allowedGender2(discipline: string, gender1: 'M' | 'F' | ''): 'M' | 'F' | 'any' {
+  if (discipline === 'MD') return 'M'
+  if (discipline === 'WD') return 'F'
+  if (discipline === 'XD') {
+    if (gender1 === 'M') return 'F'
+    if (gender1 === 'F') return 'M'
+    return 'any'
+  }
+  return 'any'
+}
+
 interface Props {
   tournamentId: string
   categories: Category[]
@@ -54,19 +73,41 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
 
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
   const doubles = activeCategory ? isDoubles(activeCategory.discipline) : false
+  const discipline = activeCategory?.discipline ?? ''
 
-  // Inscri\u00e7\u00f5es da categoria ativa
   const { data: registrations = [], isLoading } = useQuery<Registration[]>({
     queryKey: ['registrations', activeCategoryId],
     queryFn: () => apiFetch(`/tournaments/categories/${activeCategoryId}/registrations`),
     enabled: !!activeCategoryId,
   })
 
-  // Lista de atletas para o autocomplete
   const { data: athletes = [] } = useQuery<Athlete[]>({
     queryKey: ['athletes'],
     queryFn: () => apiFetch('/athletes'),
   })
+
+  // IDs já inscritos nesta categoria (para esconder dos selects)
+  const registeredAthleteIds = new Set(
+    registrations.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
+  )
+
+  // Gênero do atleta 1 selecionado (para calcular o filtro do slot 2 em XD)
+  const selectedAthlete1 = athletes.find((a) => a.id === athleteId)
+  const gender1 = selectedAthlete1?.gender ?? ''
+
+  // Listas filtradas por gênero e excluindo já inscritos
+  const g1 = allowedGender1(discipline)
+  const athletesForSlot1 = athletes.filter(
+    (a) => (g1 === 'any' || a.gender === g1) && !registeredAthleteIds.has(a.id)
+  )
+
+  const g2 = allowedGender2(discipline, gender1)
+  const athletesForSlot2 = athletes.filter(
+    (a) =>
+      a.id !== athleteId &&
+      (g2 === 'any' || a.gender === g2) &&
+      !registeredAthleteIds.has(a.id)
+  )
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -86,7 +127,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
       setError(null)
       setShowForm(false)
     },
-    onError: async (err: unknown) => {
+    onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Erro ao inscrever atleta'
       setError(msg)
     },
@@ -108,12 +149,27 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
     addMutation.mutate()
   }
 
+  // Limpa slot 2 quando muda o atleta 1 (evita par inválido em XD)
+  function handleAthlete1Change(id: string) {
+    setAthleteId(id)
+    setAthlete2Id('')
+  }
+
   if (categories.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border p-16 text-center text-sm text-muted-foreground">
         Nenhuma categoria criada neste torneio ainda.
       </div>
     )
+  }
+
+  // Label de hint abaixo do select de atleta
+  const genderHint: Record<string, string> = {
+    MS: 'Apenas atletas masculinos',
+    WS: 'Apenas atletas femininas',
+    MD: 'Apenas atletas masculinos',
+    WD: 'Apenas atletas femininas',
+    XD: 'Um atleta masculino e uma feminina',
   }
 
   return (
@@ -123,7 +179,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null) }}
+            onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null); setAthleteId(''); setAthlete2Id('') }}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               activeCategoryId === cat.id
                 ? (disciplineColors[cat.discipline] ?? 'bg-gray-100 text-gray-700') + ' border-transparent'
@@ -155,35 +211,48 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
           </button>
         </div>
 
-        {/* Formul\u00e1rio inline */}
+        {/* Formulário inline */}
         {showForm && (
           <form onSubmit={handleSubmit} className="px-4 py-3 border-b border-border bg-muted/20 space-y-3">
+            {discipline && (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">Regra de gênero:</span> {genderHint[discipline]}
+              </p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">Atleta *</label>
+                <label className="text-xs text-muted-foreground font-medium">
+                  {doubles ? 'Atleta 1 *' : 'Atleta *'}
+                </label>
                 <select
                   value={athleteId}
-                  onChange={(e) => setAthleteId(e.target.value)}
+                  onChange={(e) => handleAthlete1Change(e.target.value)}
                   className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="">Selecionar atleta...</option>
-                  {athletes.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.gender})</option>
+                  <option value="">Selecionar...</option>
+                  {athletesForSlot1.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </select>
+                {athletesForSlot1.length === 0 && (
+                  <p className="text-xs text-amber-600">Nenhum atleta disponível para esta categoria.</p>
+                )}
               </div>
 
               {doubles && (
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground font-medium">Parceiro *</label>
+                  <label className="text-xs text-muted-foreground font-medium">Atleta 2 *</label>
                   <select
                     value={athlete2Id}
                     onChange={(e) => setAthlete2Id(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    disabled={discipline === 'XD' && !athleteId}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   >
-                    <option value="">Selecionar parceiro...</option>
-                    {athletes.filter((a) => a.id !== athleteId).map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} ({a.gender})</option>
+                    <option value="">
+                      {discipline === 'XD' && !athleteId ? 'Selecione o atleta 1 primeiro' : 'Selecionar...'}
+                    </option>
+                    {athletesForSlot2.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
                 </div>
@@ -210,7 +279,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
                 disabled={addMutation.isPending}
                 className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
-                {addMutation.isPending ? 'Inscrevendo...' : 'Confirmar inscri\u00e7\u00e3o'}
+                {addMutation.isPending ? 'Inscrevendo...' : 'Confirmar inscrição'}
               </button>
               <button
                 type="button"
@@ -234,10 +303,8 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
           <div className="divide-y divide-border">
             {registrations.map((reg, index) => (
               <div key={reg.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
-                {/* Posi\u00e7\u00e3o */}
                 <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">{index + 1}</span>
 
-                {/* Seed badge */}
                 {reg.seed ? (
                   <span className="inline-flex items-center gap-1 w-8 shrink-0">
                     <Trophy className="w-3 h-3 text-yellow-500" />
@@ -247,7 +314,6 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
                   <span className="w-8 shrink-0" />
                 )}
 
-                {/* Nome(s) */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {reg.athleteName ?? reg.athleteId}
@@ -257,19 +323,17 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
                   </p>
                 </div>
 
-                {/* Status */}
                 <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
                   reg.confirmed ? 'bg-green-100 text-green-700' : 'bg-yellow-50 text-yellow-700'
                 }`}>
                   {reg.confirmed ? 'Confirmado' : 'Pendente'}
                 </span>
 
-                {/* Remover */}
                 <button
                   onClick={() => removeMutation.mutate(reg.id)}
                   disabled={removeMutation.isPending}
                   className="shrink-0 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors"
-                  title="Remover inscri\u00e7\u00e3o"
+                  title="Remover inscrição"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
