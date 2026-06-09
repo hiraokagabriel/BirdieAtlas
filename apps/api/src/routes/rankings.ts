@@ -192,6 +192,8 @@ async function recalculateRanking(rankingId: string) {
         rankingId,
         athleteId: e.athleteId,
         athlete2Id: e.athlete2Id,
+        // Escreve nas duas colunas para compatibilidade total
+        points: e.points,
         totalPoints: e.points,
         position: i + 1,
       }))
@@ -210,7 +212,6 @@ async function recalculateRanking(rankingId: string) {
 // ---------------------------------------------------------------------------
 export async function rankingsRoutes(app: FastifyInstance) {
 
-  // GET /rankings?tenantId=...&tenantSlug=...
   app.get('/rankings', async (request) => {
     const { tenantId, tenantSlug } = request.query as { tenantId?: string; tenantSlug?: string }
 
@@ -257,7 +258,6 @@ export async function rankingsRoutes(app: FastifyInstance) {
     return ranking
   })
 
-  // Soft-delete: marca como inativo em vez de deletar fisicamente
   app.delete('/rankings/:rankingId', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     await db.update(rankings)
@@ -332,6 +332,8 @@ export async function rankingsRoutes(app: FastifyInstance) {
 
     const enriched = entries.map((e) => ({
       ...e,
+      // Garante que o campo points retorne o valor correto independente de qual coluna foi preenchida
+      points: e.totalPoints > 0 ? e.totalPoints : e.points,
       athlete:  athleteMap.get(e.athleteId) ?? null,
       athlete2: e.athlete2Id ? (athleteMap.get(e.athlete2Id) ?? null) : null,
     }))
