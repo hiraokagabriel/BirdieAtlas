@@ -15,7 +15,7 @@ type Registration = { id: string; athleteId: string; athlete2Id: string | null; 
 type Draw        = { id: string; published: boolean }
 type MatchResult = { id: string; matchId: string; setNumber: number; score1: number; score2: number }
 type Athlete     = { id: string; name: string }
-type Tournament  = { id: string; rankingId: string | null; pointsTableId: string | null }
+type Tournament  = { id: string; pointsTableId: string | null }
 type DrawMode    = 'random' | 'seeded'
 
 const disciplineColors: Record<string, string> = {
@@ -145,7 +145,7 @@ export function BracketView({
   })
 
   const allTournamentDone = allDrawsData?.every((d) => d.allDone) ?? false
-  const hasRankingConfig  = !!(tournamentData?.rankingId && tournamentData?.pointsTableId)
+  const hasRankingConfig  = !!tournamentData?.pointsTableId
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ['draws', activeCategoryId] })
@@ -337,7 +337,7 @@ export function BracketView({
                 <p className="text-xs text-blue-600 mt-0.5">
                   {hasRankingConfig
                     ? 'Pronto para distribuir pontos de ranking'
-                    : 'Configure rankingId e pointsTableId no torneio para habilitar'}
+                    : 'Configure uma Tabela de pontos no torneio para habilitar'}
                 </p>
               )}
             </div>
@@ -359,7 +359,7 @@ export function BracketView({
       {allTournamentDone && !hasRankingConfig && !alreadyAwarded && !awardResult && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Para distribuir pontos, vincule um <strong>Ranking</strong> e uma <strong>Tabela de pontos</strong> ao torneio nas configurações.
+          Para distribuir pontos, vincule uma <strong>Tabela de pontos</strong> ao torneio nas configurações.
         </div>
       )}
 
