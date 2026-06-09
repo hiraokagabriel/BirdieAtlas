@@ -82,7 +82,7 @@ async function recalculateRanking(rankingId: string) {
     tournamentIds = allTournaments.map((t) => t.id)
   } else {
     const links = await db.select().from(rankingTournaments)
-      .where(and(eq(rankingTournaments.rankingId, rankingId), eq(rankingTournaments.isScoring, true)))
+      .where(eq(rankingTournaments.rankingId, rankingId))
     tournamentIds = links.map((l) => l.tournamentId)
   }
 
@@ -285,7 +285,7 @@ export async function rankingsRoutes(app: FastifyInstance) {
       .where(and(eq(rankingTournaments.rankingId, rankingId), eq(rankingTournaments.tournamentId, tournamentId)))
     if (existing.length) return existing[0]
     const [link] = await db.insert(rankingTournaments)
-      .values({ id: randomUUID(), rankingId, tournamentId })
+      .values({ id: randomUUID(), rankingId, tournamentId, isScoring: true })
       .returning()
     return reply.status(201).send(link)
   })
