@@ -10,9 +10,6 @@ import { eq, and, asc, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M' | 'F'): boolean {
   if (discipline === 'MS' || discipline === 'MD') return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
   if (discipline === 'WS' || discipline === 'WD') return gender1 === 'F' && (gender2 === undefined || gender2 === 'F')
@@ -30,6 +27,7 @@ function normalizePair(id1: string, id2: string): [string, string] {
 }
 
 function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
+  if (!sets.length) return null
   const w1 = sets.filter((s) => s.score1 > s.score2).length
   const w2 = sets.filter((s) => s.score2 > s.score1).length
   return w1 > w2 ? 1 : w2 > w1 ? 2 : null
@@ -39,21 +37,38 @@ function isByeMatch(match: { registration1Id: string | null; registration2Id: st
   return match.registration1Id === null || match.registration2Id === null
 }
 
-function getWinnerLoserFromSlots(
+/**
+ * Resolve vencedor/perdedor para walkover, retired e bye.
+ *
+ * - walkover: usa sets salvos (ex: 21-0). Sem sets => null (inconclusivo).
+ * - retired:  usa sets parciais para determinar quem estava vencendo.
+ * - bye:      quem esta presente avanca automaticamente.
+ *
+ * NUNCA assume que registration1Id vence por padrao.
+ */
+function resolveWinnerLoser(
   match: { registration1Id: string | null; registration2Id: string | null; status: string },
+  sets: { score1: number; score2: number }[],
 ): { winnerRegId: string; loserRegId: string | null } | null {
   const { registration1Id, registration2Id, status } = match
+
   if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
   if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
-  if ((status === 'walkover' || status === 'retired') && registration1Id && registration2Id) {
-    return { winnerRegId: registration1Id, loserRegId: registration2Id }
+  if (!registration1Id || !registration2Id) return null
+
+  if (status === 'walkover' || status === 'retired') {
+    if (!sets.length) return null
+    const winnerSlot = getWinnerSlot(sets)
+    if (!winnerSlot) return null
+    return {
+      winnerRegId: winnerSlot === 1 ? registration1Id : registration2Id,
+      loserRegId:  winnerSlot === 1 ? registration2Id : registration1Id,
+    }
   }
+
   return null
 }
 
-// ---------------------------------------------------------------------------
-// Schemas
-// ---------------------------------------------------------------------------
 const createRankingSchema = z.object({
   tenantId: z.string(),
   name: z.string().min(1),
@@ -67,9 +82,6 @@ const createRankingSchema = z.object({
   isPublic: z.boolean().default(true),
 })
 
-// ---------------------------------------------------------------------------
-// Core: recalculate a ranking from scratch using its linked tournaments
-// ---------------------------------------------------------------------------
 async function recalculateRanking(rankingId: string) {
   const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
   if (!ranking) throw new Error('Ranking not found')
@@ -137,7 +149,7 @@ async function recalculateRanking(rankingId: string) {
           winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
           loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
         } else {
-          const result = getWinnerLoserFromSlots(match)
+          const result = resolveWinnerLoser(match, sets)
           if (!result) continue
           winnerRegId = result.winnerRegId
           loserRegId  = result.loserRegId
@@ -192,7 +204,6 @@ async function recalculateRanking(rankingId: string) {
         rankingId,
         athleteId: e.athleteId,
         athlete2Id: e.athlete2Id,
-        // Escreve nas duas colunas para compatibilidade total
         points: e.points,
         totalPoints: e.points,
         position: i + 1,
@@ -207,9 +218,6 @@ async function recalculateRanking(rankingId: string) {
   return { recalculated: sorted.length }
 }
 
-// ---------------------------------------------------------------------------
-// Routes
-// ---------------------------------------------------------------------------
 export async function rankingsRoutes(app: FastifyInstance) {
 
   app.get('/rankings', async (request) => {
@@ -332,7 +340,6 @@ export async function rankingsRoutes(app: FastifyInstance) {
 
     const enriched = entries.map((e) => ({
       ...e,
-      // Garante que o campo points retorne o valor correto independente de qual coluna foi preenchida
       points: e.totalPoints > 0 ? e.totalPoints : e.points,
       athlete:  athleteMap.get(e.athleteId) ?? null,
       athlete2: e.athlete2Id ? (athleteMap.get(e.athlete2Id) ?? null) : null,

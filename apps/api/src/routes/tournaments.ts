@@ -29,19 +29,44 @@ const createCategorySchema = z.object({
 })
 
 function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
+  if (!sets.length) return null
   const wins1 = sets.filter((s) => s.score1 > s.score2).length
   const wins2 = sets.filter((s) => s.score2 > s.score1).length
   return wins1 > wins2 ? 1 : wins2 > wins1 ? 2 : null
 }
 
-// ---------------------------------------------------------------------------
-// Recalcula um ranking removendo as entradas e reinserindo sem o torneio dado
-// ---------------------------------------------------------------------------
+/**
+ * Resolve vencedor/perdedor para walkover, retired e bye.
+ * walkover/retired: usa os sets salvos para determinar o vencedor pelo placar.
+ * NUNCA assume que registration1Id vence por padrao.
+ */
+function resolveWinnerLoser(
+  match: { registration1Id: string | null; registration2Id: string | null; status: string },
+  sets: { score1: number; score2: number }[],
+): { winnerRegId: string; loserRegId: string | null } | null {
+  const { registration1Id, registration2Id, status } = match
+
+  if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
+  if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
+  if (!registration1Id || !registration2Id) return null
+
+  if (status === 'walkover' || status === 'retired') {
+    if (!sets.length) return null
+    const winnerSlot = getWinnerSlot(sets)
+    if (!winnerSlot) return null
+    return {
+      winnerRegId: winnerSlot === 1 ? registration1Id : registration2Id,
+      loserRegId:  winnerSlot === 1 ? registration2Id : registration1Id,
+    }
+  }
+
+  return null
+}
+
 async function removePointsFromRanking(rankingId: string, tournamentId: string) {
   const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
   if (!ranking) return
 
-  // Busca todos os torneios que alimentam este ranking (excluindo o reaberto)
   let tournamentIds: string[] = []
   if (ranking.autoInclude) {
     const all = await db.select().from(tournaments)
@@ -53,16 +78,13 @@ async function removePointsFromRanking(rankingId: string, tournamentId: string) 
     tournamentIds = links.map((l) => l.tournamentId).filter((id) => id !== tournamentId)
   }
 
-  // Limpa entradas atuais do ranking
   await db.delete(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
 
   if (!tournamentIds.length) return
 
-  // Reacumula pontos apenas dos torneios restantes
   const { pointsTables } = await import('../db/schema')
   const DOUBLES = new Set(['MD', 'WD', 'XD'])
   const isDoubles = DOUBLES.has(ranking.discipline)
-
   const pointsAcc = new Map<string, { athleteId: string; athlete2Id: string | null; points: number }>()
 
   for (const tId of tournamentIds) {
@@ -90,12 +112,24 @@ async function removePointsFromRanking(rankingId: string, tournamentId: string) 
 
       const placementByReg = new Map<string, number>()
       for (const match of allMatches) {
+        if (match.registration1Id === null && match.registration2Id === null) continue
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-        if (!sets.length) continue
-        const winner = getWinnerSlot(sets)
-        if (!winner) continue
-        const loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+
+        let winnerRegId: string | null = null
+        let loserRegId: string | null = null
+
+        if (sets.length > 0 && match.status === 'completed') {
+          const winner = getWinnerSlot(sets)
+          if (!winner) continue
+          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
+        } else {
+          const result = resolveWinnerLoser(match, sets)
+          if (!result) continue
+          winnerRegId = result.winnerRegId
+          loserRegId  = result.loserRegId
+        }
+
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
@@ -131,7 +165,7 @@ async function removePointsFromRanking(rankingId: string, tournamentId: string) 
   const sorted = [...pointsAcc.values()].sort((a, b) => b.points - a.points)
   if (sorted.length) {
     await db.insert(rankingEntries).values(
-      sorted.map((e, i) => ({ id: randomUUID(), rankingId, athleteId: e.athleteId, athlete2Id: e.athlete2Id, points: e.points, position: i + 1 }))
+      sorted.map((e, i) => ({ id: randomUUID(), rankingId, athleteId: e.athleteId, athlete2Id: e.athlete2Id, points: e.points, totalPoints: e.points, position: i + 1 }))
     )
   }
 }
@@ -162,7 +196,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
   })
 
-  // Registrations enriquecidas com nome dos atletas
   app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
     const { categoryId } = request.params as { categoryId: string }
     const regs = await db.select().from(tournamentRegistrations)
@@ -190,7 +223,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   })
 
   app.post('/tournaments/:id/categories', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = request.params as { id: string }    
     const body = createCategorySchema.parse(request.body)
     const [cat] = await db.insert(tournamentCategories).values({ id: randomUUID(), tournamentId: id, ...body }).returning()
     return reply.status(201).send(cat)
@@ -227,9 +260,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return t
   })
 
-  // ---------------------------------------------------------------------------
-  // POST /tournaments/:id/finalize
-  // ---------------------------------------------------------------------------
   app.post('/tournaments/:id/finalize', async (request, reply) => {
     const { id } = request.params as { id: string }
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
@@ -242,13 +272,13 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     const incomplete: string[] = []
     for (const cat of categories) {
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
-      if (!drawList.length) { incomplete.push(`${cat.name}: chave não gerada`); continue }
+      if (!drawList.length) { incomplete.push(`${cat.name}: chave nao gerada`); continue }
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
       const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
       if (pending.length > 0) incomplete.push(`${cat.name}: ${pending.length} partida(s) pendente(s)`)
     }
     if (incomplete.length > 0) {
-      return reply.status(400).send({ error: 'Não é possível encerrar: existem chaves incompletas.', incomplete })
+      return reply.status(400).send({ error: 'Nao e possivel encerrar: existem chaves incompletas.', incomplete })
     }
 
     const report: {
@@ -262,12 +292,24 @@ export async function tournamentsRoutes(app: FastifyInstance) {
 
       const placementByReg = new Map<string, number>()
       for (const match of allMatches) {
+        if (match.registration1Id === null && match.registration2Id === null) continue
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-        if (!sets.length) continue
-        const winner = getWinnerSlot(sets)
-        if (!winner) continue
-        const loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        const winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+
+        let winnerRegId: string | null = null
+        let loserRegId: string | null = null
+
+        if (sets.length > 0 && match.status === 'completed') {
+          const winner = getWinnerSlot(sets)
+          if (!winner) continue
+          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
+        } else {
+          const result = resolveWinnerLoser(match, sets)
+          if (!result) continue
+          winnerRegId = result.winnerRegId
+          loserRegId  = result.loserRegId
+        }
+
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
         if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
@@ -300,10 +342,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return { message: 'Torneio encerrado com sucesso.', report }
   })
 
-  // ---------------------------------------------------------------------------
-  // POST /tournaments/:id/reopen
-  // Reverte pontos distribuídos, reseta pointsAwarded e volta para in_progress
-  // ---------------------------------------------------------------------------
   app.post('/tournaments/:id/reopen', async (request, reply) => {
     const { id } = request.params as { id: string }
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
@@ -312,13 +350,10 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: 'Only completed tournaments can be reopened' })
     }
 
-    // Se pontos foram distribuídos, reverte antes de reabrir
     if (tournament.pointsAwarded) {
-      // Rankings autoInclude do mesmo tenant
       const autoRankings = await db.select().from(rankings)
         .where(and(eq(rankings.tenantId, tournament.tenantId), eq(rankings.autoInclude, true)))
 
-      // Rankings vinculados manualmente
       const linkedLinks = await db.select().from(rankingTournaments)
         .where(eq(rankingTournaments.tournamentId, id))
       const linkedRankingIds = linkedLinks.map((l) => l.rankingId)
@@ -335,7 +370,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
         await removePointsFromRanking(rankingId, id)
       }
 
-      // Remove vínculo manual se existir
       if (linkedRankingIds.length) {
         await db.delete(rankingTournaments).where(eq(rankingTournaments.tournamentId, id))
       }
@@ -354,7 +388,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return reply.status(204).send()
   })
 
-  // DELETE inscrição
   app.delete('/tournaments/registrations/:registrationId', async (request, reply) => {
     const { registrationId } = request.params as { registrationId: string }
     await db.delete(tournamentRegistrations).where(eq(tournamentRegistrations.id, registrationId))
