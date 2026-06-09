@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useState, useMemo } from 'react'
+import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import {
   TrendingUp, ChevronLeft, RefreshCw, Plus, Trash2,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { PointRulesManager } from '@/components/ranking/point-rules-manager'
 
 type Ranking = {
   id: string; name: string; description: string | null
@@ -67,17 +68,15 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   const [page, setPage]           = useState(1)
   const [loading, setLoading]     = useState(false)
   const [recalcLoading, setRecalc] = useState(false)
-  const [tab, setTab]             = useState<'entries' | 'tournaments'>('entries')
+  const [tab, setTab]             = useState<'entries' | 'tournaments' | 'rules'>('entries')
   const [unlinking, setUnlinking] = useState<string | null>(null)
   const [linking, setLinking]     = useState<string | null>(null)
   const PER_PAGE = 25
 
-  // Load ranking metadata
   useEffect(() => {
     apiFetch<Ranking>(`/rankings/${rankingId}`).then(setRanking)
   }, [rankingId])
 
-  // Load entries
   useEffect(() => {
     if (!rankingId) return
     setLoading(true)
@@ -85,12 +84,10 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
       .then(setData).finally(() => setLoading(false))
   }, [rankingId, page])
 
-  // Load linked tournaments
   useEffect(() => {
     apiFetch<Tournament[]>(`/rankings/${rankingId}/tournaments`).then(setLinkedTournaments)
   }, [rankingId])
 
-  // Load all tournaments (to allow linking)
   useEffect(() => {
     if (TENANT_ID) {
       apiFetch<Tournament[]>(`/tournaments?tenantId=${TENANT_ID}`).then(setAllTournaments)
@@ -192,15 +189,15 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
 
       {/* TABS */}
       <div className="flex border-b border-border">
-        {(['entries', 'tournaments'] as const).map((t) => (
+        {(['entries', 'tournaments', 'rules'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t === 'entries'
-              ? `Classificação${data ? ` (${data.pagination.total})` : ''}`
-              : `Torneios (${linkedTournaments.length})`}
+            {t === 'entries'      && `Classificação${data ? ` (${data.pagination.total})` : ''}`}
+            {t === 'tournaments'  && `Torneios (${linkedTournaments.length})`}
+            {t === 'rules'        && 'Regras de Pontos'}
           </button>
         ))}
       </div>
@@ -302,7 +299,6 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
             </div>
           )}
 
-          {/* Vinculados */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold">Torneios vinculados</h3>
             {unlinkable.length === 0 ? (
@@ -332,7 +328,6 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
             )}
           </div>
 
-          {/* Disponíveis para vincular */}
           {linkable.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground">Disponíveis para vincular</h3>
@@ -361,6 +356,14 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
           )}
         </div>
       )}
+
+      {/* TAB: REGRAS DE PONTOS */}
+      {tab === 'rules' && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <PointRulesManager rankingId={rankingId} />
+        </div>
+      )}
+
     </div>
   )
 }
