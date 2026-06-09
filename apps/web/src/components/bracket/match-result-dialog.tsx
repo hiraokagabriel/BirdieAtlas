@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Trash2, Trophy, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Trophy, Loader2, AlertCircle } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -62,8 +62,8 @@ export function MatchResultDialog({
 
   const [sets, setSets] = useState<Set[]>([{ score1: '', score2: '' }])
   const [resultType, setResultType] = useState<'completed' | 'walkover' | 'retired'>('completed')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
-  // Pré-preenche ao editar
   useEffect(() => {
     if (open && isEdit && existingResults) {
       const sorted = [...existingResults].sort((a, b) => a.setNumber - b.setNumber)
@@ -73,15 +73,34 @@ export function MatchResultDialog({
       setSets([{ score1: '', score2: '' }])
       setResultType('completed')
     }
+    setSubmitAttempted(false)
   }, [open, isEdit])
 
+  // Ao trocar para WO ou Ret., limpa os sets para forçar seleção do vencedor
+  function handleResultTypeChange(type: 'completed' | 'walkover' | 'retired') {
+    setResultType(type)
+    if (type !== 'completed') {
+      setSets([{ score1: '', score2: '' }])
+    }
+    setSubmitAttempted(false)
+  }
+
   const winner = inferMatchWinner(sets)
+
+  // Para WO: obriga sets com placar 21-0 ou 0-21 (vencedor selecionado)
+  // Para Ret.: obriga ao menos um set preenchido
+  const isSpecialModeValid =
+    resultType === 'completed'
+      ? winner !== null
+      : winner !== null  // ambos WO e Ret. exigem vencedor identificável
 
   const { mutate: submitResult, isPending } = useMutation({
     mutationFn: async () => {
       const validSets = sets
         .map((s, i) => ({ setNumber: i + 1, score1: parseInt(s.score1), score2: parseInt(s.score2) }))
         .filter((s) => !isNaN(s.score1) && !isNaN(s.score2))
+
+      if (!validSets.length) throw new Error('Nenhum set válido para enviar')
 
       const res = await fetch(`${API_URL}/draws/matches/${match!.id}/result`, {
         method: 'POST',
@@ -101,7 +120,14 @@ export function MatchResultDialog({
   function handleClose() {
     setSets([{ score1: '', score2: '' }])
     setResultType('completed')
+    setSubmitAttempted(false)
     onClose()
+  }
+
+  function handleSubmit() {
+    setSubmitAttempted(true)
+    if (!isSpecialModeValid) return
+    submitResult()
   }
 
   function addSet() { setSets((p) => [...p, { score1: '', score2: '' }]) }
@@ -114,6 +140,8 @@ export function MatchResultDialog({
     : match?.round === 2 ? 'Semifinal'
     : match?.round === 3 ? 'Quartas de Final'
     : `Fase ${match?.round}`
+
+  const showWinnerError = submitAttempted && !isSpecialModeValid
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
@@ -161,7 +189,7 @@ export function MatchResultDialog({
           {(['completed', 'walkover', 'retired'] as const).map((type) => (
             <button
               key={type}
-              onClick={() => setResultType(type)}
+              onClick={() => handleResultTypeChange(type)}
               className={`flex-1 py-1 rounded-md text-xs font-semibold transition-all ${
                 resultType === type
                   ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
@@ -173,7 +201,7 @@ export function MatchResultDialog({
           ))}
         </div>
 
-        {/* Sets */}
+        {/* Sets — modo Normal */}
         {resultType === 'completed' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -222,31 +250,108 @@ export function MatchResultDialog({
           </div>
         )}
 
-        {/* W.O. / Ret. */}
+        {/* Seleção de vencedor — W.O. e Ret. */}
         {resultType !== 'completed' && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vencedor</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[player1Name, player2Name].map((name, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSets(idx === 0 ? [{ score1: '21', score2: '0' }] : [{ score1: '0', score2: '21' }])}
-                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    (idx === 0 && winner === 1) || (idx === 1 && winner === 2)
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border hover:bg-accent'
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
+          <div className="space-y-3">
+            {/* Instrução */}
+            <div className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 border ${
+              resultType === 'walkover'
+                ? 'bg-orange-50 border-orange-200 text-orange-700'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+            }`}>
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                {resultType === 'walkover'
+                  ? 'W.O.: selecione quem avança. O placar será registrado como 21–0 para o vencedor. Quem deu W.O. não pontua no ranking.'
+                  : 'Ret.: selecione quem estava vencendo quando a partida foi interrompida. O placar parcial será usado para determinar o vencedor.'}
+              </span>
             </div>
+
+            {/* Botões de seleção de vencedor */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quem avança?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[player1Name, player2Name].map((name, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSets(idx === 0
+                      ? [{ score1: '21', score2: '0' }]
+                      : [{ score1: '0', score2: '21' }]
+                    )}
+                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      (idx === 0 && winner === 1) || (idx === 1 && winner === 2)
+                        ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                        : 'border-border hover:bg-accent'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Parciais opcionais para Ret. */}
+            {resultType === 'retired' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parciais jogados</p>
+                  <button onClick={addSet} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    <Plus className="w-3 h-3" /> Adicionar set
+                  </button>
+                </div>
+                <div className="grid grid-cols-[1fr_40px_1fr_32px] gap-2 px-1">
+                  <p className="text-xs text-muted-foreground truncate">{player1Name.split(' ')[0]}</p>
+                  <div />
+                  <p className="text-xs text-muted-foreground truncate">{player2Name.split(' ')[0]}</p>
+                  <div />
+                </div>
+                {sets.map((set, idx) => {
+                  const sw = getSetWinner(set)
+                  return (
+                    <div key={idx} className="grid grid-cols-[1fr_40px_1fr_32px] gap-2 items-center">
+                      <Input
+                        type="number" min={0} max={30} placeholder="0"
+                        value={set.score1}
+                        onChange={(e) => updateSet(idx, 'score1', e.target.value)}
+                        className={`text-center font-mono ${
+                          sw === 1 ? 'border-green-400 bg-green-50 font-bold' : ''
+                        }`}
+                      />
+                      <p className="text-center text-xs text-muted-foreground font-medium">S{idx + 1}</p>
+                      <Input
+                        type="number" min={0} max={30} placeholder="0"
+                        value={set.score2}
+                        onChange={(e) => updateSet(idx, 'score2', e.target.value)}
+                        className={`text-center font-mono ${
+                          sw === 2 ? 'border-green-400 bg-green-50 font-bold' : ''
+                        }`}
+                      />
+                      <button
+                        onClick={() => removeSet(idx)}
+                        disabled={sets.length === 1}
+                        className="p-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-30"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Erro de validação */}
+            {showWinnerError && (
+              <p className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                Selecione o vencedor antes de confirmar.
+              </p>
+            )}
           </div>
         )}
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
-          <Button onClick={() => submitResult()} disabled={isPending || !winner}>
+          <Button onClick={handleSubmit} disabled={isPending}>
             {isPending
               ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
               : isEdit ? 'Salvar alterações' : 'Confirmar resultado'

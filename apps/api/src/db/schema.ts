@@ -42,7 +42,7 @@ export const tournamentStatusEnum = pgEnum('tournament_status', [
 ])
 
 // Enum exportado — usado em pointRules e rankingTournaments (tabelas novas, sem dados)
-// tournaments.level permanece como text para não truncar os 2 registros existentes
+// tournaments.level permanece como text para não truncar os registros existentes
 export const tournamentLevelEnum = pgEnum('tournament_level', [
   'local', 'regional', 'state', 'national', 'international',
 ])
@@ -118,9 +118,8 @@ export const tournaments = pgTable('tournaments', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   status: tournamentStatusEnum('status').notNull().default('draft'),
-  // Mantido como text (não enum) para preservar os registros existentes.
+  // Mantido como text para preservar registros existentes.
   // Valores válidos: 'local' | 'regional' | 'state' | 'national' | 'international'
-  // Migrar para tournamentLevelEnum em uma migration formal quando o banco estiver limpo.
   level: text('level').notNull().default('state'),
   startDate: date('start_date').notNull(),
   endDate: date('end_date').notNull(),
@@ -158,7 +157,6 @@ export const tournamentRegistrations = pgTable('tournament_registrations', {
   confirmed: boolean('confirmed').notNull().default(false),
   withdrew: boolean('withdrew').notNull().default(false),
   rankingPointsAtEntry: integer('ranking_points_at_entry'),
-  // Colocação final — preenchida ao encerrar o torneio. Motor de ranking lê este campo.
   finalPlacement: integer('final_placement'),
   ...timestamps,
 })
@@ -205,7 +203,7 @@ export const matchResults = pgTable('match_results', {
 })
 
 // ---------------------------------------------------------------------------
-// Points Table (legado — mantido para compatibilidade com award-points)
+// Points Table
 // ---------------------------------------------------------------------------
 export const pointsTables = pgTable('points_tables', {
   id: id(),
@@ -224,8 +222,6 @@ export const rankings = pgTable('rankings', {
   id: id(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),
   name: text('name').notNull(),
-  // Default '' para não quebrar os 5 registros existentes no banco.
-  // Preencha os slugs via Drizzle Studio após o push: pnpm --filter api db:studio
   slug: text('slug').notNull().default(''),
   description: text('description'),
   discipline: disciplineEnum('discipline').notNull(),
@@ -283,11 +279,8 @@ export const rankingEntries = pgTable('ranking_entries', {
   position: integer('position').notNull(),
   previousPosition: integer('previous_position'),
 
-  // Coluna legada — mantida para preservar os 16 registros existentes.
-  // O motor de recálculo escreve em totalPoints. Remover em migration formal futura.
-  points: integer('points').notNull().default(0),
-
-  // Nova coluna — usada pelo motor robusto de ranking
+  // Única coluna de pontuação — motor de recálculo escreve aqui.
+  // Coluna legada 'points' foi removida após migração dos dados existentes.
   totalPoints: real('total_points').notNull().default(0),
 
   tournamentsCount: integer('tournaments_count').notNull().default(0),
