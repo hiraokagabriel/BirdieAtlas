@@ -208,6 +208,7 @@ export const draws = pgTable('draws', {
   generatedAt: timestamp('generated_at').defaultNow().notNull(),
   published: boolean('published').notNull().default(false),
   ...timestamps,
+  drawMode: text('draw_mode').notNull().default('seeded'),
 })
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,27 @@
       "when": 1779843709036,
       "tag": "0000_fresh_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779910535083,
+      "tag": "0001_messy_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779913573861,
+      "tag": "0002_mean_nebula",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779925979852,
+      "tag": "0003_slim_giant_man",
+      "breakpoints": true
     }
   ]
 }
