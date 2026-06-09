@@ -6,7 +6,7 @@ import {
   tournamentCategories, draws, matches, matchResults, tournamentRegistrations,
   pointsTables,
 } from '../db/schema'
-import { eq, and, asc, inArray, or } from 'drizzle-orm'
+import { eq, and, asc, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -35,7 +35,6 @@ function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null
   return w1 > w2 ? 1 : w2 > w1 ? 2 : null
 }
 
-// A bye match has one null slot — it must never be treated as "pending"
 function isByeMatch(match: { registration1Id: string | null; registration2Id: string | null }): boolean {
   return match.registration1Id === null || match.registration2Id === null
 }
@@ -58,10 +57,14 @@ function getWinnerLoserFromSlots(
 const createRankingSchema = z.object({
   tenantId: z.string(),
   name: z.string().min(1),
+  slug: z.string().min(1),
   description: z.string().optional(),
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   year: z.number().int(),
   autoInclude: z.boolean().default(false),
+  countBestResults: z.number().int().optional(),
+  minTournamentsRequired: z.number().int().default(0),
+  isPublic: z.boolean().default(true),
 })
 
 // ---------------------------------------------------------------------------
@@ -79,7 +82,7 @@ async function recalculateRanking(rankingId: string) {
     tournamentIds = allTournaments.map((t) => t.id)
   } else {
     const links = await db.select().from(rankingTournaments)
-      .where(eq(rankingTournaments.rankingId, rankingId))
+      .where(and(eq(rankingTournaments.rankingId, rankingId), eq(rankingTournaments.isScoring, true)))
     tournamentIds = links.map((l) => l.tournamentId)
   }
 
@@ -113,7 +116,6 @@ async function recalculateRanking(rankingId: string) {
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
 
-      // Fix: bye matches (one null slot) must not be counted as pending
       const pendingMatches = allMatches.filter(
         (m) => !['completed', 'walkover', 'retired'].includes(m.status) && !isByeMatch(m),
       )
@@ -122,7 +124,6 @@ async function recalculateRanking(rankingId: string) {
       const placementByReg = new Map<string, number>()
 
       for (const match of allMatches) {
-        // Skip fully empty matches
         if (match.registration1Id === null && match.registration2Id === null) continue
 
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
@@ -136,7 +137,6 @@ async function recalculateRanking(rankingId: string) {
           winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
           loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
         } else {
-          // bye, walkover, retired — derive winner from slots
           const result = getWinnerLoserFromSlots(match)
           if (!result) continue
           winnerRegId = result.winnerRegId
@@ -192,11 +192,15 @@ async function recalculateRanking(rankingId: string) {
         rankingId,
         athleteId: e.athleteId,
         athlete2Id: e.athlete2Id,
-        points: e.points,
+        totalPoints: e.points,
         position: i + 1,
       }))
     )
   }
+
+  await db.update(rankings)
+    .set({ lastCalculatedAt: new Date(), updatedAt: new Date() })
+    .where(eq(rankings.id, rankingId))
 
   return { recalculated: sorted.length }
 }
@@ -206,16 +210,22 @@ async function recalculateRanking(rankingId: string) {
 // ---------------------------------------------------------------------------
 export async function rankingsRoutes(app: FastifyInstance) {
 
+  // GET /rankings?tenantId=...&tenantSlug=...
   app.get('/rankings', async (request) => {
     const { tenantId, tenantSlug } = request.query as { tenantId?: string; tenantSlug?: string }
+
     if (tenantSlug) {
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, tenantSlug))
       if (!tenant) return []
-      return db.select().from(rankings).where(and(eq(rankings.tenantId, tenant.id), eq(rankings.active, true)))
+      return db.select().from(rankings)
+        .where(and(eq(rankings.tenantId, tenant.id), eq(rankings.status, 'active')))
     }
+
     if (tenantId) {
-      return db.select().from(rankings).where(and(eq(rankings.tenantId, tenantId), eq(rankings.active, true)))
+      return db.select().from(rankings)
+        .where(and(eq(rankings.tenantId, tenantId), eq(rankings.status, 'active')))
     }
+
     return db.select().from(rankings)
   })
 
@@ -228,28 +238,38 @@ export async function rankingsRoutes(app: FastifyInstance) {
 
   app.post('/rankings', async (request, reply) => {
     const body = createRankingSchema.parse(request.body)
-    const [ranking] = await db.insert(rankings).values({ id: randomUUID(), ...body }).returning()
+    const [ranking] = await db.insert(rankings).values({
+      id: randomUUID(),
+      ...body,
+      status: 'active',
+    }).returning()
     return reply.status(201).send(ranking)
   })
 
   app.put('/rankings/:rankingId', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     const body = createRankingSchema.partial().parse(request.body)
-    const [ranking] = await db.update(rankings).set({ ...body, updatedAt: new Date() })
-      .where(eq(rankings.id, rankingId)).returning()
+    const [ranking] = await db.update(rankings)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(rankings.id, rankingId))
+      .returning()
     if (!ranking) return reply.status(404).send({ error: 'Ranking not found' })
     return ranking
   })
 
+  // Soft-delete: marca como inativo em vez de deletar fisicamente
   app.delete('/rankings/:rankingId', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
-    await db.update(rankings).set({ active: false, updatedAt: new Date() }).where(eq(rankings.id, rankingId))
+    await db.update(rankings)
+      .set({ status: 'inactive', updatedAt: new Date() })
+      .where(eq(rankings.id, rankingId))
     return reply.status(204).send()
   })
 
   app.get('/rankings/:rankingId/tournaments', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
-    const links = await db.select().from(rankingTournaments).where(eq(rankingTournaments.rankingId, rankingId))
+    const links = await db.select().from(rankingTournaments)
+      .where(eq(rankingTournaments.rankingId, rankingId))
     if (!links.length) return []
     const tIds = links.map((l) => l.tournamentId)
     return db.select().from(tournaments).where(inArray(tournaments.id, tIds))
@@ -264,7 +284,9 @@ export async function rankingsRoutes(app: FastifyInstance) {
     const existing = await db.select().from(rankingTournaments)
       .where(and(eq(rankingTournaments.rankingId, rankingId), eq(rankingTournaments.tournamentId, tournamentId)))
     if (existing.length) return existing[0]
-    const [link] = await db.insert(rankingTournaments).values({ id: randomUUID(), rankingId, tournamentId }).returning()
+    const [link] = await db.insert(rankingTournaments)
+      .values({ id: randomUUID(), rankingId, tournamentId })
+      .returning()
     return reply.status(201).send(link)
   })
 
@@ -280,8 +302,9 @@ export async function rankingsRoutes(app: FastifyInstance) {
     try {
       const result = await recalculateRanking(rankingId)
       return result
-    } catch (err: any) {
-      return reply.status(400).send({ error: err.message })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      return reply.status(400).send({ error: message })
     }
   })
 
@@ -325,6 +348,7 @@ export async function rankingsRoutes(app: FastifyInstance) {
 
   app.post('/rankings/audit-gender', async (_request, _reply) => {
     const allRankings = await db.select().from(rankings)
+      .where(eq(rankings.status, 'active'))
     const report: { rankingId: string; discipline: string; removed: string[]; kept: number }[] = []
 
     for (const ranking of allRankings) {
@@ -353,9 +377,11 @@ export async function rankingsRoutes(app: FastifyInstance) {
         await db.delete(rankingEntries).where(inArray(rankingEntries.id, toRemove))
       }
 
-      const sorted = [...toKeep].sort((a, b) => b.points - a.points)
+      const sorted = [...toKeep].sort((a, b) => b.totalPoints - a.totalPoints)
       for (let i = 0; i < sorted.length; i++) {
-        await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sorted[i].id))
+        await db.update(rankingEntries)
+          .set({ position: i + 1, updatedAt: new Date() })
+          .where(eq(rankingEntries.id, sorted[i].id))
       }
 
       report.push({ rankingId: ranking.id, discipline: ranking.discipline, removed: toRemove, kept: toKeep.length })
