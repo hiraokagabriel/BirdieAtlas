@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@fastify/cors": "latest",
-    "drizzle-orm": "latest",
+    "drizzle-orm": "0.41.0",
     "fastify": "latest",
     "pg": "latest",
     "zod": "latest"
@@ -23,7 +23,7 @@
     "@types/node": "latest",
     "@types/pg": "latest",
     "dotenv": "^17.4.2",
-    "drizzle-kit": "latest",
+    "drizzle-kit": "0.30.6",
     "tsx": "latest",
     "typescript": "latest"
   }
