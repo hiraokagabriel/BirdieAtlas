@@ -41,12 +41,12 @@ export const tournamentStatusEnum = pgEnum('tournament_status', [
   'in_progress', 'completed', 'cancelled',
 ])
 
-// Nível do torneio — usado pelo motor de ranking para selecionar a PointRule correta
+// Enum exportado — usado em pointRules e rankingTournaments (tabelas novas, sem dados)
+// tournaments.level permanece como text para não truncar os 2 registros existentes
 export const tournamentLevelEnum = pgEnum('tournament_level', [
   'local', 'regional', 'state', 'national', 'international',
 ])
 
-// Status de um ranking
 export const rankingStatusEnum = pgEnum('ranking_status', [
   'active', 'inactive', 'archived',
 ])
@@ -118,9 +118,10 @@ export const tournaments = pgTable('tournaments', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   status: tournamentStatusEnum('status').notNull().default('draft'),
-  // Nível do torneio para fins de ranking. O motor usa este valor para
-  // encontrar a PointRule correta (pode ser sobrescrito por rankingTournaments.levelOverride)
-  level: tournamentLevelEnum('level').notNull().default('state'),
+  // Mantido como text (não enum) para preservar os registros existentes.
+  // Valores válidos: 'local' | 'regional' | 'state' | 'national' | 'international'
+  // Migrar para tournamentLevelEnum em uma migration formal quando o banco estiver limpo.
+  level: text('level').notNull().default('state'),
   startDate: date('start_date').notNull(),
   endDate: date('end_date').notNull(),
   location: text('location'),
@@ -157,8 +158,7 @@ export const tournamentRegistrations = pgTable('tournament_registrations', {
   confirmed: boolean('confirmed').notNull().default(false),
   withdrew: boolean('withdrew').notNull().default(false),
   rankingPointsAtEntry: integer('ranking_points_at_entry'),
-  // Colocação final neste evento — preenchida ao encerrar o torneio.
-  // É o campo que o motor de ranking lê para calcular pontos.
+  // Colocação final — preenchida ao encerrar o torneio. Motor de ranking lê este campo.
   finalPlacement: integer('final_placement'),
   ...timestamps,
 })
@@ -219,113 +219,54 @@ export const pointsTables = pgTable('points_tables', {
 
 // ---------------------------------------------------------------------------
 // Rankings
-//
-// Um ranking é definido por: tenant + discipline + year + slug.
-// Cada ranking possui PointRules (granulares por nível/disciplina/categoria)
-// e torneios vinculados via RankingTournaments.
 // ---------------------------------------------------------------------------
 export const rankings = pgTable('rankings', {
   id: id(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),
-
-  // Identificadores
   name: text('name').notNull(),
-  slug: text('slug').notNull(),
+  // Default '' para não quebrar os 5 registros existentes no banco.
+  // Preencha os slugs via Drizzle Studio após o push: pnpm --filter api db:studio
+  slug: text('slug').notNull().default(''),
   description: text('description'),
-
-  // Escopo
   discipline: disciplineEnum('discipline').notNull(),
   year: integer('year').notNull(),
-
-  // Configuração do motor
   status: rankingStatusEnum('status').notNull().default('active'),
-
-  // Contar apenas os N melhores resultados de cada atleta na temporada.
-  // NULL = contar todos.
   countBestResults: integer('count_best_results'),
-
-  // Número mínimo de torneios que o atleta deve ter participado
-  // para aparecer no ranking. 0 = sem mínimo.
   minTournamentsRequired: integer('min_tournaments_required').notNull().default(0),
-
-  // Se true, visível na página pública do tenant.
   isPublic: boolean('is_public').notNull().default(true),
-
-  // autoInclude: comportamento legado — quando true todos os torneios
-  // do tenant com pointsAwarded=true entram automaticamente.
-  // Quando false, apenas os vínculos explícitos em ranking_tournaments contam.
   autoInclude: boolean('auto_include').notNull().default(false),
-
-  // Timestamp da última vez que o motor recalculou.
   lastCalculatedAt: timestamp('last_calculated_at'),
-
   deletedAt: timestamp('deleted_at'),
   ...timestamps,
 })
 
 // ---------------------------------------------------------------------------
 // Point Rules
-//
-// Define quantos pontos cada colocação vale dentro de um contexto:
-//   rankingId + tournamentLevel + discipline (opt) + category (opt)
-//
-// Resolução de prioridade (mais específico ganha):
-//   1. level + discipline + category  → regra exata
-//   2. level + discipline             → sem categoria
-//   3. level                          → só pelo nível
-//   4. fallback                       → nenhum filtro adicional (level = null)
 // ---------------------------------------------------------------------------
 export const pointRules = pgTable('point_rules', {
   id: id(),
   rankingId: text('ranking_id').notNull().references(() => rankings.id),
-
-  // Nível do torneio ao qual esta regra se aplica
   tournamentLevel: tournamentLevelEnum('tournament_level').notNull(),
-
-  // NULL = aplica a todas as disciplinas deste ranking
   discipline: disciplineEnum('discipline'),
-
-  // NULL = aplica a todas as categorias (ex: 'Open', 'Sub-19', 'Sub-23')
   category: text('category'),
-
-  // Fator multiplicador sobre os pontos base.
-  // 1.5 = este contexto vale 50% a mais que o basePoints da tabela.
   multiplier: real('multiplier').notNull().default(1.0),
-
-  // Bônus fixo de participação (somado independente da colocação).
   participationBonus: real('participation_bonus').notNull().default(0),
-
-  // Tabela colocação → pontos base.
-  // Formato JSON: [{ "placement": 1, "basePoints": 1000 }, { "placement": 2, "basePoints": 800 }, ...]
+  // [{ placement: 1, basePoints: 1000 }, { placement: 2, basePoints: 800 }, ...]
   entries: jsonb('entries').notNull().default('[]'),
-
   deletedAt: timestamp('deleted_at'),
   ...timestamps,
 })
 
 // ---------------------------------------------------------------------------
 // Ranking Tournaments
-//
-// Vínculo explícito entre um ranking e um torneio.
-// Permite sobrescrever o nível e aplicar um multiplicador extra por edição.
 // ---------------------------------------------------------------------------
 export const rankingTournaments = pgTable('ranking_tournaments', {
   id: id(),
   rankingId: text('ranking_id').notNull().references(() => rankings.id),
   tournamentId: text('tournament_id').notNull().references(() => tournaments.id),
-
-  // Sobrescreve tournament.level para fins de cálculo neste ranking.
-  // NULL = usa o nível original do torneio.
   levelOverride: tournamentLevelEnum('level_override'),
-
-  // Multiplicador extra desta edição do torneio.
-  // Combina multiplicativamente com pointRules.multiplier.
-  // Ex: 1.2 = esta edição vale 20% a mais.
   tournamentMultiplier: real('tournament_multiplier').notNull().default(1.0),
-
-  // Se false, o torneio está na lista mas NÃO entra no cálculo.
   isScoring: boolean('is_scoring').notNull().default(true),
-
   notes: text('notes'),
   deletedAt: timestamp('deleted_at'),
   ...timestamps,
@@ -333,42 +274,28 @@ export const rankingTournaments = pgTable('ranking_tournaments', {
 
 // ---------------------------------------------------------------------------
 // Ranking Entries
-//
-// Uma posição no ranking para um atleta ou dupla.
-// Sempre gerada (ou regerada) pelo motor de recálculo.
-// Pode ter ajuste manual com trilha de auditoria.
 // ---------------------------------------------------------------------------
 export const rankingEntries = pgTable('ranking_entries', {
   id: id(),
   rankingId: text('ranking_id').notNull().references(() => rankings.id),
   athleteId: text('athlete_id').notNull().references(() => athletes.id),
-  // Para duplas, ID do segundo atleta
   athlete2Id: text('athlete2_id').references(() => athletes.id),
-
   position: integer('position').notNull(),
   previousPosition: integer('previous_position'),
 
-  // Soma total dos pontos após aplicar countBestResults + manualAdjustment
+  // Coluna legada — mantida para preservar os 16 registros existentes.
+  // O motor de recálculo escreve em totalPoints. Remover em migration formal futura.
+  points: integer('points').notNull().default(0),
+
+  // Nova coluna — usada pelo motor robusto de ranking
   totalPoints: real('total_points').notNull().default(0),
 
-  // Quantos torneios o atleta participou neste ranking
   tournamentsCount: integer('tournaments_count').notNull().default(0),
-
-  // Detalhamento de cada resultado que compõe a pontuação.
-  // Formato: Array<{ tournamentId, tournamentName, placement, basePoints,
-  //                  multiplier, tournamentMultiplier, finalPoints, counted }>
   resultsDetail: jsonb('results_detail').notNull().default('[]'),
-
-  // Ajuste manual adicionado por um admin (pode ser negativo)
   manualAdjustment: real('manual_adjustment').notNull().default(0),
-
-  // Trilha de auditoria do ajuste manual
   overrideReason: text('override_reason'),
   overrideByUserId: text('override_by_user_id'),
   overrideAt: timestamp('override_at'),
-
-  // Quando este entry foi calculado pelo motor
   calculatedAt: timestamp('calculated_at'),
-
   ...timestamps,
 })
