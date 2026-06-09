@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
-import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, athletes } from '../db/schema'
+import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, rankingTournaments, athletes } from '../db/schema'
 import { eq, and, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -77,12 +77,6 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-/**
- * Builds the ordered slot array for the first round.
- * mode='random': all athletes shuffled, byes at the end.
- * mode='seeded': seeded athletes at fixed positions (BWF convention),
- *   unseeded fill remaining slots randomly.
- */
 function buildSlots(
   confirmed: { id: string; seed: number | null }[],
   mode: 'random' | 'seeded',
@@ -96,7 +90,6 @@ function buildSlots(
     return slots
   }
 
-  // seeded
   const seeded   = confirmed.filter((r) => r.seed !== null).sort((a, b) => a.seed! - b.seed!)
   const unseeded = shuffle(confirmed.filter((r) => r.seed === null))
 
@@ -122,10 +115,6 @@ function buildSlots(
   return slots
 }
 
-/**
- * Core bracket builder: creates all matchDef rows for a given set of slots.
- * Returns matchDefs ready to be inserted.
- */
 function buildMatchDefs(
   drawId: string,
   slots: (string | null)[],
@@ -164,9 +153,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return db.select().from(draws).where(eq(draws.categoryId, categoryId))
   })
 
-  // ---------------------------------------------------------------------------
-  // Generate draw (first time)
-  // ---------------------------------------------------------------------------
   app.post('/draws/generate/:categoryId', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
     const { mode } = generateDrawSchema.parse(request.body ?? {})
@@ -183,9 +169,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return reply.status(201).send({ draw, matchCount: matchDefs.length, mode })
   })
 
-  // ---------------------------------------------------------------------------
-  // Redraw — full cascade reset, then regenerate
-  // ---------------------------------------------------------------------------
   app.post('/draws/:drawId/redraw', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
     const { mode }   = generateDrawSchema.parse(request.body ?? {})
@@ -193,32 +176,25 @@ export async function drawsRoutes(app: FastifyInstance) {
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found' })
 
-    // 1. Fetch all existing matches for this draw
     const existingMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
     const matchIds = existingMatches.map((m) => m.id)
 
-    // 2. Delete all results (cascade effect on scores)
     if (matchIds.length) {
       await db.delete(matchResults).where(inArray(matchResults.matchId, matchIds))
     }
 
-    // 3. Delete all matches
     await db.delete(matches).where(eq(matches.drawId, drawId))
 
-    // 4. Fetch confirmed registrations for the category
     const registrations = await db.select().from(tournamentRegistrations)
       .where(eq(tournamentRegistrations.categoryId, draw.categoryId))
     const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
 
-    // 5. Build new slots and match definitions
     const slots     = buildSlots(confirmed, mode)
     const matchDefs = buildMatchDefs(drawId, slots)
 
-    // 6. Insert new matches
     await db.insert(matches).values(matchDefs)
 
-    // 7. Update draw record: new mode, reset published to false, refresh generatedAt
     const [updated] = await db.update(draws)
       .set({ drawMode: mode, published: false, generatedAt: new Date(), updatedAt: new Date() })
       .where(eq(draws.id, drawId))
@@ -263,6 +239,11 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
+  // ---------------------------------------------------------------------------
+  // POST /tournaments/:tournamentId/award-points
+  // Distribui pontos e garante que o vínculo rankingTournaments exista
+  // para que o recalculate encontre o torneio futuramente.
+  // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
@@ -291,9 +272,24 @@ export async function drawsRoutes(app: FastifyInstance) {
     const awarded: { categoryName: string; registrationId: string; athleteId: string; athlete2Id: string | null; placement: number; points: number }[] = []
     const skipped: { categoryName: string; reason: string }[] = []
 
+    // Garante que o vínculo rankingTournament existe para cada ranking afetado,
+    // para que o recalculate encontre o torneio mesmo sem autoInclude.
+    const linkedRankingIds = new Set<string>()
+
     for (const category of categories) {
       const ranking = rankingByDiscipline.get(category.discipline)
       if (!ranking) { skipped.push({ categoryName: category.name, reason: `No ranking found for discipline ${category.discipline}` }); continue }
+
+      // Cria vínculo se ainda não existir
+      if (!linkedRankingIds.has(ranking.id)) {
+        const existing = await db.select().from(rankingTournaments)
+          .where(and(eq(rankingTournaments.rankingId, ranking.id), eq(rankingTournaments.tournamentId, tournamentId)))
+        if (!existing.length) {
+          await db.insert(rankingTournaments)
+            .values({ id: randomUUID(), rankingId: ranking.id, tournamentId, isScoring: true })
+        }
+        linkedRankingIds.add(ranking.id)
+      }
 
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, category.id))
       if (!drawList.length) { skipped.push({ categoryName: category.name, reason: 'No draw generated' }); continue }
@@ -377,18 +373,18 @@ export async function drawsRoutes(app: FastifyInstance) {
             )
           )
           if (existing.length) {
-            await db.update(rankingEntries).set({ points: existing[0].points + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
+            await db.update(rankingEntries).set({ points: existing[0].points + points, totalPoints: existing[0].totalPoints + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
           } else {
-            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: normA1, athlete2Id: normA2, points, position: 0 })
+            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: normA1, athlete2Id: normA2, points, totalPoints: points, position: 0 })
           }
         } else {
           const existing = await db.select().from(rankingEntries).where(
             and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId))
           )
           if (existing.length) {
-            await db.update(rankingEntries).set({ points: existing[0].points + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
+            await db.update(rankingEntries).set({ points: existing[0].points + points, totalPoints: existing[0].totalPoints + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
           } else {
-            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: null, points, position: 0 })
+            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: null, points, totalPoints: points, position: 0 })
           }
         }
 
