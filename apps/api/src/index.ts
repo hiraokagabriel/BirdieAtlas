@@ -8,6 +8,7 @@ import { tenantsRoutes } from './routes/tenants'
 import { rankingsRoutes } from './routes/rankings'
 import { dashboardRoutes } from './routes/dashboard'
 import { pointsTablesRoutes } from './routes/points-tables'
+import { pointRulesRoutes } from './routes/point-rules'
 import { devAdminModeRoutes } from './middleware/admin-guard'
 
 const app = Fastify({ logger: true })
@@ -26,6 +27,7 @@ await app.register(tenantsRoutes)
 await app.register(rankingsRoutes)
 await app.register(dashboardRoutes)
 await app.register(pointsTablesRoutes)
+await app.register(pointRulesRoutes)
 
 // Rota utilitária de dev — registrada automaticamente apenas fora de produção
 await app.register(devAdminModeRoutes)
