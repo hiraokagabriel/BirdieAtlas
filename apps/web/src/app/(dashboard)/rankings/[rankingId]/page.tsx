@@ -3,8 +3,9 @@
 import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import {
-  TrendingUp, ChevronLeft, RefreshCw, Plus, Trash2,
-  ChevronRight, Users, User, Zap, Calendar, MapPin, CheckCircle2, Clock,
+  ChevronLeft, RefreshCw, Plus, Trash2,
+  ChevronRight, Users, User, Zap, CheckCircle2, Clock,
+  Settings, X, Trophy, Shield, Save,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,6 +14,8 @@ import { PointRulesManager } from '@/components/ranking/point-rules-manager'
 type Ranking = {
   id: string; name: string; description: string | null
   discipline: string; year: number; autoInclude: boolean
+  countBestResults: number | null
+  minTournamentsRequired: number
 }
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: string
@@ -33,6 +36,13 @@ type Entry = {
 type RankingResponse = {
   ranking: Ranking; entries: Entry[]
   pagination: { page: number; perPage: number; total: number; totalPages: number }
+}
+type EditForm = {
+  name: string
+  description: string
+  countBestResults: string
+  minTournamentsRequired: string
+  autoInclude: boolean
 }
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? ''
@@ -70,16 +80,28 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   const [data, setData]       = useState<RankingResponse | null>(null)
   const [linkedTournaments, setLinkedTournaments] = useState<Tournament[]>([])
   const [allTournaments, setAllTournaments]       = useState<Tournament[]>([])
-  const [page, setPage]           = useState(1)
-  const [loading, setLoading]     = useState(false)
-  const [recalcLoading, setRecalc] = useState(false)
-  const [tab, setTab]             = useState<'entries' | 'tournaments' | 'rules'>('entries')
-  const [unlinking, setUnlinking] = useState<string | null>(null)
-  const [linking, setLinking]     = useState<string | null>(null)
+  const [page, setPage]             = useState(1)
+  const [loading, setLoading]       = useState(false)
+  const [recalcLoading, setRecalc]  = useState(false)
+  const [tab, setTab]               = useState<'entries' | 'tournaments' | 'rules'>('entries')
+  const [unlinking, setUnlinking]   = useState<string | null>(null)
+  const [linking, setLinking]       = useState<string | null>(null)
+  const [showEdit, setShowEdit]     = useState(false)
+  const [editForm, setEditForm]     = useState<EditForm | null>(null)
+  const [saving, setSaving]         = useState(false)
   const PER_PAGE = 25
 
   useEffect(() => {
-    apiFetch<Ranking>(`/rankings/${rankingId}`).then(setRanking)
+    apiFetch<Ranking>(`/rankings/${rankingId}`).then((r) => {
+      setRanking(r)
+      setEditForm({
+        name: r.name,
+        description: r.description ?? '',
+        countBestResults: r.countBestResults != null ? String(r.countBestResults) : '',
+        minTournamentsRequired: String(r.minTournamentsRequired),
+        autoInclude: r.autoInclude,
+      })
+    })
   }, [rankingId])
 
   useEffect(() => {
@@ -101,7 +123,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
     }
   }, [])
 
-  const linkedIds = new Set(linkedTournaments.map((t) => t.id))
+  const linkedIds  = new Set(linkedTournaments.map((t) => t.id))
   const unlinkable = linkedTournaments
   const linkable   = allTournaments.filter((t) => !linkedIds.has(t.id) && t.pointsAwarded)
 
@@ -114,6 +136,28 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
       setData(res)
     } finally {
       setRecalc(false)
+    }
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editForm) return
+    setSaving(true)
+    try {
+      const updated = await apiFetch<Ranking>(`/rankings/${rankingId}`, {
+        method: 'PUT',
+        json: {
+          name: editForm.name,
+          description: editForm.description || undefined,
+          autoInclude: editForm.autoInclude,
+          countBestResults: editForm.countBestResults ? Number(editForm.countBestResults) : null,
+          minTournamentsRequired: Number(editForm.minTournamentsRequired),
+        },
+      })
+      setRanking(updated)
+      setShowEdit(false)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -138,10 +182,10 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
     }
   }
 
-  const isDoubles = ranking ? ['MD', 'WD', 'XD'].includes(ranking.discipline) : false
+  const isDoubles  = ranking ? ['MD', 'WD', 'XD'].includes(ranking.discipline) : false
   const pagination = data?.pagination
 
-  if (!ranking) return (
+  if (!ranking || !editForm) return (
     <div className="space-y-6 animate-pulse">
       <div className="h-8 w-32 rounded bg-muted" />
       <div className="h-24 rounded-xl bg-muted" />
@@ -151,6 +195,105 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
 
   return (
     <div className="space-y-6">
+
+      {/* MODAL DE EDIÇÃO */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <form
+            onSubmit={handleSaveEdit}
+            className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl p-6 space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Editar Ranking</h3>
+              <button type="button" onClick={() => setShowEdit(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Nome e descrição */}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium">Nome *</label>
+                <input
+                  type="text" required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => f && ({ ...f, name: e.target.value }))}
+                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium">Descrição</label>
+                <input
+                  type="text" placeholder="Descrição opcional"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((f) => f && ({ ...f, description: e.target.value }))}
+                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+
+            {/* Regras de contagem */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Regras de contagem</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3" />
+                    Melhores resultados
+                  </label>
+                  <input
+                    type="number" min={1} max={99} placeholder="Todos (padrão)"
+                    value={editForm.countBestResults}
+                    onChange={(e) => setEditForm((f) => f && ({ ...f, countBestResults: e.target.value }))}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="text-xs text-muted-foreground">Vazio = conta todos.</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                    <Shield className="w-3 h-3" />
+                    Mínimo de torneios
+                  </label>
+                  <input
+                    type="number" min={0} max={99}
+                    value={editForm.minTournamentsRequired}
+                    onChange={(e) => setEditForm((f) => f && ({ ...f, minTournamentsRequired: e.target.value }))}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="text-xs text-muted-foreground">0 = sem restrição.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Auto-inclusão */}
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={editForm.autoInclude}
+                onChange={(e) => setEditForm((f) => f && ({ ...f, autoInclude: e.target.checked }))}
+                className="rounded"
+              />
+              <span className="text-sm">
+                <span className="font-medium">Inclusão automática</span>
+                <span className="text-muted-foreground ml-1.5">— todos os torneios com pontos distribuídos</span>
+              </span>
+            </label>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="submit" disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Salvando...' : 'Salvar alterações'}
+              </button>
+              <button type="button" onClick={() => setShowEdit(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* VOLTAR */}
       <button
@@ -178,18 +321,39 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                 Inclusão automática
               </span>
             )}
+            {ranking.countBestResults && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-xs">
+                <Trophy className="w-3 h-3" />
+                Top {ranking.countBestResults} torneios
+              </span>
+            )}
+            {ranking.minTournamentsRequired > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 text-xs">
+                <Shield className="w-3 h-3" />
+                Mín. {ranking.minTournamentsRequired} torneios
+              </span>
+            )}
           </div>
           {ranking.description && <p className="text-sm text-muted-foreground">{ranking.description}</p>}
         </div>
 
-        <button
-          onClick={handleRecalculate}
-          disabled={recalcLoading}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${recalcLoading ? 'animate-spin' : ''}`} />
-          {recalcLoading ? 'Recalculando...' : 'Recalcular'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowEdit(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            Editar
+          </button>
+          <button
+            onClick={handleRecalculate}
+            disabled={recalcLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${recalcLoading ? 'animate-spin' : ''}`} />
+            {recalcLoading ? 'Recalculando...' : 'Recalcular'}
+          </button>
+        </div>
       </div>
 
       {/* TABS */}
@@ -210,6 +374,25 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
       {/* TAB: ENTRIES */}
       {tab === 'entries' && (
         <div className="space-y-4">
+
+          {/* Banner informativo sobre as regras ativas */}
+          {(ranking.countBestResults || ranking.minTournamentsRequired > 0) && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex flex-wrap items-center gap-x-4 gap-y-1">
+              {ranking.countBestResults && (
+                <span className="flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5" />
+                  Contando os <strong>{ranking.countBestResults} melhores</strong> resultados por atleta
+                </span>
+              )}
+              {ranking.minTournamentsRequired > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5" />
+                  Mínimo de <strong>{ranking.minTournamentsRequired}</strong> torneio{ranking.minTournamentsRequired !== 1 ? 's' : ''} para participar
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <span>#</span>
