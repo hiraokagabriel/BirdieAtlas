@@ -103,21 +103,21 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
     queryFn: () => apiFetch(`/rankings/${rankingId}/point-rules`),
   })
 
-  const [showForm, setShowForm]     = useState(false)
-  const [editingId, setEditingId]   = useState<string | null>(null)
-  const [form, setForm]             = useState<RuleFormState>(emptyForm())
+  const [showForm, setShowForm]   = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm]           = useState<RuleFormState>(emptyForm())
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: qKey })
 
   const createMutation = useMutation({
     mutationFn: (data: object) =>
-      apiFetch(`/rankings/${rankingId}/point-rules`, { method: 'POST', body: JSON.stringify(data) }),
+      apiFetch(`/rankings/${rankingId}/point-rules`, { method: 'POST', json: data }),
     onSuccess: () => { invalidate(); setShowForm(false); setForm(emptyForm()) },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: object }) =>
-      apiFetch(`/rankings/${rankingId}/point-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      apiFetch(`/rankings/${rankingId}/point-rules/${id}`, { method: 'PUT', json: data }),
     onSuccess: () => { invalidate(); setEditingId(null) },
   })
 
@@ -129,12 +129,12 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
 
   function buildPayload(f: RuleFormState) {
     return {
-      tournamentLevel:   f.tournamentLevel,
-      discipline:        f.discipline || null,
-      category:          f.category   || null,
-      multiplier:        parseFloat(f.multiplier)        || 1,
+      tournamentLevel:    f.tournamentLevel,
+      discipline:         f.discipline || null,
+      category:           f.category   || null,
+      multiplier:         parseFloat(f.multiplier)         || 1,
       participationBonus: parseFloat(f.participationBonus) || 0,
-      entries:           f.entries,
+      entries:            f.entries,
     }
   }
 
@@ -150,7 +150,6 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
     })
   }
 
-  // Agrupa as regras por nível para exibir em seções
   const grouped = LEVELS.map((lvl) => ({
     ...lvl,
     rules: rules.filter((r) => r.tournamentLevel === lvl.value),
@@ -184,7 +183,7 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
         />
       )}
 
-      {/* Listagem agrupada por nível */}
+      {/* Estado vazio */}
       {rules.length === 0 && !showForm && (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground">Nenhuma regra cadastrada ainda.</p>
@@ -194,6 +193,7 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
         </div>
       )}
 
+      {/* Listagem agrupada por nível */}
       {grouped.map((group) => (
         <div key={group.value} className="rounded-lg border">
           <div className="flex items-center gap-2 px-4 py-3 bg-muted/40 rounded-t-lg">
@@ -233,7 +233,7 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
 }
 
 // ---------------------------------------------------------------------------
-// RuleRow — exibe uma regra com botões de ação
+// RuleRow
 // ---------------------------------------------------------------------------
 interface RuleRowProps {
   rule: PointRule
@@ -296,7 +296,7 @@ function RuleRow({ rule, onEdit, onDelete, isDeleting }: RuleRowProps) {
 }
 
 // ---------------------------------------------------------------------------
-// RuleForm — formulário compartilhado entre criar e editar
+// RuleForm
 // ---------------------------------------------------------------------------
 interface RuleFormProps {
   form: RuleFormState
@@ -389,7 +389,10 @@ function RuleForm({ form, setForm, onSave, onCancel, isSaving, title }: RuleForm
 
         {/* Bônus de participação */}
         <div className="space-y-1 col-span-2">
-          <label className="text-xs font-medium">Bônus de Participação <span className="text-muted-foreground">(pontos fixos independente da colocação)</span></label>
+          <label className="text-xs font-medium">
+            Bônus de Participação
+            <span className="text-muted-foreground ml-1">(pontos fixos independente da colocação)</span>
+          </label>
           <Input
             className="h-8 text-xs"
             type="number" step="1" min="0"
