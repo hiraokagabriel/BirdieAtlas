@@ -1,6 +1,6 @@
 # BirdieAtlas — Progresso do Projeto
 
-> Última atualização: **09/06/2026**  
+> Última atualização: **11/06/2026**  
 > Branch ativa: `feat/phase-2-3-completion`
 
 ---
@@ -53,6 +53,9 @@
 | Reabertura de torneio (reverte pontos) | ✅ Feito | |
 | Tabela de pontos — editor inline e bulk update | ✅ Feito | |
 | Atribuição de pontos (`award-points`) | ✅ Feito | Trata byes, walkover, retired |
+| W.O. contabiliza como 21-0 para o vencedor | ✅ Feito | Motor lê sets salvos, nunca assume slot 1 |
+| Ret. usa parciais com vencedor fazendo 21 | ✅ Feito | Mesmo mecanismo de resolução por sets |
+| UI de lançamento de resultado (W.O./Ret.) com validação | ✅ Feito | Banner explicativo + erro se vencedor não selecionado |
 | Página de setup do torneio (aba Configurações) | ✅ Feito | |
 | **Página pública do torneio** (`/t/[slug]`) | ❌ Pendente | Rota planejada, não implementada |
 | **Publicação de chave com bloqueio de edição** | ❌ Pendente | Campo `published` existe no schema, sem fluxo real |
@@ -66,16 +69,18 @@
 |---|---|---|
 | Schema robusto de rankings no banco | ✅ Feito | `rankings`, `pointRules`, `rankingTournaments`, `rankingEntries` |
 | Campo `finalPlacement` em `tournament_registrations` | ✅ Feito | Motor lê este campo |
-| Campos novos em `rankingEntries` | ✅ Feito | `totalPoints`, `resultsDetail`, `previousPosition`, `manualAdjustment`, auditoria |
-| Motor de recálculo (`recalculateRanking`) | ✅ Feito | Rota `POST /rankings/:id/recalculate` |
+| Motor de recálculo (`recalculateRanking`) | ✅ Feito | `POST /rankings/:id/recalculate` |
 | Tratamento de byes no motor | ✅ Feito | |
-| Coluna legada `points` preservada | ✅ Feito | Ao lado de `totalPoints` — remover após migração manual |
+| Vínculo `rankingTournament` criado ao atribuir pontos | ✅ Feito | `award-points` cria o link automaticamente |
+| `totalPoints` como única coluna de pontuação | ✅ Feito | Coluna legada `points` removida do schema em 11/06/2026 |
+| CRUD de `PointRules` (API + UI) | ✅ Feito | Rotas + `point-rules-manager.tsx` na aba de rankings |
 | `rankings.slug` com default vazio | ✅ Feito | **Preencher via Drizzle Studio** (`pnpm --filter api db:studio`) |
 | `tournaments.level` como `text` | ✅ Feito | Migrar para enum em migration formal futura |
-| **`PointRules` granulares por nível/disciplina** | ❌ Pendente | Tabela criada no schema, sem rotas CRUD e sem UI |
+| **`PointRules` integrado ao motor `recalculateRanking`** | ❌ Pendente | Tabela e UI prontas, mas o motor ainda usa `pointsTables` legado |
+| **`countBestResults` aplicado no motor** | ❌ Pendente | Campo existe no schema, lógica de "N melhores" não implementada |
+| **`minTournamentsRequired` aplicado no motor** | ❌ Pendente | Campo existe no schema, filtro não implementado |
 | **Página de ranking no dashboard** | ❌ Pendente | Rota `/rankings` existe mas sem uso das novas features |
 | **Página pública de ranking** (`/r/[tenantSlug]`) | ❌ Pendente | Planejada, não implementada |
-| **`countBestResults` aplicado no motor** | ❌ Pendente | Campo existe, lógica de "N melhores" não implementada no motor |
 | **Cache Redis para rankings** (TTL 1h) | ❌ Pendente | Planejado para fase posterior |
 
 ---
@@ -98,7 +103,6 @@
 | Lançamento de placar por partida | ❌ Planejado |
 | Progressão automática na chave após resultado | ❌ Planejado |
 | Auditoria de resultados (quem lançou, quando) | ❌ Planejado |
-| Lógica de walkover / W.O. na UI | ❌ Planejado |
 
 ---
 
@@ -138,11 +142,12 @@
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
-| Preencher `rankings.slug` nos 5 registros existentes | 🔴 Alta | Rodar `pnpm --filter api db:studio` e preencher manualmente |
-| Migrar `rankingEntries.points` → `totalPoints` | 🟡 Média | `UPDATE ranking_entries SET total_points = points WHERE total_points = 0` |
+| Preencher `rankings.slug` nos registros existentes | 🔴 Alta | Rodar `pnpm --filter api db:studio` e preencher manualmente |
+| Rodar `pnpm --filter api db:push` para aplicar remoção de `points` | 🔴 Alta | Schema atualizado em 11/06, banco ainda tem a coluna |
 | Migrar `tournaments.level` de `text` para `tournamentLevelEnum` | 🟡 Média | Requer migration formal com `ALTER COLUMN ... USING` |
 | Fixar versões de `fastify`, `pg`, `zod`, `tsx` no `package.json` | 🟡 Média | Atualmente em `latest` — risco de quebra em `pnpm install` futuro |
-| Remover coluna legada `points` de `ranking_entries` | 🟢 Baixa | Só após migração dos dados |
+| Abrir PR da branch `feat/phase-2-3-completion` → `main` | 🟡 Média | Branch nunca foi mergeada |
+| Integrar `PointRules` ao motor `recalculateRanking` | 🟡 Média | Motor ainda usa `pointsTables` legado para calcular pontos |
 
 ---
 
