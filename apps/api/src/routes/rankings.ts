@@ -90,25 +90,24 @@ function parseEntries(raw: unknown): PointEntry[] {
 /**
  * Busca os pontos para um placement dado as PointRules do ranking.
  * Tenta a regra mais específica primeiro (nível + disciplina),
- * depois só nível, depois fallback para 0.
+ * depois só nível, depois retorna null (sem regra para este nível).
  */
 function resolvePointsFromRules(
   rules: PointRuleRow[],
   tournamentLevel: string,
   discipline: string,
   placement: number,
-): number {
-  // Regra específica (nível + disciplina)
+): number | null {
   const specific = rules.find(
     (r) => r.tournamentLevel === tournamentLevel && r.discipline === discipline,
   )
-  // Regra genérica (nível sem disciplina)
   const generic = rules.find(
     (r) => r.tournamentLevel === tournamentLevel && r.discipline === null,
   )
 
   const rule = specific ?? generic
-  if (!rule) return 0
+  // Retorna null quando não há regra para este nível — permite fallback para pointsTables
+  if (!rule) return null
 
   const entries = parseEntries(rule.entries)
   const entry = entries.find((e) => e.placement === placement)
@@ -173,9 +172,9 @@ async function recalculateRanking(rankingId: string) {
 
     const effectiveLevel = levelOverride ?? tournament.level
 
-    // --- Resolve pointsMap: PointRules ou fallback para pointsTables ---
+    // --- Monta legacyPointsMap como fallback (sempre, independente de haver rules) ---
     let legacyPointsMap: Map<number, number> | null = null
-    if (!rules.length && tournament.pointsTableId) {
+    if (tournament.pointsTableId) {
       const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
       if (refTable) {
         const rows = await db.select().from(pointsTables)
@@ -247,13 +246,21 @@ async function recalculateRanking(rankingId: string) {
         if (!isGenderCompatible(ranking.discipline, a1.gender, a2?.gender)) continue
 
         // --- Resolve pontos ---
+        // 1. Tenta PointRules do ranking (retorna null se não há regra para este nível)
+        // 2. Fallback para legacyPointsMap (pointsTable do torneio)
+        // 3. Default 0
         let pts: number
-        if (rules.length) {
-          pts = resolvePointsFromRules(rules, effectiveLevel, ranking.discipline, placement)
+        const fromRules = rules.length
+          ? resolvePointsFromRules(rules, effectiveLevel, ranking.discipline, placement)
+          : null
+
+        if (fromRules !== null) {
+          pts = fromRules
         } else {
           pts = legacyPointsMap?.get(placement) ?? 0
         }
-        // Aplica multiplicador do torneio (rankingTournament.tournamentMultiplier)
+
+        // Aplica multiplicador do torneio
         pts = Math.round(pts * tournamentMultiplier)
 
         // --- Acumula por atleta, separado por torneio ---
@@ -267,7 +274,6 @@ async function recalculateRanking(rankingId: string) {
           const [normA1, normA2] = normalizePair(reg.athleteId, reg.athlete2Id)
           const key = `${normA1}::${normA2}`
           const entry = getOrCreate(key, normA1, normA2)
-          // Melhor colocacao por torneio (caso haja mais de uma categoria)
           const prev = entry.resultsByTournament.get(tournamentId)
           if (!prev || pts > prev.points) {
             entry.resultsByTournament.set(tournamentId, { tournamentId, points: pts, placement })
@@ -300,8 +306,8 @@ async function recalculateRanking(rankingId: string) {
       : allResults
 
     const totalPoints = resultsToCount.reduce((sum, r) => sum + r.points, 0)
-    if (totalPoints === 0) continue
 
+    // Não descarta atletas com 0 pontos — podem ser válidos (ex: participação sem pontuação definida)
     final.push({
       athleteId: entry.athleteId,
       athlete2Id: entry.athlete2Id,
