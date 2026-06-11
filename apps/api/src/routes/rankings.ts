@@ -77,9 +77,22 @@ type PointRuleRow = {
 
 type PointEntry = { placement: number; basePoints: number }
 
+/**
+ * Normaliza o campo `entries` vindo do banco.
+ * O Drizzle/pg pode retornar colunas jsonb como string JSON ou como objeto JS
+ * dependendo da versão do driver. Esta função lida com ambos os casos.
+ */
 function parseEntries(raw: unknown): PointEntry[] {
-  if (!Array.isArray(raw)) return []
-  return raw.filter(
+  let value = raw
+
+  // Driver retornou string — precisa parsear
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value) } catch { return [] }
+  }
+
+  if (!Array.isArray(value)) return []
+
+  return value.filter(
     (e): e is PointEntry =>
       typeof e === 'object' && e !== null &&
       typeof (e as any).placement === 'number' &&
@@ -106,7 +119,6 @@ function resolvePointsFromRules(
   )
 
   const rule = specific ?? generic
-  // Retorna null quando não há regra para este nível — permite fallback para pointsTables
   if (!rule) return null
 
   const entries = parseEntries(rule.entries)
@@ -132,7 +144,6 @@ async function recalculateRanking(rankingId: string) {
   const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
   if (!ranking) throw new Error('Ranking not found')
 
-  // --- Busca links de torneios ---
   let tournamentLinks: { tournamentId: string; tournamentMultiplier: number; levelOverride: string | null; isScoring: boolean }[] = []
 
   if (ranking.autoInclude) {
@@ -150,18 +161,14 @@ async function recalculateRanking(rankingId: string) {
     }))
   }
 
-  // --- Limpa entradas anteriores ---
   await db.delete(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
 
   if (!tournamentLinks.length) return { recalculated: 0 }
 
-  // --- Busca PointRules do ranking ---
   const rules = await db.select().from(pointRules)
     .where(and(eq(pointRules.rankingId, rankingId), isNull(pointRules.deletedAt)))
 
   const isDoubles = DOUBLES_DISCIPLINES.has(ranking.discipline)
-
-  // Acumulador: chave -> AthleteAcc
   const acc = new Map<string, AthleteAcc>()
 
   for (const link of tournamentLinks) {
@@ -172,7 +179,7 @@ async function recalculateRanking(rankingId: string) {
 
     const effectiveLevel = levelOverride ?? tournament.level
 
-    // --- Monta legacyPointsMap como fallback (sempre, independente de haver rules) ---
+    // legacyPointsMap: sempre construído como fallback
     let legacyPointsMap: Map<number, number> | null = null
     if (tournament.pointsTableId) {
       const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, tournament.pointsTableId))
@@ -245,25 +252,19 @@ async function recalculateRanking(rankingId: string) {
         if (!a1) continue
         if (!isGenderCompatible(ranking.discipline, a1.gender, a2?.gender)) continue
 
-        // --- Resolve pontos ---
-        // 1. Tenta PointRules do ranking (retorna null se não há regra para este nível)
-        // 2. Fallback para legacyPointsMap (pointsTable do torneio)
-        // 3. Default 0
-        let pts: number
         const fromRules = rules.length
           ? resolvePointsFromRules(rules, effectiveLevel, ranking.discipline, placement)
           : null
 
+        let pts: number
         if (fromRules !== null) {
           pts = fromRules
         } else {
           pts = legacyPointsMap?.get(placement) ?? 0
         }
 
-        // Aplica multiplicador do torneio
         pts = Math.round(pts * tournamentMultiplier)
 
-        // --- Acumula por atleta, separado por torneio ---
         const getOrCreate = (key: string, athleteId: string, athlete2Id: string | null): AthleteAcc => {
           if (!acc.has(key)) acc.set(key, { athleteId, athlete2Id, resultsByTournament: new Map() })
           return acc.get(key)!
@@ -290,24 +291,20 @@ async function recalculateRanking(rankingId: string) {
     }
   }
 
-  // --- Aplica countBestResults e minTournamentsRequired ---
   const final: { athleteId: string; athlete2Id: string | null; totalPoints: number; tournamentsCount: number; resultsDetail: TournamentResult[] }[] = []
 
   for (const entry of acc.values()) {
     const allResults = [...entry.resultsByTournament.values()]
     const tournamentsCount = allResults.length
 
-    // Filtro: minTournamentsRequired
     if (ranking.minTournamentsRequired > 0 && tournamentsCount < ranking.minTournamentsRequired) continue
 
-    // countBestResults: ordena por pontos desc e pega os N melhores
     const resultsToCount = ranking.countBestResults
       ? allResults.sort((a, b) => b.points - a.points).slice(0, ranking.countBestResults)
       : allResults
 
     const totalPoints = resultsToCount.reduce((sum, r) => sum + r.points, 0)
 
-    // Não descarta atletas com 0 pontos — podem ser válidos (ex: participação sem pontuação definida)
     final.push({
       athleteId: entry.athleteId,
       athlete2Id: entry.athlete2Id,
@@ -317,7 +314,6 @@ async function recalculateRanking(rankingId: string) {
     })
   }
 
-  // --- Ordena e persiste ---
   const sorted = final.sort((a, b) => b.totalPoints - a.totalPoints)
 
   if (sorted.length) {
