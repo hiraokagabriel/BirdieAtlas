@@ -40,18 +40,24 @@ function isByeMatch(match: { registration1Id: string | null; registration2Id: st
   return match.registration1Id === null || match.registration2Id === null
 }
 
+/**
+ * Resolve vencedor e perdedor de uma partida.
+ * Trata todos os status finais: completed, walkover, retired e W.O. por bye.
+ * Retorna null se não for possível determinar o vencedor.
+ */
 function resolveWinnerLoser(
   match: { registration1Id: string | null; registration2Id: string | null; status: string },
   sets: { score1: number; score2: number }[],
 ): { winnerRegId: string; loserRegId: string | null } | null {
   const { registration1Id, registration2Id, status } = match
 
+  // Bye: um lado é null — o lado presente avança automaticamente
   if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
   if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
   if (!registration1Id || !registration2Id) return null
 
-  if (status === 'walkover' || status === 'retired') {
-    if (!sets.length) return null
+  // Partida com sets registrados (completed, walkover ou retired com placar)
+  if (sets.length > 0) {
     const winnerSlot = getWinnerSlot(sets)
     if (!winnerSlot) return null
     return {
@@ -60,6 +66,7 @@ function resolveWinnerLoser(
     }
   }
 
+  // walkover/retired sem sets: não é possível determinar o vencedor
   return null
 }
 
@@ -79,19 +86,14 @@ type PointEntry = { placement: number; basePoints: number }
 
 /**
  * Normaliza o campo `entries` vindo do banco.
- * O Drizzle/pg pode retornar colunas jsonb como string JSON ou como objeto JS
- * dependendo da versão do driver. Esta função lida com ambos os casos.
+ * O Drizzle/pg pode retornar colunas jsonb como string JSON ou como objeto JS.
  */
 function parseEntries(raw: unknown): PointEntry[] {
   let value = raw
-
-  // Driver retornou string — precisa parsear
   if (typeof value === 'string') {
     try { value = JSON.parse(value) } catch { return [] }
   }
-
   if (!Array.isArray(value)) return []
-
   return value.filter(
     (e): e is PointEntry =>
       typeof e === 'object' && e !== null &&
@@ -117,7 +119,6 @@ function resolvePointsFromRules(
   const generic = rules.find(
     (r) => r.tournamentLevel === tournamentLevel && r.discipline === null,
   )
-
   const rule = specific ?? generic
   if (!rule) return null
 
@@ -214,20 +215,11 @@ async function recalculateRanking(rankingId: string) {
 
         const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
 
-        let winnerRegId: string | null = null
-        let loserRegId: string | null = null
+        // Caminho unificado: resolveWinnerLoser trata todos os status
+        const result = resolveWinnerLoser(match, sets)
+        if (!result) continue
 
-        if (sets.length > 0 && match.status === 'completed') {
-          const winner = getWinnerSlot(sets)
-          if (!winner) continue
-          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
-          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        } else {
-          const result = resolveWinnerLoser(match, sets)
-          if (!result) continue
-          winnerRegId = result.winnerRegId
-          loserRegId  = result.loserRegId
-        }
+        const { winnerRegId, loserRegId } = result
 
         const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
         if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
