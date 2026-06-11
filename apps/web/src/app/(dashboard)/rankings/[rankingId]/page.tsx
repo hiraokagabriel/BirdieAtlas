@@ -21,9 +21,14 @@ type Tournament = {
 }
 type AthleteData = { id: string; name: string; gender: string }
 type Entry = {
-  id: string; position: number; points: number
-  athleteId: string; athlete2Id: string | null
-  athlete: AthleteData | null; athlete2: AthleteData | null
+  id: string
+  position: number
+  totalPoints: number
+  tournamentsCount: number
+  athleteId: string
+  athlete2Id: string | null
+  athlete: AthleteData | null
+  athlete2: AthleteData | null
 }
 type RankingResponse = {
   ranking: Ranking; entries: Entry[]
@@ -255,11 +260,16 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                           </Link>
                         </div>
                       )}
+                      {entry.tournamentsCount > 0 && (
+                        <span className="text-xs text-muted-foreground mt-0.5">
+                          {entry.tournamentsCount} torneio{entry.tournamentsCount !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-end">
                       <span className={`font-semibold tabular-nums ${
                         isTop3 ? 'text-yellow-700 text-base' : 'text-sm'
-                      }`}>{entry.points.toLocaleString('pt-BR')}</span>
+                      }`}>{entry.totalPoints.toLocaleString('pt-BR')}</span>
                     </div>
                   </div>
                 )
