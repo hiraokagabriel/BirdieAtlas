@@ -1,6 +1,6 @@
 # BirdieAtlas — Progresso do Projeto
 
-> Última atualização: **11/06/2026**  
+> Última atualização: **18/06/2026**  
 > Branch ativa: `feat/phase-2-3-completion`
 
 ---
@@ -76,9 +76,9 @@
 | CRUD de `PointRules` (API + UI) | ✅ Feito | Rotas + `point-rules-manager.tsx` na aba de rankings |
 | `rankings.slug` com default vazio | ✅ Feito | **Preencher via Drizzle Studio** (`pnpm --filter api db:studio`) |
 | `tournaments.level` como `text` | ✅ Feito | Migrar para enum em migration formal futura |
-| **`PointRules` integrado ao motor `recalculateRanking`** | ❌ Pendente | Tabela e UI prontas, mas o motor ainda usa `pointsTables` legado |
-| **`countBestResults` aplicado no motor** | ❌ Pendente | Campo existe no schema, lógica de "N melhores" não implementada |
-| **`minTournamentsRequired` aplicado no motor** | ❌ Pendente | Campo existe no schema, filtro não implementado |
+| **`PointRules` integrado ao motor `recalculateRanking`** | ✅ Feito | `resolvePointsFromRules()` — tenta regra específica (nível+disciplina), depois genérica (só nível), cai no `pointsTables` legado apenas se não houver regra |
+| **`countBestResults` aplicado no motor** | ✅ Feito | `allResults.sort(...).slice(0, countBestResults)` — aplica antes de somar `totalPoints` |
+| **`minTournamentsRequired` aplicado no motor** | ✅ Feito | Filtra atletas com `tournamentsCount < minTournamentsRequired` antes de gerar entries |
 | **Página de ranking no dashboard** | ❌ Pendente | Rota `/rankings` existe mas sem uso das novas features |
 | **Página pública de ranking** (`/r/[tenantSlug]`) | ❌ Pendente | Planejada, não implementada |
 | **Cache Redis para rankings** (TTL 1h) | ❌ Pendente | Planejado para fase posterior |
@@ -147,7 +147,6 @@
 | Migrar `tournaments.level` de `text` para `tournamentLevelEnum` | 🟡 Média | Requer migration formal com `ALTER COLUMN ... USING` |
 | Fixar versões de `fastify`, `pg`, `zod`, `tsx` no `package.json` | 🟡 Média | Atualmente em `latest` — risco de quebra em `pnpm install` futuro |
 | Abrir PR da branch `feat/phase-2-3-completion` → `main` | 🟡 Média | Branch nunca foi mergeada |
-| Integrar `PointRules` ao motor `recalculateRanking` | 🟡 Média | Motor ainda usa `pointsTables` legado para calcular pontos |
 
 ---
 
