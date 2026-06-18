@@ -189,23 +189,8 @@ export async function athletesRoutes(app: FastifyInstance) {
     }
   })
 
-  app.get('/athletes/:id/affiliations', async (request) => {
-    const { id } = request.params as { id: string }
-    return db
-      .select({
-        id: athleteAffiliations.id,
-        clubId: clubs.id,
-        clubName: clubs.name,
-        clubSlug: clubs.slug,
-        city: clubs.city,
-        state: clubs.state,
-        startedAt: athleteAffiliations.startedAt,
-        endedAt: athleteAffiliations.endedAt,
-      })
-      .from(athleteAffiliations)
-      .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
-      .where(eq(athleteAffiliations.athleteId, id))
-  })
+  // NOTA: GET /athletes/:id/affiliations foi removido daqui.
+  // A rota vive em affiliations.ts com payload mais completo.
 
   app.post('/athletes', async (request, reply) => {
     const body = createAthleteSchema.parse(request.body)
@@ -213,10 +198,6 @@ export async function athletesRoutes(app: FastifyInstance) {
     return reply.status(201).send(athlete)
   })
 
-  // ---------------------------------------------------------------------------
-  // Importação em lote via CSV (array de objetos já parseados pelo front)
-  // Retorna relatório: quantos criados, quais linhas falharam e por quê
-  // ---------------------------------------------------------------------------
   app.post('/athletes/import-csv', async (request, reply) => {
     const body = request.body as unknown[]
     if (!Array.isArray(body)) {
