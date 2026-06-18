@@ -57,7 +57,7 @@
 | Ret. usa parciais com vencedor fazendo 21 | ✅ Feito | Mesmo mecanismo de resolução por sets |
 | UI de lançamento de resultado (W.O./Ret.) com validação | ✅ Feito | Banner explicativo + erro se vencedor não selecionado |
 | Página de setup do torneio (aba Configurações) | ✅ Feito | |
-| **Página pública do torneio** (`/t/[slug]`) | ❌ Pendente | Rota planejada, não implementada |
+| **Página pública do torneio** (`/t/[slug]`) | ✅ Feito | `page.tsx` implementado em `apps/web/src/app/(public)/t/[slug]/` |
 | **Publicação de chave com bloqueio de edição** | ❌ Pendente | Campo `published` existe no schema, sem fluxo real |
 | **Schedule view (quadra/horário por partida)** | ❌ Pendente | Componente parcial, agendamento não finalizado |
 
@@ -79,8 +79,8 @@
 | **`PointRules` integrado ao motor `recalculateRanking`** | ✅ Feito | `resolvePointsFromRules()` — tenta regra específica (nível+disciplina), depois genérica (só nível), cai no `pointsTables` legado apenas se não houver regra |
 | **`countBestResults` aplicado no motor** | ✅ Feito | `allResults.sort(...).slice(0, countBestResults)` — aplica antes de somar `totalPoints` |
 | **`minTournamentsRequired` aplicado no motor** | ✅ Feito | Filtra atletas com `tournamentsCount < minTournamentsRequired` antes de gerar entries |
-| **Página de ranking no dashboard** | ❌ Pendente | Rota `/rankings` existe mas sem uso das novas features |
-| **Página pública de ranking** (`/r/[tenantSlug]`) | ❌ Pendente | Planejada, não implementada |
+| **Página de ranking no dashboard** (`/rankings`) | ✅ Feito | Lista com badges de `countBestResults`/`minTournamentsRequired`; detalhe com banner de regras ativas, expansão de resultados por torneio e aba de PointRules |
+| **Página pública de ranking** (`/r/[tenantSlug]`) | ✅ Feito | `page.tsx` implementado em `apps/web/src/app/(public)/r/[tenantSlug]/` |
 | **Cache Redis para rankings** (TTL 1h) | ❌ Pendente | Planejado para fase posterior |
 
 ---
@@ -110,8 +110,8 @@
 
 | Item | Status |
 |---|---|
-| Página pública do torneio (`/t/[slug]`) | ❌ Planejado |
-| Página pública de ranking (`/r/[tenantSlug]`) | ❌ Planejado |
+| Página pública do torneio (`/t/[slug]`) | ✅ Feito |
+| Página pública de ranking (`/r/[tenantSlug]`) | ✅ Feito |
 | Perfil público do atleta (`/a/[athleteId]`) | ❌ Planejado |
 | Resultados ao vivo | ❌ Planejado |
 | Stats de atletas (histórico, evolução de ranking) | ❌ Planejado |
