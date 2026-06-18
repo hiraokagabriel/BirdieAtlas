@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from './bracket-draw'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -237,18 +237,24 @@ export function BracketView({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {/* Ressortear */}
-            <button
-              onClick={() => { setShowRedraw((v) => !v); setRedrawError(null) }}
-              className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md transition-colors ${
-                draw.published
-                  ? 'hover:bg-green-100 text-green-700'
-                  : 'hover:bg-yellow-100 text-yellow-700'
-              }`}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Ressortear
-            </button>
+            {/* Ressortear — bloqueado quando publicado */}
+            {draw.published ? (
+              <span
+                title="Despublique a chave antes de ressortear"
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md text-green-400 cursor-not-allowed select-none"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Ressortear
+              </span>
+            ) : (
+              <button
+                onClick={() => { setShowRedraw((v) => !v); setRedrawError(null) }}
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md transition-colors hover:bg-yellow-100 text-yellow-700"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Ressortear
+              </button>
+            )}
             {/* Publicar / Despublicar */}
             <button
               onClick={() => togglePublish()}
@@ -269,8 +275,8 @@ export function BracketView({
         </div>
       )}
 
-      {/* Redraw confirmation panel */}
-      {showRedraw && draw && (
+      {/* Redraw confirmation panel — only shown when not published */}
+      {showRedraw && draw && !draw.published && (
         <div className="rounded-xl border-2 border-orange-200 bg-orange-50 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
