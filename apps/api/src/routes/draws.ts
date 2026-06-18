@@ -118,11 +118,11 @@ function buildSlots(
 function buildMatchDefs(
   drawId: string,
   slots: (string | null)[],
-): { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' }[] {
+): { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' | 'walkover' }[] {
   const bracketSize = slots.length
   const numRounds   = Math.log2(bracketSize)
 
-  type MatchDef = { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' }
+  type MatchDef = { id: string; drawId: string; round: number; position: number; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null; status: 'pending' | 'walkover' }
   const matchDefs: MatchDef[] = []
 
   for (let round = numRounds; round >= 1; round--) {
@@ -142,6 +142,33 @@ function buildMatchDefs(
     if (match.round === 1) continue
     const next = matchDefs.find((m) => m.round === match.round - 1 && m.position === Math.ceil(match.position / 2))
     if (next) match.nextMatchId = next.id
+  }
+
+  // -------------------------------------------------------------------
+  // BYE: propaga o vencedor automaticamente para a próxima fase.
+  // Percorre do round mais alto (primeiro) ao mais baixo para garantir
+  // que byes em cascata (ex: 3 inscritos em bracket de 4) também avancem.
+  // -------------------------------------------------------------------
+  const roundsDesc = [...new Set(matchDefs.map((m) => m.round))].sort((a, b) => b - a)
+  for (const round of roundsDesc) {
+    for (const match of matchDefs.filter((m) => m.round === round)) {
+      const isBye = match.registration1Id === null || match.registration2Id === null
+      const hasAny = match.registration1Id !== null || match.registration2Id !== null
+      if (!isBye || !hasAny) continue
+
+      // Marca como walkover e identifica o vencedor
+      match.status = 'walkover'
+      const winnerRegId = match.registration1Id ?? match.registration2Id!
+
+      // Propaga para a próxima partida
+      if (match.nextMatchId) {
+        const next = matchDefs.find((m) => m.id === match.nextMatchId)
+        if (next) {
+          const slot = getSlotForPosition(match.position)
+          next[slot] = winnerRegId
+        }
+      }
+    }
   }
 
   return matchDefs
@@ -239,11 +266,6 @@ export async function drawsRoutes(app: FastifyInstance) {
     return updated
   })
 
-  // ---------------------------------------------------------------------------
-  // POST /tournaments/:tournamentId/award-points
-  // Distribui pontos e garante que o vínculo rankingTournaments exista
-  // para que o recalculate encontre o torneio futuramente.
-  // ---------------------------------------------------------------------------
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
     const { tournamentId } = request.params as { tournamentId: string }
 
@@ -272,15 +294,12 @@ export async function drawsRoutes(app: FastifyInstance) {
     const awarded: { categoryName: string; registrationId: string; athleteId: string; athlete2Id: string | null; placement: number; points: number }[] = []
     const skipped: { categoryName: string; reason: string }[] = []
 
-    // Garante que o vínculo rankingTournament existe para cada ranking afetado,
-    // para que o recalculate encontre o torneio mesmo sem autoInclude.
     const linkedRankingIds = new Set<string>()
 
     for (const category of categories) {
       const ranking = rankingByDiscipline.get(category.discipline)
       if (!ranking) { skipped.push({ categoryName: category.name, reason: `No ranking found for discipline ${category.discipline}` }); continue }
 
-      // Cria vínculo se ainda não existir
       if (!linkedRankingIds.has(ranking.id)) {
         const existing = await db.select().from(rankingTournaments)
           .where(and(eq(rankingTournaments.rankingId, ranking.id), eq(rankingTournaments.tournamentId, tournamentId)))
