@@ -145,27 +145,33 @@ function buildMatchDefs(
   }
 
   // -------------------------------------------------------------------
-  // BYE: propaga o vencedor automaticamente para a próxima fase.
-  // Percorre do round mais alto (primeiro) ao mais baixo para garantir
-  // que byes em cascata (ex: 3 inscritos em bracket de 4) também avancem.
+  // BYE: propaga vencedor apenas para partidas originais do primeiro round
+  // com exatamente um slot preenchido. `propagatedMatchIds` impede que
+  // partidas que receberam um atleta via propagação sejam reprocessadas
+  // como novos BYEs, evitando a cascata errada até a Final.
   // -------------------------------------------------------------------
+  const propagatedMatchIds = new Set<string>()
+
   const roundsDesc = [...new Set(matchDefs.map((m) => m.round))].sort((a, b) => b - a)
   for (const round of roundsDesc) {
     for (const match of matchDefs.filter((m) => m.round === round)) {
+      // Ignora partidas que foram preenchidas por propagação — não são BYEs reais
+      if (propagatedMatchIds.has(match.id)) continue
+
       const isBye = match.registration1Id === null || match.registration2Id === null
       const hasAny = match.registration1Id !== null || match.registration2Id !== null
       if (!isBye || !hasAny) continue
 
-      // Marca como walkover e identifica o vencedor
       match.status = 'walkover'
       const winnerRegId = match.registration1Id ?? match.registration2Id!
 
-      // Propaga para a próxima partida
       if (match.nextMatchId) {
         const next = matchDefs.find((m) => m.id === match.nextMatchId)
         if (next) {
           const slot = getSlotForPosition(match.position)
           next[slot] = winnerRegId
+          // Marca a partida destino para não ser reprocessada como BYE
+          propagatedMatchIds.add(next.id)
         }
       }
     }
@@ -439,7 +445,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (!match) return reply.status(404).send({ error: 'Match not found' })
 
     const newWinner = getWinnerSlot(body.sets)
-    if (!newWinner) return reply.status(400).send({ error: 'Cannot determine winner from sets' })
+    if (!newWinner) return reply.status(400).send({ error: 'Cannot determine winner from sets' })\
     const newWinnerRegId = newWinner === 1 ? match.registration1Id : match.registration2Id
 
     const prevResults = await db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
