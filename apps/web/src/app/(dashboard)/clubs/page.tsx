@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
+import { CreateClubModal } from '@/components/club/create-club-modal'
 import Link from 'next/link'
-import { MapPin, Search } from 'lucide-react'
+import { MapPin, Search, Plus } from 'lucide-react'
 
 type Club = {
   id: string; name: string; slug: string
@@ -14,20 +16,18 @@ type Club = {
 }
 
 export default function ClubsPage() {
-  const [clubs, setClubs] = useState<Club[]>([])
   const [search, setSearch] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
 
-  useEffect(() => {
-    apiFetch<Club[]>('/clubs').then(setClubs)
-  }, [])
+  const { data: clubs = [] } = useQuery<Club[]>({
+    queryKey: ['clubs'],
+    queryFn: () => apiFetch('/clubs'),
+  })
 
-  const filtered = useMemo(() =>
-    clubs.filter((c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.city ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.state ?? '').toLowerCase().includes(search.toLowerCase())
-    ),
-    [clubs, search]
+  const filtered = clubs.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.city ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.state ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -37,22 +37,30 @@ export default function ClubsPage() {
           <h2 className="text-2xl font-bold tracking-tight">Clubes</h2>
           <p className="text-muted-foreground">Clubes filiados à federação.</p>
         </div>
-
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Buscar clube..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar clube..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Novo clube
+          </button>
         </div>
       </div>
 
       {filtered.length === 0 && (
         <div className="text-center py-16 text-sm text-muted-foreground">
-          Nenhum clube encontrado para “{search}”.
+          {search ? `Nenhum clube encontrado para "${search}".` : 'Nenhum clube cadastrado ainda.'}
         </div>
       )}
 
@@ -79,7 +87,6 @@ export default function ClubsPage() {
                     : <span className="text-lg font-bold" style={{ color: primary }}>{club.name.charAt(0)}</span>}
                 </div>
               </div>
-
               <div className="pt-7 px-4 pb-4">
                 <p className="font-semibold text-sm group-hover:text-primary transition-colors">{club.name}</p>
                 {(club.city || club.state) && (
@@ -93,6 +100,8 @@ export default function ClubsPage() {
           )
         })}
       </div>
+
+      <CreateClubModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   )
 }

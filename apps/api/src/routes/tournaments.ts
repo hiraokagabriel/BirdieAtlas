@@ -1,112 +1,250 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
-import { tournaments, tournamentCategories, tournamentRegistrations, athletes } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import {
+  tournaments, tournamentCategories, tournamentRegistrations,
+  draws, matches, matchResults, athletes,
+  rankings, rankingEntries, rankingTournaments,
+} from '../db/schema'
+import { eq, and, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
 const createTournamentSchema = z.object({
-  tenantId: z.string(),
   name: z.string().min(1),
   slug: z.string().min(1),
+  tenantId: z.string(),
   level: z.string().default('estadual'),
-  startDate: z.string(),
-  endDate: z.string(),
-  location: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  location: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  registrationDeadline: z.string().optional(),
   pointsTableId: z.string().optional(),
-  rankingId: z.string().optional(),
 })
 
 const createCategorySchema = z.object({
-  discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   name: z.string().min(1),
-  drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination']).default('single_elimination'),
-  maxEntries: z.number().optional(),
-  seedCount: z.number().default(4),
+  discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
+  maxEntries: z.number().int().optional(),
 })
 
-const createRegistrationSchema = z.object({
-  athleteId: z.string(),
-  athlete2Id: z.string().optional(),
-  seed: z.number().optional(),
-  rankingPointsAtEntry: z.number().optional(),
-})
+function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
+  if (!sets.length) return null
+  const wins1 = sets.filter((s) => s.score1 > s.score2).length
+  const wins2 = sets.filter((s) => s.score2 > s.score1).length
+  return wins1 > wins2 ? 1 : wins2 > wins1 ? 2 : null
+}
 
-// ---------------------------------------------------------------------------
-// Gender rules per discipline
-// MS / MD  → all athletes must be M
-// WS / WD  → all athletes must be F
-// XD       → one M and one F, any order
-// ---------------------------------------------------------------------------
-async function validateGender(
-  discipline: string,
-  athleteId: string,
-  athlete2Id: string | undefined,
-): Promise<{ error: string } | null> {
-  const ids = [athleteId, athlete2Id].filter(Boolean) as string[]
-  const athleteRows = await Promise.all(ids.map((id) => db.select().from(athletes).where(eq(athletes.id, id)).limit(1)))
-  const [a1Row, a2Row] = athleteRows.map((r) => r[0])
-
-  if (!a1Row) return { error: 'Athlete not found' }
-
-  if (discipline === 'MS' || discipline === 'MD') {
-    if (a1Row.gender !== 'M') return { error: `Gender violation for discipline ${discipline}: athlete must be male` }
-    if (a2Row && a2Row.gender !== 'M') return { error: `Gender violation for discipline ${discipline}: athlete2 must be male` }
-  }
-
-  if (discipline === 'WS' || discipline === 'WD') {
-    if (a1Row.gender !== 'F') return { error: `Gender violation for discipline ${discipline}: athlete must be female` }
-    if (a2Row && a2Row.gender !== 'F') return { error: `Gender violation for discipline ${discipline}: athlete2 must be female` }
-  }
-
-  if (discipline === 'XD') {
-    if (!a2Row) return { error: 'Gender violation for discipline XD: XD requires two athletes' }
-    const genders = new Set([a1Row.gender, a2Row.gender])
-    if (!genders.has('M') || !genders.has('F')) {
-      return { error: 'Gender violation for discipline XD: XD requires one male and one female athlete' }
+function resolveWinnerLoser(
+  match: { registration1Id: string | null; registration2Id: string | null; status: string },
+  sets: { score1: number; score2: number }[],
+): { winnerRegId: string; loserRegId: string | null } | null {
+  const { registration1Id, registration2Id, status } = match
+  if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
+  if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
+  if (!registration1Id || !registration2Id) return null
+  if (status === 'walkover' || status === 'retired') {
+    if (!sets.length) return null
+    const winnerSlot = getWinnerSlot(sets)
+    if (!winnerSlot) return null
+    return {
+      winnerRegId: winnerSlot === 1 ? registration1Id : registration2Id,
+      loserRegId:  winnerSlot === 1 ? registration2Id : registration1Id,
     }
   }
-
   return null
 }
 
+async function removePointsFromRanking(rankingId: string, tournamentId: string) {
+  const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
+  if (!ranking) return
+
+  let tournamentIds: string[] = []
+  if (ranking.autoInclude) {
+    const all = await db.select().from(tournaments)
+      .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true)))
+    tournamentIds = all.map((t) => t.id).filter((id) => id !== tournamentId)
+  } else {
+    const links = await db.select().from(rankingTournaments)
+      .where(eq(rankingTournaments.rankingId, rankingId))
+    tournamentIds = links.map((l) => l.tournamentId).filter((id) => id !== tournamentId)
+  }
+
+  await db.delete(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
+  if (!tournamentIds.length) return
+
+  const { pointsTables } = await import('../db/schema')
+  const DOUBLES = new Set(['MD', 'WD', 'XD'])
+  const isDoubles = DOUBLES.has(ranking.discipline)
+  const pointsAcc = new Map<string, { athleteId: string; athlete2Id: string | null; points: number }>()
+
+  for (const tId of tournamentIds) {
+    const [t] = await db.select().from(tournaments).where(eq(tournaments.id, tId))
+    if (!t?.pointsTableId) continue
+    const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, t.pointsTableId))
+    if (!refTable) continue
+    const allPointsRows = await db.select().from(pointsTables)
+      .where(and(eq(pointsTables.name, refTable.name), eq(pointsTables.tournamentLevel, t.level)))
+    const pointsMap = new Map(allPointsRows.map((p) => [p.placement, p.points]))
+    const cats = await db.select().from(tournamentCategories)
+      .where(and(
+        eq(tournamentCategories.tournamentId, tId),
+        eq(tournamentCategories.discipline, ranking.discipline as 'MS' | 'WS' | 'MD' | 'WD' | 'XD'),
+      ))
+    for (const cat of cats) {
+      const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
+      if (!drawList.length) continue
+      const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
+      const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
+      if (pending.length) continue
+      const placementByReg = new Map<string, number>()
+      for (const match of allMatches) {
+        if (match.registration1Id === null && match.registration2Id === null) continue
+        const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
+        let winnerRegId: string | null = null
+        let loserRegId: string | null = null
+        if (sets.length > 0 && match.status === 'completed') {
+          const winner = getWinnerSlot(sets)
+          if (!winner) continue
+          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
+        } else {
+          const result = resolveWinnerLoser(match, sets)
+          if (!result) continue
+          winnerRegId = result.winnerRegId
+          loserRegId  = result.loserRegId
+        }
+        const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
+        if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
+        if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
+      }
+      const regIds = [...placementByReg.keys()]
+      if (!regIds.length) continue
+      const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
+      const aIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
+      const athleteRows = aIds.length ? await db.select().from(athletes).where(inArray(athletes.id, aIds)) : []
+      const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
+      for (const [regId, placement] of placementByReg.entries()) {
+        const reg = regs.find((r) => r.id === regId)
+        if (!reg) continue
+        const pts = pointsMap.get(placement) ?? 0
+        if (pts === 0) continue
+        if (isDoubles) {
+          if (!reg.athlete2Id) continue
+          const [a, b] = reg.athleteId < reg.athlete2Id ? [reg.athleteId, reg.athlete2Id] : [reg.athlete2Id, reg.athleteId]
+          const key = `${a}::${b}`
+          const cur = pointsAcc.get(key) ?? { athleteId: a, athlete2Id: b, points: 0 }
+          cur.points += pts; pointsAcc.set(key, cur)
+        } else {
+          const key = reg.athleteId
+          const cur = pointsAcc.get(key) ?? { athleteId: reg.athleteId, athlete2Id: null, points: 0 }
+          cur.points += pts; pointsAcc.set(key, cur)
+        }
+      }
+    }
+  }
+
+  const sorted = [...pointsAcc.values()].sort((a, b) => b.points - a.points)
+  if (sorted.length) {
+    await db.insert(rankingEntries).values(
+      sorted.map((e, i) => ({
+        id: randomUUID(), rankingId,
+        athleteId: e.athleteId, athlete2Id: e.athlete2Id,
+        points: e.points, totalPoints: e.points, position: i + 1,
+      }))
+    )
+  }
+}
+
 export async function tournamentsRoutes(app: FastifyInstance) {
+  // Lista todos os torneios (com filtro opcional por tenant)
   app.get('/tournaments', async (request) => {
     const { tenantId } = request.query as { tenantId?: string }
-    if (tenantId) {
-      return db.select().from(tournaments).where(eq(tournaments.tenantId, tenantId))
-    }
+    if (tenantId) return db.select().from(tournaments).where(eq(tournaments.tenantId, tenantId))
     return db.select().from(tournaments)
+  })
+
+  // Deve vir ANTES de /tournaments/:id para nao colidir com o parametro dinamico
+  app.get('/tournaments/by-slug/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string }
+    const [t] = await db.select().from(tournaments).where(eq(tournaments.slug, slug))
+    if (!t) return reply.status(404).send({ error: 'Tournament not found' })
+    return t
+  })
+
+  /**
+   * Retorna dados agregados para a pagina publica do torneio.
+   * Uma unica chamada substitui: GET /tournaments/:id + GET /tournaments/:id/categories
+   * + N chamadas de registrations + N chamadas de draws/matches.
+   */
+  app.get('/tournaments/:id/public-summary', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+
+    const cats = await db.select().from(tournamentCategories)
+      .where(eq(tournamentCategories.tournamentId, id))
+
+    let totalAthletes = 0
+    let totalMatches = 0
+    let completedMatches = 0
+
+    const categorySummaries = await Promise.all(cats.map(async (cat) => {
+      const regs = await db.select().from(tournamentRegistrations)
+        .where(eq(tournamentRegistrations.categoryId, cat.id))
+
+      const athleteIds = new Set<string>()
+      regs.forEach((r) => {
+        athleteIds.add(r.athleteId)
+        if (r.athlete2Id) athleteIds.add(r.athlete2Id)
+      })
+
+      const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
+      let catMatches = 0
+      let catCompleted = 0
+      if (drawList.length) {
+        const matchList = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
+        catMatches = matchList.length
+        catCompleted = matchList.filter((m) =>
+          ['completed', 'walkover', 'retired'].includes(m.status)
+        ).length
+      }
+
+      totalAthletes += athleteIds.size
+      totalMatches += catMatches
+      completedMatches += catCompleted
+
+      return {
+        id: cat.id,
+        name: cat.name,
+        discipline: cat.discipline,
+        drawType: cat.drawType,
+        registrationCount: regs.length,
+        athleteCount: athleteIds.size,
+        matchCount: catMatches,
+        completedMatchCount: catCompleted,
+        hasPublishedDraw: drawList.length > 0 && drawList[0].published,
+      }
+    }))
+
+    return {
+      tournament,
+      categories: categorySummaries,
+      stats: {
+        totalCategories: cats.length,
+        totalAthletes,
+        totalMatches,
+        completedMatches,
+      },
+    }
   })
 
   app.get('/tournaments/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
-    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-    return tournament
-  })
-
-  app.post('/tournaments', async (request, reply) => {
-    const body = createTournamentSchema.parse(request.body)
-    const [tournament] = await db
-      .insert(tournaments)
-      .values({ id: randomUUID(), ...body })
-      .returning()
-    return reply.status(201).send(tournament)
-  })
-
-  app.put('/tournaments/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const body = createTournamentSchema.partial().parse(request.body)
-    const [tournament] = await db
-      .update(tournaments)
-      .set({ ...body, updatedAt: new Date() })
-      .where(eq(tournaments.id, id))
-      .returning()
-    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-    return tournament
+    const [t] = await db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!t) return reply.status(404).send({ error: 'Tournament not found' })
+    return t
   })
 
   app.get('/tournaments/:id/categories', async (request) => {
@@ -114,35 +252,180 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
   })
 
+  app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
+    const { categoryId } = request.params as { categoryId: string }
+    const regs = await db.select().from(tournamentRegistrations)
+      .where(eq(tournamentRegistrations.categoryId, categoryId))
+    if (!regs.length) return []
+    const athleteIds = [...new Set(
+      regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
+    )]
+    const athleteRows = await db.select().from(athletes).where(inArray(athletes.id, athleteIds))
+    const athleteMap = new Map(athleteRows.map((a) => [a.id, a.name]))
+    return regs.map((r) => ({
+      ...r,
+      athleteName: athleteMap.get(r.athleteId) ?? null,
+      athlete2Name: r.athlete2Id ? (athleteMap.get(r.athlete2Id) ?? null) : null,
+    }))
+  })
+
+  app.post('/tournaments', async (request, reply) => {
+    const body = createTournamentSchema.parse(request.body)
+    const [t] = await db.insert(tournaments).values({ id: randomUUID(), status: 'draft', ...body }).returning()
+    return reply.status(201).send(t)
+  })
+
   app.post('/tournaments/:id/categories', async (request, reply) => {
     const { id } = request.params as { id: string }
     const body = createCategorySchema.parse(request.body)
-    const [category] = await db
-      .insert(tournamentCategories)
-      .values({ id: randomUUID(), tournamentId: id, ...body })
-      .returning()
-    return reply.status(201).send(category)
+    const [cat] = await db.insert(tournamentCategories).values({ id: randomUUID(), tournamentId: id, ...body }).returning()
+    return reply.status(201).send(cat)
   })
 
-  app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
+  app.post('/tournaments/categories/:categoryId/register', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
-    return db.select().from(tournamentRegistrations).where(eq(tournamentRegistrations.categoryId, categoryId))
+    const body = (request.body as { athleteId: string; athlete2Id?: string; seed?: number; rankingPointsAtEntry?: number })
+    const [cat] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
+    if (!cat) return reply.status(404).send({ error: 'Category not found' })
+    const [t] = await db.select().from(tournaments).where(eq(tournaments.id, cat.tournamentId))
+    if (t?.status === 'completed') return reply.status(400).send({ error: 'Tournament is finished. No new registrations allowed.' })
+    const [reg] = await db.insert(tournamentRegistrations).values({
+      id: randomUUID(), categoryId, ...body, confirmed: false, withdrew: false,
+    }).returning()
+    return reply.status(201).send(reg)
   })
 
-  app.post('/tournaments/categories/:categoryId/registrations', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
-    const body = createRegistrationSchema.parse(request.body)
-
-    const [category] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
-    if (!category) return reply.status(404).send({ error: 'Category not found' })
-
-    const genderViolation = await validateGender(category.discipline, body.athleteId, body.athlete2Id)
-    if (genderViolation) return reply.status(422).send(genderViolation)
-
-    const [registration] = await db
-      .insert(tournamentRegistrations)
-      .values({ id: randomUUID(), categoryId, ...body })
+  app.put('/tournaments/registrations/:registrationId/confirm', async (request, reply) => {
+    const { registrationId } = request.params as { registrationId: string }
+    const [reg] = await db.update(tournamentRegistrations)
+      .set({ confirmed: true, updatedAt: new Date() })
+      .where(eq(tournamentRegistrations.id, registrationId))
       .returning()
-    return reply.status(201).send(registration)
+    if (!reg) return reply.status(404).send({ error: 'Registration not found' })
+    return reg
+  })
+
+  app.put('/tournaments/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const body = createTournamentSchema.partial().parse(request.body)
+    const [t] = await db.update(tournaments).set({ ...body, updatedAt: new Date() }).where(eq(tournaments.id, id)).returning()
+    if (!t) return reply.status(404).send({ error: 'Tournament not found' })
+    return t
+  })
+
+  app.post('/tournaments/:id/finalize', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+    if (tournament.status === 'completed') return reply.status(409).send({ error: 'Tournament already finished' })
+    const categories = await db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
+    if (!categories.length) return reply.status(400).send({ error: 'No categories found' })
+    const incomplete: string[] = []
+    for (const cat of categories) {
+      const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
+      if (!drawList.length) { incomplete.push(`${cat.name}: chave nao gerada`); continue }
+      const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
+      const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
+      if (pending.length > 0) incomplete.push(`${cat.name}: ${pending.length} partida(s) pendente(s)`)
+    }
+    if (incomplete.length > 0) {
+      return reply.status(400).send({ error: 'Nao e possivel encerrar: existem chaves incompletas.', incomplete })
+    }
+    const report: {
+      categoryId: string; categoryName: string; discipline: string
+      podium: { placement: number; medal: string; athleteId: string; athleteName: string; athlete2Id: string | null; athlete2Name: string | null }[]
+    }[] = []
+    for (const cat of categories) {
+      const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
+      const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
+      const placementByReg = new Map<string, number>()
+      for (const match of allMatches) {
+        if (match.registration1Id === null && match.registration2Id === null) continue
+        const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
+        let winnerRegId: string | null = null
+        let loserRegId: string | null = null
+        if (sets.length > 0 && match.status === 'completed') {
+          const winner = getWinnerSlot(sets)
+          if (!winner) continue
+          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
+          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
+        } else {
+          const result = resolveWinnerLoser(match, sets)
+          if (!result) continue
+          winnerRegId = result.winnerRegId
+          loserRegId  = result.loserRegId
+        }
+        const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
+        if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
+        if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
+      }
+      const top4 = [...placementByReg.entries()].sort((a, b) => a[1] - b[1]).slice(0, 4)
+      if (!top4.length) continue
+      const regIds = top4.map(([regId]) => regId)
+      const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
+      const athleteIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
+      const athleteRows = athleteIds.length ? await db.select().from(athletes).where(inArray(athletes.id, athleteIds)) : []
+      const athleteMap = new Map(athleteRows.map((a) => [a.id, a.name]))
+      const medals = ['🥇', '🥈', '🥉', '4º']
+      const podium = top4.map(([regId, placement]) => {
+        const reg = regs.find((r) => r.id === regId)
+        return {
+          placement, medal: medals[placement - 1] ?? `${placement}º`,
+          athleteId: reg?.athleteId ?? '',
+          athleteName: reg ? (athleteMap.get(reg.athleteId) ?? '—') : '—',
+          athlete2Id: reg?.athlete2Id ?? null,
+          athlete2Name: reg?.athlete2Id ? (athleteMap.get(reg.athlete2Id) ?? null) : null,
+        }
+      })
+      report.push({ categoryId: cat.id, categoryName: cat.name, discipline: cat.discipline, podium })
+    }
+    await db.update(tournaments).set({ status: 'completed', updatedAt: new Date() }).where(eq(tournaments.id, id))
+    return { message: 'Torneio encerrado com sucesso.', report }
+  })
+
+  app.post('/tournaments/:id/reopen', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+    if (tournament.status !== 'completed') {
+      return reply.status(409).send({ error: 'Only completed tournaments can be reopened' })
+    }
+    if (tournament.pointsAwarded) {
+      const autoRankings = await db.select().from(rankings)
+        .where(and(eq(rankings.tenantId, tournament.tenantId), eq(rankings.autoInclude, true)))
+      const linkedLinks = await db.select().from(rankingTournaments)
+        .where(eq(rankingTournaments.tournamentId, id))
+      const linkedRankingIds = linkedLinks.map((l) => l.rankingId)
+      const linkedRankings = linkedRankingIds.length
+        ? await db.select().from(rankings).where(inArray(rankings.id, linkedRankingIds))
+        : []
+      const allRankingIds = [...new Set([
+        ...autoRankings.map((r) => r.id),
+        ...linkedRankings.map((r) => r.id),
+      ])]
+      for (const rankingId of allRankingIds) {
+        await removePointsFromRanking(rankingId, id)
+      }
+      if (linkedRankingIds.length) {
+        await db.delete(rankingTournaments).where(eq(rankingTournaments.tournamentId, id))
+      }
+    }
+    const [t] = await db.update(tournaments)
+      .set({ status: 'in_progress', pointsAwarded: false, updatedAt: new Date() })
+      .where(eq(tournaments.id, id))
+      .returning()
+    return t
+  })
+
+  app.delete('/tournaments/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await db.delete(tournaments).where(eq(tournaments.id, id))
+    return reply.status(204).send()
+  })
+
+  app.delete('/tournaments/registrations/:registrationId', async (request, reply) => {
+    const { registrationId } = request.params as { registrationId: string }
+    await db.delete(tournamentRegistrations).where(eq(tournamentRegistrations.id, registrationId))
+    return reply.status(204).send()
   })
 }

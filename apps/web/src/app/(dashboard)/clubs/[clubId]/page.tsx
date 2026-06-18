@@ -1,8 +1,9 @@
 'use client'
 
-import { use, useEffect, useState, useMemo } from 'react'
+import { use, useCallback, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
-import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink, ChevronLeft } from 'lucide-react'
+import { EditClubModal } from '@/components/club/edit-club-modal'
+import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink, ChevronLeft, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -15,7 +16,7 @@ type RosterAthlete = {
 
 type ClubProfile = {
   club: {
-    id: string; name: string; city: string | null; state: string | null
+    id: string; name: string; slug: string; city: string | null; state: string | null
     logoUrl: string | null; coverUrl: string | null
     primaryColor: string | null; secondaryColor: string | null
   }
@@ -65,19 +66,22 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
   const router = useRouter()
   const [profile, setProfile] = useState<ClubProfile | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
-  const [search, setSearch]             = useState('')
-  const [genderFilter, setGender]       = useState<'all' | 'M' | 'F'>('all')
+  const [search, setSearch]               = useState('')
+  const [genderFilter, setGender]         = useState<'all' | 'M' | 'F'>('all')
   const [disciplineFilter, setDiscipline] = useState<string>('all')
-  const [activeFilter, setActive]       = useState<'all' | 'true' | 'false'>('all')
-  const [sortField, setSortField]       = useState<SortField>('totalPoints')
-  const [sortDir, setSortDir]           = useState<SortDir>('desc')
+  const [activeFilter, setActive]         = useState<'all' | 'true' | 'false'>('all')
+  const [sortField, setSortField]         = useState<SortField>('totalPoints')
+  const [sortDir, setSortDir]             = useState<SortDir>('desc')
 
-  useEffect(() => {
+  const fetchProfile = useCallback(() => {
     apiFetch<ClubProfile>(`/clubs/${clubId}/profile`)
       .then(setProfile)
       .catch(() => setNotFound(true))
   }, [clubId])
+
+  useEffect(() => { fetchProfile() }, [fetchProfile])
 
   const filtered = useMemo(() => {
     if (!profile) return []
@@ -104,17 +108,13 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />
-    return sortDir === 'asc'
-      ? <ChevronUp className="w-3 h-3 ml-1" />
-      : <ChevronDown className="w-3 h-3 ml-1" />
+    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />
   }
 
   if (notFound) return (
     <div className="space-y-4">
       <BackButton onClick={() => router.push('/clubs')} />
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        Clube não encontrado.
-      </div>
+      <div className="flex items-center justify-center h-64 text-muted-foreground">Clube não encontrado.</div>
     </div>
   )
 
@@ -135,8 +135,6 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
 
   return (
     <div className="space-y-8">
-
-      {/* VOLTAR */}
       <BackButton onClick={() => router.push('/clubs')} />
 
       {/* HERO */}
@@ -171,16 +169,24 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                 </span>
               </div>
             </div>
+            {/* Botão editar */}
+            <button
+              onClick={() => setEditOpen(true)}
+              className="mb-1 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors shrink-0"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Editar clube
+            </button>
           </div>
         </div>
       </div>
 
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Pontos totais"     value={totalPoints.toLocaleString('pt-BR')}       sub="soma do plantel"   icon={TrendingUp} primary={primary} />
-        <StatCard label="Média por atleta"  value={avgPoints.toLocaleString('pt-BR')}         sub="pts / atleta"      icon={TrendingUp} primary={primary} />
+        <StatCard label="Pontos totais"     value={totalPoints.toLocaleString('pt-BR')}         sub="soma do plantel"    icon={TrendingUp} primary={primary} />
+        <StatCard label="Média por atleta"  value={avgPoints.toLocaleString('pt-BR')}           sub="pts / atleta"       icon={TrendingUp} primary={primary} />
         <StatCard label="Ranking de clubes" value={rankAmongClubs ? `${rankAmongClubs}º` : '—'} sub={rankAmongClubs ? `de ${totalClubs} clubes` : 'sem dados'} icon={Trophy} primary={primary} />
-        <StatCard label="Plantel ativo"     value={roster.filter((a) => a.active).length}     sub={`${roster.filter((a) => !a.active).length} inativo(s)`} icon={Users} primary={primary} />
+        <StatCard label="Plantel ativo"     value={roster.filter((a) => a.active).length}       sub={`${roster.filter((a) => !a.active).length} inativo(s)`} icon={Users} primary={primary} />
       </div>
 
       {/* TABELA */}
@@ -189,7 +195,6 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
           <Users className="w-4 h-4" style={{ color: primary }} />
           Plantel
         </h2>
-
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -255,10 +260,8 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                       <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                            style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}
-                          >
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                            style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}>
                             {athlete.name.charAt(0)}
                           </div>
                           <div>
@@ -305,16 +308,20 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
           </div>
         )}
       </div>
+
+      <EditClubModal
+        club={club}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={fetchProfile}
+      />
     </div>
   )
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-    >
+    <button onClick={onClick} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
       <ChevronLeft className="w-4 h-4" />
       Voltar para Clubes
     </button>

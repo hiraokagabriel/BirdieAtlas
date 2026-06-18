@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import Link from 'next/link'
-import { TrendingUp, Plus, ChevronRight, RefreshCw, Users, User, Zap } from 'lucide-react'
+import { Plus, ChevronRight, Users, User, Zap, Trophy, Shield } from 'lucide-react'
 
 type Ranking = {
   id: string; name: string; description: string | null
   discipline: string; year: number
   autoInclude: boolean; active: boolean
+  countBestResults: number | null
+  minTournamentsRequired: number
 }
 
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? ''
@@ -28,18 +30,26 @@ const disciplineColors: Record<string, string> = {
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 
 type CreateForm = {
-  name: string; description: string
-  discipline: string; year: number; autoInclude: boolean
+  name: string
+  description: string
+  discipline: string
+  year: number
+  autoInclude: boolean
+  countBestResults: string   // string para input controlado, convertido na submissão
+  minTournamentsRequired: string
+}
+
+const EMPTY_FORM: CreateForm = {
+  name: '', description: '', discipline: 'MS',
+  year: new Date().getFullYear(), autoInclude: false,
+  countBestResults: '', minTournamentsRequired: '0',
 }
 
 export default function RankingsPage() {
   const [rankings, setRankings] = useState<Ranking[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState<CreateForm>({
-    name: '', description: '', discipline: 'MS',
-    year: new Date().getFullYear(), autoInclude: false,
-  })
+  const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
 
   useEffect(() => {
     if (TENANT_ID) {
@@ -57,11 +67,16 @@ export default function RankingsPage() {
       const tenantId = TENANT_ID || ''
       const newRanking = await apiFetch<Ranking>('/rankings', {
         method: 'POST',
-        json: { ...form, tenantId },
+        json: {
+          ...form,
+          tenantId,
+          countBestResults: form.countBestResults ? Number(form.countBestResults) : undefined,
+          minTournamentsRequired: Number(form.minTournamentsRequired),
+        },
       })
       setRankings((prev) => [...prev, newRanking])
       setShowCreate(false)
-      setForm({ name: '', description: '', discipline: 'MS', year: new Date().getFullYear(), autoInclude: false })
+      setForm(EMPTY_FORM)
     } finally {
       setCreating(false)
     }
@@ -87,6 +102,8 @@ export default function RankingsPage() {
       {showCreate && (
         <form onSubmit={handleCreate} className="rounded-xl border border-border bg-card p-5 space-y-4">
           <h3 className="font-semibold text-sm">Novo Ranking</h3>
+
+          {/* Linha 1: Nome + Descrição */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground font-medium">Nome *</label>
@@ -104,6 +121,10 @@ export default function RankingsPage() {
                 className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
+          </div>
+
+          {/* Linha 2: Disciplina + Ano */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground font-medium">Disciplina *</label>
               <select
@@ -123,6 +144,40 @@ export default function RankingsPage() {
             </div>
           </div>
 
+          {/* Linha 3: Regras de contagem */}
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Regras de contagem</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <Trophy className="w-3 h-3" />
+                  Melhores resultados
+                </label>
+                <input
+                  type="number" min={1} max={99} placeholder="Todos (padrão)"
+                  value={form.countBestResults}
+                  onChange={(e) => setForm((f) => ({ ...f, countBestResults: e.target.value }))}
+                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <p className="text-xs text-muted-foreground">Deixe em branco para contar todos os torneios.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <Shield className="w-3 h-3" />
+                  Mínimo de torneios
+                </label>
+                <input
+                  type="number" min={0} max={99}
+                  value={form.minTournamentsRequired}
+                  onChange={(e) => setForm((f) => ({ ...f, minTournamentsRequired: e.target.value }))}
+                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <p className="text-xs text-muted-foreground">Atletas com menos torneios são excluídos do ranking.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Linha 4: Auto-inclusão */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox" checked={form.autoInclude}
@@ -190,6 +245,20 @@ export default function RankingsPage() {
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700 text-xs">
                     <Zap className="w-3 h-3" />
                     Auto
+                  </span>
+                )}
+
+                {r.countBestResults && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-xs">
+                    <Trophy className="w-3 h-3" />
+                    Top {r.countBestResults}
+                  </span>
+                )}
+
+                {r.minTournamentsRequired > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 text-xs">
+                    <Shield className="w-3 h-3" />
+                    Mín. {r.minTournamentsRequired}
                   </span>
                 )}
               </div>

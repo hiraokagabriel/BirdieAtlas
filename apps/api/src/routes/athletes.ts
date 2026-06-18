@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index'
 import { athletes, athleteAffiliations, clubs, rankingEntries, rankings, tournamentRegistrations, tournamentCategories, tournaments } from '../db/schema'
-import { eq, isNull, and, ilike, or } from 'drizzle-orm'
+import { eq, isNull, and, ilike, or, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -20,8 +20,16 @@ const affiliateSchema = z.object({
   startedAt: z.string(),
 })
 
+// Schema para cada linha do CSV já parseada em objeto
+const csvRowSchema = z.object({
+  name: z.string().min(1, 'Nome obrigatório'),
+  gender: z.enum(['M', 'F'], { errorMap: () => ({ message: 'Gênero deve ser M ou F' }) }),
+  birthDate: z.string().optional(),
+  email: z.string().email('E-mail inválido').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  nationality: z.string().default('BR'),
+})
+
 export async function athletesRoutes(app: FastifyInstance) {
-  // Lista atletas com clube atual embutido (para tabela do admin)
   app.get('/athletes/with-club', async (request) => {
     const { tenantId, search } = request.query as { tenantId?: string; search?: string }
     const rows = await db
@@ -78,14 +86,11 @@ export async function athletesRoutes(app: FastifyInstance) {
     return athlete
   })
 
-  // Perfil completo público do atleta
   app.get('/athletes/:id/profile', async (request, reply) => {
     const { id } = request.params as { id: string }
-
     const [athlete] = await db.select().from(athletes).where(eq(athletes.id, id))
     if (!athlete) return reply.status(404).send({ error: 'Athlete not found' })
 
-    // Clube atual
     const [currentAffiliation] = await db
       .select({
         clubId: clubs.id,
@@ -100,8 +105,6 @@ export async function athletesRoutes(app: FastifyInstance) {
       .where(and(eq(athleteAffiliations.athleteId, id), isNull(athleteAffiliations.endedAt)))
       .limit(1)
 
-    // Posições em rankings (simples e duplas onde o atleta aparece)
-    const { inArray } = await import('drizzle-orm')
     const entriesAsAthlete1 = await db.select().from(rankingEntries).where(eq(rankingEntries.athleteId, id))
     const entriesAsAthlete2 = await db.select().from(rankingEntries).where(eq(rankingEntries.athlete2Id, id))
     const allEntries = [...entriesAsAthlete1, ...entriesAsAthlete2]
@@ -122,7 +125,6 @@ export async function athletesRoutes(app: FastifyInstance) {
       partnerId: e.athleteId === id ? (e.athlete2Id ?? null) : e.athleteId,
     }))
 
-    // IDs dos parceiros para buscar nomes
     const partnerIds = [...new Set(rankingPositions.map((r) => r.partnerId).filter(Boolean) as string[])]
     const partnerList = partnerIds.length
       ? await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, partnerIds))
@@ -134,7 +136,6 @@ export async function athletesRoutes(app: FastifyInstance) {
       partnerName: r.partnerId ? (partnerMap.get(r.partnerId) ?? null) : null,
     }))
 
-    // Histórico de torneios (via inscrições confirmadas)
     const regs1 = await db
       .select()
       .from(tournamentRegistrations)
@@ -188,29 +189,50 @@ export async function athletesRoutes(app: FastifyInstance) {
     }
   })
 
-  // Histórico completo de afiliações com dados do clube
-  app.get('/athletes/:id/affiliations', async (request) => {
-    const { id } = request.params as { id: string }
-    return db
-      .select({
-        id: athleteAffiliations.id,
-        clubId: clubs.id,
-        clubName: clubs.name,
-        clubSlug: clubs.slug,
-        city: clubs.city,
-        state: clubs.state,
-        startedAt: athleteAffiliations.startedAt,
-        endedAt: athleteAffiliations.endedAt,
-      })
-      .from(athleteAffiliations)
-      .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
-      .where(eq(athleteAffiliations.athleteId, id))
-  })
+  // NOTA: GET /athletes/:id/affiliations foi removido daqui.
+  // A rota vive em affiliations.ts com payload mais completo.
 
   app.post('/athletes', async (request, reply) => {
     const body = createAthleteSchema.parse(request.body)
     const [athlete] = await db.insert(athletes).values({ id: randomUUID(), ...body }).returning()
     return reply.status(201).send(athlete)
+  })
+
+  app.post('/athletes/import-csv', async (request, reply) => {
+    const body = request.body as unknown[]
+    if (!Array.isArray(body)) {
+      return reply.status(400).send({ error: 'Body deve ser um array de objetos' })
+    }
+
+    const created: string[] = []
+    const errors: { row: number; reason: string }[] = []
+
+    for (let i = 0; i < body.length; i++) {
+      const parsed = csvRowSchema.safeParse(body[i])
+      if (!parsed.success) {
+        const reason = parsed.error.errors.map((e) => e.message).join(', ')
+        errors.push({ row: i + 1, reason })
+        continue
+      }
+      try {
+        const [athlete] = await db
+          .insert(athletes)
+          .values({ id: randomUUID(), ...parsed.data })
+          .returning()
+        created.push(athlete.name)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+        errors.push({ row: i + 1, reason: msg })
+      }
+    }
+
+    return reply.status(200).send({
+      total: body.length,
+      created: created.length,
+      failed: errors.length,
+      createdNames: created,
+      errors,
+    })
   })
 
   app.post('/athletes/:id/affiliate', async (request, reply) => {

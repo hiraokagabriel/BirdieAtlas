@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, Trophy, TrendingUp,
-  Feather, ChevronRight, Bell, Settings, LogOut, ExternalLink,
+  Feather, ChevronRight, Bell, Settings, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { AdminModeToggle } from '@/components/dashboard/admin-mode-toggle'
 
 const navItems = [
   { label: 'Dashboard',  href: '/dashboard',    icon: LayoutDashboard },
@@ -104,6 +105,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Botão de modo admin — visível apenas em desenvolvimento */}
+      <AdminModeToggle />
     </div>
   )
 }

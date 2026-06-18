@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
@@ -5,6 +6,6 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: 'postgresql://postgres:postgres@127.0.0.1:5432/birdie_atlas',
+    url: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/birdie_atlas',
   },
 })
