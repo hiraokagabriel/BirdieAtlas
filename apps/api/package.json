@@ -10,7 +10,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:reset": "drizzle-kit drop && drizzle-kit push"
+    "db:reset": "drizzle-kit drop && drizzle-kit push",
+    "db:seed": "tsx src/scripts/seed.ts"
   },
   "dependencies": {
     "@fastify/cors": "latest",
