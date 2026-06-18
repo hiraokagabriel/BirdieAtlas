@@ -10,10 +10,16 @@
  *   pnpm --filter api db:seed -- --profile small
  *   pnpm --filter api db:seed -- --profile large
  *   pnpm --filter api db:seed -- --reset   # limpa tudo antes de inserir
+ *
+ * COMPORTAMENTO SEM --reset:
+ *   - Tenants são reaproveitados se já existirem (onConflictDoNothing)
+ *   - Clubes, torneios e rankings recebem sufixo único por execução
+ *     para evitar colisão de slugs únicos no banco
  */
 
 import 'dotenv/config'
 import { drizzle } from 'drizzle-orm/node-postgres'
+import { eq } from 'drizzle-orm'
 import { Pool } from 'pg'
 import { randomUUID } from 'crypto'
 import {
@@ -46,6 +52,9 @@ const PROFILE = (() => {
 })() as 'small' | 'medium' | 'large'
 const RESET = args.includes('--reset')
 
+// Prefixo único por execução — garante slugs únicos sem precisar de --reset
+const RUN_ID = randomUUID().slice(0, 6)
+
 const VOLUMES = {
   small:  { clubs: 4,  athletes: 40,  tournaments: 4,  rankings: 2 },
   medium: { clubs: 12, athletes: 150, tournaments: 12, rankings: 4 },
@@ -60,17 +69,13 @@ const VOL = VOLUMES[PROFILE] ?? VOLUMES.medium
 
 const uid = () => randomUUID()
 
-const slug = (str: string) =>
+const slugify = (str: string) =>
   str
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-
-const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
-
-const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
 const dateStr = (daysOffset: number): string => {
   const d = new Date()
@@ -151,14 +156,13 @@ async function seed() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL })
   const db = drizzle(pool)
 
-  console.log(`\n🌱 BirdieAtlas Seed — perfil: ${PROFILE.toUpperCase()}\n`)
+  console.log(`\n🌱 BirdieAtlas Seed — perfil: ${PROFILE.toUpperCase()} | run: ${RUN_ID}\n`)
 
   // -------------------------------------------------------------------------
   // 1. RESET (opcional)
   // -------------------------------------------------------------------------
   if (RESET) {
     console.log('🗑  Limpando banco (--reset)...')
-    // Ordem de deleção respeita chaves estrangeiras
     await db.delete(rankingEntries)
     await db.delete(rankingTournaments)
     await db.delete(pointRules)
@@ -179,19 +183,27 @@ async function seed() {
 
   // -------------------------------------------------------------------------
   // 2. TENANTS
+  // Tenants têm slugs fixos e representam entidades reais de infra.
+  // Usamos onConflictDoNothing para reaproveitar os existentes entre execuções.
   // -------------------------------------------------------------------------
   console.log('👥 Criando tenants...')
-  const tenantData = [
+  const tenantDefs = [
     { id: uid(), name: 'Confederação Brasileira de Badminton', slug: 'cbb-br', country: 'BR' },
     { id: uid(), name: 'Federação Paulista de Badminton', slug: 'fpb-sp', country: 'BR' },
   ]
-  await db.insert(tenants).values(tenantData)
-  const tenant = tenantData[0]
-  const tenant2 = tenantData[1]
-  console.log(`   ✓ ${tenantData.length} tenants`)
+  await db.insert(tenants).values(tenantDefs).onConflictDoNothing()
+
+  // Busca os IDs reais (podem ser de uma inserção anterior)
+  const [tenant, tenant2] = await Promise.all([
+    db.select().from(tenants).where(eq(tenants.slug, 'cbb-br')).then((r) => r[0]),
+    db.select().from(tenants).where(eq(tenants.slug, 'fpb-sp')).then((r) => r[0]),
+  ])
+
+  if (!tenant || !tenant2) throw new Error('Tenants não encontrados após upsert.')
+  console.log(`   ✓ tenants (reutilizados ou criados)`)
 
   // -------------------------------------------------------------------------
-  // 3. PONTOS TABLE (antes de torneios, pois torneio referencia)
+  // 3. TABELAS DE PONTOS
   // -------------------------------------------------------------------------
   console.log('📊 Criando tabelas de pontos...')
   const placements = [1, 2, 3, 5, 9, 17, 25, 33]
@@ -204,16 +216,13 @@ async function seed() {
   }
 
   const pointsTableData: typeof pointsTables.$inferInsert[] = []
-  const pointsTableByLevel: Record<string, string> = {}
 
   for (const [level, pointsArr] of Object.entries(levelPointsMap)) {
-    const tId = uid()
-    pointsTableByLevel[level] = tId
     for (let i = 0; i < placements.length; i++) {
       pointsTableData.push({
         id: uid(),
         tenantId: tenant.id,
-        name: `Tabela ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+        name: `Tabela ${level.charAt(0).toUpperCase() + level.slice(1)} [${RUN_ID}]`,
         tournamentLevel: level,
         placement: placements[i],
         points: pointsArr[i],
@@ -225,39 +234,31 @@ async function seed() {
 
   // -------------------------------------------------------------------------
   // 4. CLUBS
+  // Slug inclui RUN_ID para ser único entre execuções.
   // -------------------------------------------------------------------------
   console.log('🏢 Criando clubes...')
   const clubData: typeof clubs.$inferInsert[] = []
-  const usedClubSlugs = new Set<string>()
-  let clubNameIdx = 0
   for (let i = 0; i < VOL.clubs; i++) {
     const tenantRef = i % 3 === 0 ? tenant2.id : tenant.id
-    const baseName = `${CLUB_PREFIXES[i % CLUB_PREFIXES.length]} ${CLUB_NAMES[clubNameIdx % CLUB_NAMES.length]}`
+    const baseName = `${CLUB_PREFIXES[i % CLUB_PREFIXES.length]} ${CLUB_NAMES[i % CLUB_NAMES.length]}`
     const city = CITIES[i % CITIES.length]
     const state = STATES[i % STATES.length]
-    let clubSlug = slug(baseName)
-    let slugAttempt = 0
-    while (usedClubSlugs.has(clubSlug)) {
-      slugAttempt++
-      clubSlug = `${slug(baseName)}-${slugAttempt}`
-    }
-    usedClubSlugs.add(clubSlug)
     clubData.push({
       id: uid(),
-      name: baseName,
-      slug: clubSlug,
+      name: `${baseName} [${RUN_ID}]`,
+      slug: `${slugify(baseName)}-${RUN_ID}-${i}`,
       tenantId: tenantRef,
       city,
       state,
       active: true,
     })
-    clubNameIdx++
   }
   await db.insert(clubs).values(clubData)
   console.log(`   ✓ ${clubData.length} clubes`)
 
   // -------------------------------------------------------------------------
   // 5. ATHLETES
+  // Email inclui RUN_ID para ser único entre execuções.
   // -------------------------------------------------------------------------
   console.log('🏃 Criando atletas...')
   const athleteData: typeof athletes.$inferInsert[] = []
@@ -272,7 +273,7 @@ async function seed() {
     athleteData.push({
       id: uid(),
       name,
-      email: `atleta${i + 1}@birdieatlas.dev`,
+      email: `atleta${i + 1}-${RUN_ID}@birdieatlas.dev`,
       gender: gender as 'M' | 'F',
       birthDate: `${birthYear}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
       nationality: 'BR',
@@ -302,23 +303,16 @@ async function seed() {
 
   // -------------------------------------------------------------------------
   // 7. TOURNAMENTS
+  // Slug inclui RUN_ID para ser único entre execuções.
   // -------------------------------------------------------------------------
   console.log('🏆 Criando torneios...')
   const tournamentData: typeof tournaments.$inferInsert[] = []
-  const usedTournamentSlugs = new Set<string>()
   for (let i = 0; i < VOL.tournaments; i++) {
     const level = LEVELS[i % LEVELS.length]
     const prefix = TOURNAMENT_PREFIXES[i % TOURNAMENT_PREFIXES.length]
     const theme = TOURNAMENT_THEMES[i % TOURNAMENT_THEMES.length]
     const year = 2025 + Math.floor(i / 12)
     const name = `${prefix} ${theme} ${year} - Etapa ${(i % 4) + 1}`
-    let tournSlug = slug(name)
-    let slugAttempt = 0
-    while (usedTournamentSlugs.has(tournSlug)) {
-      slugAttempt++
-      tournSlug = `${slug(name)}-${slugAttempt}`
-    }
-    usedTournamentSlugs.add(tournSlug)
     const startOffset = -180 + i * 15
     const statuses: Array<typeof tournaments.$inferInsert['status']> = [
       'completed', 'completed', 'completed',
@@ -327,8 +321,8 @@ async function seed() {
     tournamentData.push({
       id: uid(),
       tenantId: i % 3 === 0 ? tenant2.id : tenant.id,
-      name,
-      slug: tournSlug,
+      name: `${name} [${RUN_ID}]`,
+      slug: `${slugify(name)}-${RUN_ID}-${i}`,
       status: statuses[i % statuses.length],
       level,
       startDate: dateStr(startOffset),
@@ -336,7 +330,7 @@ async function seed() {
       location: `Arena ${CITIES[i % CITIES.length]}`,
       city: CITIES[i % CITIES.length],
       state: STATES[i % STATES.length],
-      pointsAwarded: i % statuses.length < 3, // torneios 'completed' têm pontos
+      pointsAwarded: i % statuses.length < 3,
     })
   }
   await db.insert(tournaments).values(tournamentData)
@@ -348,7 +342,7 @@ async function seed() {
   console.log('📋 Criando categorias de torneio...')
   const categoryData: typeof tournamentCategories.$inferInsert[] = []
   for (const tourn of tournamentData) {
-    const numCategories = 3 + Math.floor(Math.random() * 3) // 3 a 5 por torneio
+    const numCategories = 3 + Math.floor(Math.random() * 3)
     const shuffled = [...DISCIPLINES].sort(() => Math.random() - 0.5)
     for (let i = 0; i < numCategories; i++) {
       const disc = shuffled[i % shuffled.length]
@@ -381,11 +375,11 @@ async function seed() {
     else if (cat.discipline === 'WS') pool = femaleAthletes
     else if (cat.discipline === 'MD') pool = maleAthletes
     else if (cat.discipline === 'WD') pool = femaleAthletes
-    else pool = athleteData // XD
+    else pool = athleteData
 
     if (pool.length < 2) continue
 
-    const numEntries = 8 + Math.floor(Math.random() * 9) // 8 a 16
+    const numEntries = 8 + Math.floor(Math.random() * 9)
     const usedAthletes = new Set<string>()
     for (let i = 0; i < numEntries; i++) {
       const available = pool.filter((a) => !usedAthletes.has(a.id!))
@@ -397,7 +391,6 @@ async function seed() {
       if (isDouble) {
         let partner2Pool = pool
         if (cat.discipline === 'XD') {
-          // XD: parceiro deve ser do sexo oposto
           partner2Pool = athlete.gender === 'M' ? femaleAthletes : maleAthletes
         }
         const available2 = partner2Pool.filter((a) => !usedAthletes.has(a.id!))
@@ -423,13 +416,11 @@ async function seed() {
   console.log(`   ✓ ${registrationData.length} inscrições`)
 
   // -------------------------------------------------------------------------
-  // 10. DRAWS + MATCHES (apenas categorias de torneios completed)
+  // 10. DRAWS + MATCHES
   // -------------------------------------------------------------------------
   console.log('🎯 Criando chaves e partidas...')
   const completedTournIds = new Set(
-    tournamentData
-      .filter((t) => t.status === 'completed')
-      .map((t) => t.id),
+    tournamentData.filter((t) => t.status === 'completed').map((t) => t.id),
   )
   const completedCategories = categoryData.filter((c) =>
     completedTournIds.has(c.tournamentId),
@@ -438,7 +429,6 @@ async function seed() {
   const drawData: typeof draws.$inferInsert[] = []
   const matchData: typeof matches.$inferInsert[] = []
   const matchResultData: typeof matchResults.$inferInsert[] = []
-
   const updatedRegistrations = [...registrationData]
 
   for (const cat of completedCategories) {
@@ -453,24 +443,15 @@ async function seed() {
       drawMode: 'random',
     })
 
-    // Gera chave single elimination de 8
     const slots = 8
-    const rounds = Math.log2(slots) // 3 rounds para 8 jogadores
-    let matchesThisRound: string[] = []
-    let prevRoundMatches: string[] = []
+    const rounds = Math.log2(slots)
 
     for (let round = 1; round <= rounds; round++) {
       const matchesInRound = slots / Math.pow(2, round)
-      const currentMatches: string[] = []
-
       for (let pos = 1; pos <= matchesInRound; pos++) {
         const matchId = uid()
-        currentMatches.push(matchId)
-
         const reg1 = round === 1 ? catRegs[(pos - 1) * 2] : undefined
         const reg2 = round === 1 ? catRegs[(pos - 1) * 2 + 1] : undefined
-
-        // Determina vencedor para gerar resultados
         const hasResult = round <= 2
         const score1win = [21, 21]
         const score2win = [15, 15]
@@ -486,7 +467,6 @@ async function seed() {
           scheduledAt: isoTs(-180 + completedCategories.indexOf(cat) * 2),
         })
 
-        // Gera sets para partidas completadas
         if (hasResult && reg1 && reg2) {
           const reg1Wins = Math.random() > 0.5
           for (let set = 1; set <= 2; set++) {
@@ -500,12 +480,8 @@ async function seed() {
           }
         }
       }
-
-      prevRoundMatches = matchesThisRound
-      matchesThisRound = currentMatches
     }
 
-    // Atribui colocações finais nos registros da 1ª categoria completada
     const finalRegs = catRegs.slice(0, Math.min(catRegs.length, 4))
     finalRegs.forEach((reg, i) => {
       const found = updatedRegistrations.find((r) => r.id === reg.id)
@@ -528,12 +504,12 @@ async function seed() {
   for (let i = 0; i < VOL.rankings; i++) {
     const disc = rankingDiscs[i % rankingDiscs.length]
     const year = 2025 + Math.floor(i / 5)
-    const name = `Ranking ${disc} ${year}`
+    const name = `Ranking ${disc} ${year} [${RUN_ID}]`
     rankingData.push({
       id: uid(),
       tenantId: i % 2 === 0 ? tenant.id : tenant2.id,
       name,
-      slug: slug(name) + `-${uid().slice(0, 6)}`,
+      slug: `ranking-${disc.toLowerCase()}-${year}-${RUN_ID}-${i}`,
       description: `Ranking oficial da modalidade ${disc} para o ano ${year}`,
       discipline: disc,
       year,
@@ -580,7 +556,7 @@ async function seed() {
   console.log(`   ✓ ${pointRuleData.length} regras de pontos`)
 
   // -------------------------------------------------------------------------
-  // 13. RANKING TOURNAMENTS (vínculos ranking ↔ torneio)
+  // 13. RANKING TOURNAMENTS
   // -------------------------------------------------------------------------
   console.log('🔗 Vinculando torneios aos rankings...')
   const rankingTournamentData: typeof rankingTournaments.$inferInsert[] = []
@@ -614,11 +590,12 @@ async function seed() {
 
   for (const ranking of rankingData) {
     const isDouble = ['MD', 'WD', 'XD'].includes(ranking.discipline)
-    const relevantAthletes = ranking.discipline === 'WS' || ranking.discipline === 'WD'
-      ? femaleAthletes
-      : ranking.discipline === 'MS' || ranking.discipline === 'MD'
-        ? maleAthletes
-        : athleteData
+    const relevantAthletes =
+      ranking.discipline === 'WS' || ranking.discipline === 'WD'
+        ? femaleAthletes
+        : ranking.discipline === 'MS' || ranking.discipline === 'MD'
+          ? maleAthletes
+          : athleteData
 
     const topN = Math.min(relevantAthletes.length, 30)
     const sorted = [...relevantAthletes].sort(() => Math.random() - 0.5).slice(0, topN)
@@ -657,8 +634,8 @@ async function seed() {
   // SUMÁRIO
   // -------------------------------------------------------------------------
   console.log(`
-✅ Seed concluído!\n
-   Tenants:               ${tenantData.length}
+✅ Seed concluído! [run: ${RUN_ID}]\n
+   Tenants:               2 (reutilizados ou criados)
    Clubes:                ${clubData.length}
    Atletas:               ${athleteData.length}
    Afiliações:            ${affiliationData.length}
