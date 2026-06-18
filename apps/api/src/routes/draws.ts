@@ -67,7 +67,6 @@ function getWinnerLoserFromSlots(
   return null
 }
 
-// Fisher-Yates shuffle
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -144,18 +143,11 @@ function buildMatchDefs(
     if (next) match.nextMatchId = next.id
   }
 
-  // -------------------------------------------------------------------
-  // BYE: propaga vencedor apenas para partidas originais do primeiro round
-  // com exatamente um slot preenchido. `propagatedMatchIds` impede que
-  // partidas que receberam um atleta via propagação sejam reprocessadas
-  // como novos BYEs, evitando a cascata errada até a Final.
-  // -------------------------------------------------------------------
   const propagatedMatchIds = new Set<string>()
 
   const roundsDesc = [...new Set(matchDefs.map((m) => m.round))].sort((a, b) => b - a)
   for (const round of roundsDesc) {
     for (const match of matchDefs.filter((m) => m.round === round)) {
-      // Ignora partidas que foram preenchidas por propagação — não são BYEs reais
       if (propagatedMatchIds.has(match.id)) continue
 
       const isBye = match.registration1Id === null || match.registration2Id === null
@@ -170,7 +162,6 @@ function buildMatchDefs(
         if (next) {
           const slot = getSlotForPosition(match.position)
           next[slot] = winnerRegId
-          // Marca a partida destino para não ser reprocessada como BYE
           propagatedMatchIds.add(next.id)
         }
       }
@@ -445,7 +436,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (!match) return reply.status(404).send({ error: 'Match not found' })
 
     const newWinner = getWinnerSlot(body.sets)
-    if (!newWinner) return reply.status(400).send({ error: 'Cannot determine winner from sets' })\
+    if (!newWinner) return reply.status(400).send({ error: 'Cannot determine winner from sets' })
     const newWinnerRegId = newWinner === 1 ? match.registration1Id : match.registration2Id
 
     const prevResults = await db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
