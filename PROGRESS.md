@@ -58,7 +58,7 @@
 | UI de lançamento de resultado (W.O./Ret.) com validação | ✅ Feito | Banner explicativo + erro se vencedor não selecionado |
 | Página de setup do torneio (aba Configurações) | ✅ Feito | |
 | **Página pública do torneio** (`/t/[slug]`) | ✅ Feito | `page.tsx` implementado em `apps/web/src/app/(public)/t/[slug]/` |
-| **Publicação de chave com bloqueio de edição** | ❌ Pendente | Campo `published` existe no schema, sem fluxo real |
+| **Publicação de chave com bloqueio de edição** | ✅ Feito | Guard `409 DRAW_PUBLISHED` na rota `POST /draws/:drawId/redraw` — commit `69ae3bec` |
 | **Schedule view (quadra/horário por partida)** | ❌ Pendente | Componente parcial, agendamento não finalizado |
 
 ---
