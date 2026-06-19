@@ -86,9 +86,23 @@ export async function athletesRoutes(app: FastifyInstance) {
     return athlete
   })
 
+  // Rota pública — não expõe dados sensíveis (email, birthDate)
   app.get('/athletes/:id/profile', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [athlete] = await db.select().from(athletes).where(eq(athletes.id, id))
+
+    // Seleciona apenas campos seguros para exposição pública
+    const [athlete] = await db
+      .select({
+        id: athletes.id,
+        name: athletes.name,
+        gender: athletes.gender,
+        nationality: athletes.nationality,
+        photoUrl: athletes.photoUrl,
+        active: athletes.active,
+      })
+      .from(athletes)
+      .where(eq(athletes.id, id))
+
     if (!athlete) return reply.status(404).send({ error: 'Athlete not found' })
 
     const [currentAffiliation] = await db
@@ -105,13 +119,37 @@ export async function athletesRoutes(app: FastifyInstance) {
       .where(and(eq(athleteAffiliations.athleteId, id), isNull(athleteAffiliations.endedAt)))
       .limit(1)
 
-    const entriesAsAthlete1 = await db.select().from(rankingEntries).where(eq(rankingEntries.athleteId, id))
-    const entriesAsAthlete2 = await db.select().from(rankingEntries).where(eq(rankingEntries.athlete2Id, id))
+    // Busca entradas de ranking onde o atleta aparece (simples ou dupla)
+    const entriesAsAthlete1 = await db
+      .select({
+        rankingId: rankingEntries.rankingId,
+        position: rankingEntries.position,
+        totalPoints: rankingEntries.totalPoints,
+        athleteId: rankingEntries.athleteId,
+        athlete2Id: rankingEntries.athlete2Id,
+      })
+      .from(rankingEntries)
+      .where(eq(rankingEntries.athleteId, id))
+
+    const entriesAsAthlete2 = await db
+      .select({
+        rankingId: rankingEntries.rankingId,
+        position: rankingEntries.position,
+        totalPoints: rankingEntries.totalPoints,
+        athleteId: rankingEntries.athleteId,
+        athlete2Id: rankingEntries.athlete2Id,
+      })
+      .from(rankingEntries)
+      .where(eq(rankingEntries.athlete2Id, id))
+
     const allEntries = [...entriesAsAthlete1, ...entriesAsAthlete2]
 
     const rankingIds = [...new Set(allEntries.map((e) => e.rankingId))]
     const rankingList = rankingIds.length
-      ? await db.select().from(rankings).where(inArray(rankings.id, rankingIds))
+      ? await db
+          .select({ id: rankings.id, name: rankings.name, discipline: rankings.discipline, year: rankings.year })
+          .from(rankings)
+          .where(inArray(rankings.id, rankingIds))
       : []
     const rankingMap = new Map(rankingList.map((r) => [r.id, r]))
 
@@ -121,13 +159,16 @@ export async function athletesRoutes(app: FastifyInstance) {
       discipline: rankingMap.get(e.rankingId)?.discipline ?? '',
       year: rankingMap.get(e.rankingId)?.year ?? 0,
       position: e.position,
-      points: e.points,
+      totalPoints: e.totalPoints,
       partnerId: e.athleteId === id ? (e.athlete2Id ?? null) : e.athleteId,
     }))
 
     const partnerIds = [...new Set(rankingPositions.map((r) => r.partnerId).filter(Boolean) as string[])]
     const partnerList = partnerIds.length
-      ? await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, partnerIds))
+      ? await db
+          .select({ id: athletes.id, name: athletes.name })
+          .from(athletes)
+          .where(inArray(athletes.id, partnerIds))
       : []
     const partnerMap = new Map(partnerList.map((p) => [p.id, p.name]))
 
@@ -136,6 +177,7 @@ export async function athletesRoutes(app: FastifyInstance) {
       partnerName: r.partnerId ? (partnerMap.get(r.partnerId) ?? null) : null,
     }))
 
+    // Histórico de torneios confirmados
     const regs1 = await db
       .select()
       .from(tournamentRegistrations)
@@ -165,7 +207,7 @@ export async function athletesRoutes(app: FastifyInstance) {
         registrationId: reg.id,
         seed: reg.seed,
         withdrew: reg.withdrew,
-        rankingPointsAtEntry: reg.rankingPointsAtEntry,
+        finalPlacement: reg.finalPlacement,
         categoryId: reg.categoryId,
         categoryName: category?.name ?? '',
         discipline: category?.discipline ?? '',
