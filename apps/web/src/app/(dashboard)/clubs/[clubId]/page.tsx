@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import { EditClubModal } from '@/components/club/edit-club-modal'
-import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink, ChevronLeft, Pencil } from 'lucide-react'
+import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink, ChevronLeft, Pencil, Globe } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -148,7 +148,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
           }}
         />
         <div className="px-6 pb-6 pt-0 bg-card">
-          <div className="flex items-end gap-5 -mt-10">
+          <div className="flex items-end gap-5 -mt-10 flex-wrap">
             <div className="w-20 h-20 rounded-2xl border-4 border-background shadow-lg flex items-center justify-center overflow-hidden shrink-0 bg-white">
               {club.logoUrl
                 ? <img src={club.logoUrl} alt={club.name} className="w-full h-full object-contain p-1" />
@@ -169,14 +169,25 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                 </span>
               </div>
             </div>
-            {/* Botão editar */}
-            <button
-              onClick={() => setEditOpen(true)}
-              className="mb-1 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors shrink-0"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Editar clube
-            </button>
+            {/* Botões de ação */}
+            <div className="mb-1 flex items-center gap-2 shrink-0">
+              <Link
+                href={`/c/${club.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                Ver perfil público
+              </Link>
+              <button
+                onClick={() => setEditOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Editar clube
+              </button>
+            </div>
           </div>
         </div>
       </div>
