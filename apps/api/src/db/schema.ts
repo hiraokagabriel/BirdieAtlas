@@ -41,8 +41,6 @@ export const tournamentStatusEnum = pgEnum('tournament_status', [
   'in_progress', 'completed', 'cancelled',
 ])
 
-// Enum exportado — usado em pointRules e rankingTournaments (tabelas novas, sem dados)
-// tournaments.level permanece como text para não truncar os registros existentes
 export const tournamentLevelEnum = pgEnum('tournament_level', [
   'local', 'regional', 'state', 'national', 'international',
 ])
@@ -110,6 +108,19 @@ export const athleteAffiliations = pgTable('athlete_affiliations', {
 })
 
 // ---------------------------------------------------------------------------
+// Pairs (Duplas)
+// ---------------------------------------------------------------------------
+export const pairs = pgTable('pairs', {
+  id: id(),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  athlete1Id: text('athlete1_id').notNull().references(() => athletes.id),
+  athlete2Id: text('athlete2_id').notNull().references(() => athletes.id),
+  discipline: disciplineEnum('discipline').notNull(),
+  active: boolean('active').notNull().default(true),
+  ...timestamps,
+})
+
+// ---------------------------------------------------------------------------
 // Tournaments
 // ---------------------------------------------------------------------------
 export const tournaments = pgTable('tournaments', {
@@ -118,8 +129,6 @@ export const tournaments = pgTable('tournaments', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   status: tournamentStatusEnum('status').notNull().default('draft'),
-  // Mantido como text para preservar registros existentes.
-  // Valores válidos: 'local' | 'regional' | 'state' | 'national' | 'international'
   level: text('level').notNull().default('state'),
   startDate: date('start_date').notNull(),
   endDate: date('end_date').notNull(),
@@ -247,7 +256,6 @@ export const pointRules = pgTable('point_rules', {
   category: text('category'),
   multiplier: real('multiplier').notNull().default(1.0),
   participationBonus: real('participation_bonus').notNull().default(0),
-  // [{ placement: 1, basePoints: 1000 }, { placement: 2, basePoints: 800 }, ...]
   entries: jsonb('entries').notNull().default('[]'),
   deletedAt: timestamp('deleted_at'),
   ...timestamps,
@@ -278,11 +286,7 @@ export const rankingEntries = pgTable('ranking_entries', {
   athlete2Id: text('athlete2_id').references(() => athletes.id),
   position: integer('position').notNull(),
   previousPosition: integer('previous_position'),
-
-  // Única coluna de pontuação — motor de recálculo escreve aqui.
-  // Coluna legada 'points' foi removida após migração dos dados existentes.
   totalPoints: real('total_points').notNull().default(0),
-
   tournamentsCount: integer('tournaments_count').notNull().default(0),
   resultsDetail: jsonb('results_detail').notNull().default('[]'),
   manualAdjustment: real('manual_adjustment').notNull().default(0),

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, Trophy, TrendingUp,
-  Feather, ChevronRight, Bell, Settings, LogOut,
+  Feather, ChevronRight, Bell, Settings, LogOut, Swords,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -18,6 +18,7 @@ import { AdminModeToggle } from '@/components/dashboard/admin-mode-toggle'
 const navItems = [
   { label: 'Dashboard',  href: '/dashboard',    icon: LayoutDashboard },
   { label: 'Atletas',    href: '/athletes',     icon: Users },
+  { label: 'Duplas',     href: '/pairs',        icon: Swords },
   { label: 'Clubes',     href: '/clubs',        icon: Building2 },
   { label: 'Torneios',   href: '/tournaments',  icon: Trophy },
   { label: 'Rankings',   href: '/rankings',     icon: TrendingUp },
@@ -106,7 +107,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      {/* Botão de modo admin — visível apenas em desenvolvimento */}
       <AdminModeToggle />
     </div>
   )
