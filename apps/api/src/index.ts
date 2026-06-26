@@ -7,7 +7,6 @@ import { drawsRoutes } from './routes/draws'
 import { rankingsRoutes } from './routes/rankings'
 import { dashboardRoutes } from './routes/dashboard'
 import { affiliationsRoutes } from './routes/affiliations'
-import { importRoutes } from './routes/import'
 import { importAthletesRoutes } from './routes/import-athletes'
 import { tenantsRoutes } from './routes/tenants'
 import { pointsTablesRoutes } from './routes/points-tables'
@@ -25,7 +24,6 @@ await app.register(drawsRoutes)
 await app.register(rankingsRoutes)
 await app.register(dashboardRoutes)
 await app.register(affiliationsRoutes)
-await app.register(importRoutes)
 await app.register(importAthletesRoutes)
 await app.register(tenantsRoutes)
 await app.register(pointsTablesRoutes)
