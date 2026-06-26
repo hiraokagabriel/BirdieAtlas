@@ -14,18 +14,18 @@
     "db:seed": "tsx src/scripts/seed.ts"
   },
   "dependencies": {
-    "@fastify/cors": "latest",
+    "@fastify/cors": "^9.0.1",
     "drizzle-orm": "0.41.0",
-    "fastify": "latest",
-    "pg": "latest",
-    "zod": "latest"
+    "fastify": "^5.8.2",
+    "pg": "^8.16.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/pg": "latest",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.11.14",
     "dotenv": "^17.4.2",
     "drizzle-kit": "0.30.6",
-    "tsx": "latest",
-    "typescript": "latest"
+    "tsx": "^4.22.4",
+    "typescript": "^5.8.3"
   }
 }
