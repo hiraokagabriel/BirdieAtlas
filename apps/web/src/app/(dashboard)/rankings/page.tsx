@@ -29,13 +29,26 @@ const disciplineColors: Record<string, string> = {
 
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 
+/** Gera slug a partir de uma string: lowercase, sem acentos, hífens no lugar de espaços/especiais */
+function toSlug(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 type CreateForm = {
   name: string
   description: string
   discipline: string
   year: number
   autoInclude: boolean
-  countBestResults: string   // string para input controlado, convertido na submissão
+  countBestResults: string
   minTournamentsRequired: string
 }
 
@@ -70,6 +83,7 @@ export default function RankingsPage() {
         json: {
           ...form,
           tenantId,
+          slug: toSlug(form.name),
           countBestResults: form.countBestResults ? Number(form.countBestResults) : undefined,
           minTournamentsRequired: Number(form.minTournamentsRequired),
         },
@@ -112,6 +126,11 @@ export default function RankingsPage() {
                 value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
+              {form.name && (
+                <p className="text-xs text-muted-foreground">
+                  Slug: <span className="font-mono text-foreground">{toSlug(form.name)}</span>
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground font-medium">Descrição</label>
