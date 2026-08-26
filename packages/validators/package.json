@@ -8,9 +8,13 @@
     "./registration": "./src/registration.ts"
   },
   "scripts": {
+    "test": "vitest run",
     "lint": "eslint ."
   },
   "dependencies": {
     "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }
