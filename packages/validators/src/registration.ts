@@ -22,6 +22,14 @@ export const updateRegistrationBodySchema = z.object({
   notes: z.string().trim().max(1000).nullable().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
   message: "Informe pelo menos um campo para atualização.",
+}).superRefine((value, context) => {
+  if (value.status === "rejected" && !value.notes?.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["notes"],
+      message: "Informe o motivo da rejeição.",
+    });
+  }
 });
 
 export const approveRegistrationBodySchema = z.object({
