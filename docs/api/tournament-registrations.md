@@ -4,17 +4,9 @@
 
 Padronizar o contrato utilizado pelo frontend e pela API para consulta, edição e aprovação de inscrições.
 
-## Status
-
-- `pending`: inscrição recebida e aguardando revisão.
-- `approved`: inscrição validada e elegível para fechamento da categoria.
-- `rejected`: inscrição recusada, sempre com motivo registrado em `notes`.
-
-As transições críticas devem gerar evento de auditoria. A API deve impedir alterações em inscrições de torneios publicados ou finalizados, exceto por fluxo administrativo explícito.
-
 ## Consulta
 
-`GET /tournaments/:tournamentId/registrations`
+`GET /registrations/tournament/:tournamentId`
 
 Query params:
 
@@ -22,7 +14,7 @@ Query params:
 - `page`: página iniciando em 1.
 - `pageSize`: de 1 a 100, padrão 25.
 
-Resposta:
+A rota valida todos os parâmetros com Zod e retorna:
 
 ```json
 {
@@ -35,6 +27,16 @@ Resposta:
   }
 }
 ```
+
+A leitura inicial não realiza mutações. A fonte temporária será substituída por Drizzle assim que os nomes definitivos das tabelas forem confirmados no schema central.
+
+## Status
+
+- `pending`: inscrição recebida e aguardando revisão.
+- `approved`: inscrição validada e elegível para fechamento da categoria.
+- `rejected`: inscrição recusada, sempre com motivo registrado em `notes`.
+
+As transições críticas devem gerar evento de auditoria. A API deve impedir alterações em inscrições de torneios publicados ou finalizados, exceto por fluxo administrativo explícito.
 
 ## Atualização
 
