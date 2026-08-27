@@ -1,74 +1,69 @@
-"use client";
+import Link from 'next/link';
+import { Users, Trophy, Calendar, Target } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatsCards } from '@/components/dashboard/stats-cards';
+import { RecentResults } from '@/components/dashboard/recent-results';
+import { UpcomingMatches } from '@/components/dashboard/upcoming-matches';
+import { RankingChart } from '@/components/dashboard/ranking-chart';
 
-import { useUserMode } from "@/contexts/user-mode";
-import { DASHBOARD_DATA, type DashboardMetric } from "@/mocks/dashboard-data";
+const navItems = [
+  {
+    title: 'Atletas',
+    href: '/dashboard/athletes',
+    icon: Users,
+    description: 'Gerenciar atletas e duplas',
+  },
+  {
+    title: 'Clubes',
+    href: '/dashboard/clubs',
+    icon: Users,
+    description: 'Gerenciar clubes e afiliaçııes',
+  },
+  {
+    title: 'Torneios',
+    href: '/dashboard/tournaments',
+    icon: Trophy,
+    description: 'Gerenciar torneios e categorias',
+  },
+  {
+    title: 'Rankings',
+    href: '/dashboard/rankings',
+    icon: Target,
+    description: 'Gerenciar rankings e pontuaçııes',
+  },
+];
 
-function MetricCard({ metric }: { metric: DashboardMetric }) {
-  const toneClass = {
-    default: "text-slate-500",
-    success: "text-emerald-700",
-    warning: "text-amber-700",
-  }[metric.tone];
-
+export default function HomePage() {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">{metric.label}</p>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">{metric.value}</p>
-      <p className={`mt-2 text-xs font-medium ${toneClass}`}>{metric.hint}</p>
-    </article>
-  );
-}
+    <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold md:text-3xl">Dashboard</h1>
+      </div>
 
-export default function DashboardPage() {
-  const { mode, hydrated } = useUserMode();
-  const data = DASHBOARD_DATA[hydrated ? mode : "public"];
+      <StatsCards />
 
-  return (
-    <div className="space-y-7">
-      <section>
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-700">{data.eyebrow}</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">{data.title}</h1>
-        <p className="mt-2 max-w-2xl text-slate-600">{data.description}</p>
-      </section>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {navItems.map((item) => (
+          <Link key={item.href} href={item.href}>
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+                <item.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">{item.description}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
 
-      <section className={`grid gap-4 sm:grid-cols-2 ${data.metrics.length === 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
-        {data.metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}
-      </section>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <RecentResults />
+        <UpcomingMatches />
+      </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-        <article className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-5">
-            <h2 className="font-semibold text-slate-950">{data.primarySectionTitle}</h2>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {data.primaryItems.map((item) => (
-              <div key={`${item.title}-${item.meta}`} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="font-medium text-slate-900">{item.title}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{item.description}</p>
-                  <p className="mt-2 text-xs font-medium text-slate-500">{item.meta}</p>
-                </div>
-                {item.status ? <span className="w-fit rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800">{item.status}</span> : null}
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-5">
-            <h2 className="font-semibold text-slate-950">{data.secondarySectionTitle}</h2>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {data.secondaryItems.map((item) => (
-              <div key={`${item.title}-${item.meta}`} className="p-5">
-                <h3 className="font-medium text-slate-900">{item.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">{item.description}</p>
-                <p className="mt-2 text-xs font-medium text-slate-500">{item.meta}</p>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
+      <RankingChart />
     </div>
   );
 }
