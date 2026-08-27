@@ -1,37 +1,43 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { ReactNode } from 'react'
 
 const navItems = [
-  { href: '/dashboard', label: 'Visao Geral' },
+  { href: '/dashboard', label: 'Visão Geral' },
   { href: '/dashboard/athletes', label: 'Atletas' },
   { href: '/dashboard/clubs', label: 'Clubes' },
   { href: '/dashboard/tournaments', label: 'Torneios' },
   { href: '/dashboard/rankings', label: 'Rankings' },
 ]
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed left-0 top-0 h-full w-64 border-r bg-card p-6">
-        <div className="mb-8">
-          <h1 className="text-xl font-bold">BirdieAtlas</h1>
-          <p className="text-sm text-muted-foreground">Admin Dashboard</p>
-        </div>
+interface DashboardLayoutProps {
+  children: ReactNode
+}
 
-        <nav className="space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="block rounded-md px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  return (
+    <div className="min-h-screen bg-background md:flex">
+      <aside className="w-full shrink-0 border-b bg-card md:min-h-screen md:w-64 md:border-b-0 md:border-r">
+        <div className="p-6">
+          <div className="mb-8">
+            <h1 className="text-xl font-bold">BirdieAtlas</h1>
+            <p className="text-sm text-muted-foreground">Admin Dashboard</p>
+          </div>
+
+          <nav className="space-y-2" aria-label="Navegação principal">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
       </aside>
 
-      <main className="ml-64 min-h-screen">{children}</main>
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   )
 }
