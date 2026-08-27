@@ -1,428 +1,131 @@
-# 🏸 BirdieAtlas
+# BirdieAtlas - Plataforma de Gestao de Campeonatos de Badminton
 
-Full-stack web platform for badminton tournament management.
+## Visao Geral
 
-## 📋 Prerequisites
+**BirdieAtlas** e uma plataforma web full-stack para gestao de campeonatos de badminton, focada em federacoes e organizacoes esportivas.
 
-Before starting, make sure you have installed:
+### Objetivos Principais
 
-- **Node.js 22+** (LTS recommended) — [Download](https://nodejs.org/)
-- **pnpm 9+** — [Installation](https://pnpm.io/installation)
-- **Docker Desktop** — [Download](https://www.docker.com/products/docker-desktop/) (to run PostgreSQL locally)
-- **Git** — [Download](https://git-scm.com/)
-
-### Verifying installations
-
-Open PowerShell and run:
-
-```powershell
-node --version      # Should show v22.x.x or higher
-pnpm --version      # Should show 9.x.x or higher
-docker --version    # Should show Docker version 24+
-git --version       # Should show git version 2.x.x
-```
+1. Gerenciar atletas, clubes e afiliacoes
+2. Organizar torneios com inscricoes e categorias
+3. Gerar chaves de competicao (draws) em multiplos formatos
+4. Calcular rankings automaticamente baseado em resultados
+5. Disponibilizar portal publico com resultados e estatisticas
 
 ---
 
-## 🚀 Initial Setup (First Time)
+## Stack Tecnologica
 
-### 1. Clone the repository
+### Frontend
 
-```powershell
-# Navigate to the folder where you want to store the project
-cd C:\projects
+- **Next.js 15** com App Router (SSR/SSG/ISR)
+- **TypeScript** strict mode
+- **Tailwind CSS v4**
+- **Shadcn/ui** para componentes
+- **TanStack Query v5** para cache
+- **Zod** para validacao
 
-# Clone the repository (replace with your actual repo URL)
-git clone git@github.com:YOUR_USERNAME/BirdieAtlas.git
+### Backend
 
-# Enter the project folder
-cd BirdieAtlas
-```
+- **Node.js + Fastify** (REST API)
+- **TypeScript** strict mode
+- **Drizzle ORM** com PostgreSQL
+- **Zod** para validacao de inputs
 
-### 2. Install dependencies
+### Banco de Dados
 
-```powershell
-# Install all monorepo dependencies
-pnpm install
-```
+- **PostgreSQL** (Docker local, Railway em prod)
+- Drizzle Kit para migrations
 
-### 3. Configure environment variables
+### Infraestrutura
 
-#### Backend (apps/api)
-
-```powershell
-# Create the .env file in the apps/api root
-cd apps/api
-Copy-Item .env.example .env  # If it exists, or create manually
-```
-
-Minimum content for `apps/api/.env`:
-
-```env
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/birdie_atlas?schema=public"
-
-# Server
-PORT=3001
-NODE_ENV=development
-```
-
-#### Frontend (apps/web)
-
-```powershell
-# Go back to root and configure frontend
-cd ../..
-cd apps/web
-Copy-Item .env.example .env  # If it exists, or create manually
-```
-
-Minimum content for `apps/web/.env.local`:
-
-```env
-# API URL
-NEXT_PUBLIC_API_URL="http://localhost:3001"
-
-# Next.js
-NEXT_PUBLIC_APP_NAME="BirdieAtlas"
-```
-
-### 4. Start the database with Docker
-
-```powershell
-# Go back to project root
-cd ../..
-
-# Create and start the PostgreSQL container
-docker run -d \
-  --name birdie_atlas_db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=birdie_atlas \
-  -p 5432:5432 \
-  postgres:16-alpine
-```
-
-**Verify the database is running:**
-
-```powershell
-docker ps  # Should show birdie_atlas_db in the list
-```
-
-**If you need to stop/restart the database:**
-
-```powershell
-docker stop birdie_atlas_db
-docker start birdie_atlas_db
-```
-
-### 5. Set up the database (Drizzle)
-
-```powershell
-# In the project root, run the schema push
-pnpm --filter api db:push
-```
-
-This will:
-- Read the schema from `apps/api/src/db/schema.ts`
-- Create all tables in the `birdie_atlas` database
-- Apply indexes and constraints
-
-**Optional: Open Drizzle Studio to visualize the database**
-
-```powershell
-pnpm --filter api db:studio
-```
-
-Access `http://localhost:5555` in your browser.
+- **Vercel** (frontend)
+- **Railway** (backend + DB)
+- **Clerk** (auth)
+- **Cloudinary** (uploads)
+- **Resend** (emails)
+- **Sentry** (error tracking)
 
 ---
 
-## ▶️ Running the Project
+## Arquitetura
 
-### Development Mode (Recommended)
-
-Open **two separate terminals** (or use PowerShell/Windows Terminal tabs):
-
-#### Terminal 1 — Backend (Fastify)
-
-```powershell
-cd C:\projects\BirdieAtlas
-
-# Start the API server at http://localhost:3001
-pnpm --filter api dev
-```
-
-**What to expect:**
-- Fastify server starts at `http://localhost:3001`
-- Logs of registered routes
-- Automatic hot reload on code changes
-
-#### Terminal 2 — Frontend (Next.js)
-
-```powershell
-cd C:\projects\BirdieAtlas
-
-# Start Next.js at http://localhost:3000
-pnpm --filter web dev
-```
-
-**What to expect:**
-- Next.js compiles and starts at `http://localhost:3000`
-- Automatic hot reload on code changes
-- Messages about generated routes (App Router)
-
-### Accessing the application
-
-After both servers are running:
-
-- **Frontend:** `http://localhost:3000`
-- **Backend API:** `http://localhost:3001`
-- **Drizzle Studio:** `http://localhost:5555` (if you ran `db:studio`)
-
----
-
-## 📦 Available Scripts
-
-### Global (project root)
-
-```powershell
-# Install dependencies for all apps
-pnpm install
-
-# Run all apps in development (if configured in turbo.json)
-pnpm dev
-
-# Production build for all apps
-pnpm build
-
-# Clean cache and node_modules
-pnpm clean
-```
-
-### Backend (apps/api)
-
-```powershell
-# Development
-pnpm --filter api dev
-
-# Build
-pnpm --filter api build
-
-# Production
-pnpm --filter api start
-
-# Database
-pnpm --filter api db:push      # Sync schema without migration (dev)
-pnpm --filter api db:generate  # Generate migration files
-pnpm --filter api db:migrate   # Apply pending migrations
-pnpm --filter api db:studio    # Open Drizzle Studio
-```
-
-### Frontend (apps/web)
-
-```powershell
-# Development
-pnpm --filter web dev
-
-# Build
-pnpm --filter web build
-
-# Production
-pnpm --filter web start
-
-# Lint
-pnpm --filter web lint
-```
-
----
-
-## 🗂️ Project Structure
+### Monorepo
 
 ```
 BirdieAtlas/
 ├── apps/
-│   ├── web/              # Next.js 15 (Frontend)
-│   │   ├── src/
-│   │   │   ├── app/      # Routes (App Router)
-│   │   │   ├── components/
-│   │   │   ├── hooks/
-│   │   │   └── lib/
-│   │   ├── .env.local
-│   │   └── package.json
-│   │
-│   └── api/              # Fastify (Backend)
-│       ├── src/
-│       │   ├── db/
-│       │   │   ├── index.ts      # Drizzle instance
-│       │   │   └── schema.ts     # Database schema (source of truth)
-│       │   ├── routes/           # API routes
-│       │   └── index.ts
-│       ├── .env
-│       └── package.json
-│
-├── packages/             # Shared packages
-│   ├── types/
-│   ├── validators/
-│   └── config/
-│
-├── docker-compose.yml    # (Optional) Docker for DB
-├── turbo.json          # Turborepo config
-├── pnpm-workspace.yaml
-└── package.json
+│   ├── web/          # Next.js 15
+│   └── api/          # Fastify + Drizzle
+├── packages/
+│   ├── types/        # Tipos compartilhados
+│   ├── validators/   # Schemas Zod
+│   └── config/       # eslint, tsconfig
+└── docs/             # Documentacao
 ```
 
 ---
 
-## 🐛 Troubleshooting
+## Modelagem de Dados
 
-### Database connection fails
+### Entidades Principais
 
-**Error:** `ECONNREFUSED` or `could not connect to server`
-
-**Solution:**
-
-```powershell
-# Check if the container is running
-docker ps
-
-# If not, start it
-docker start birdie_atlas_db
-
-# If you need to recreate
-docker rm -f birdie_atlas_db
-docker run -d --name birdie_atlas_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=birdie_atlas -p 5432:5432 postgres:16-alpine
-```
-
-### Port 3000 or 3001 already in use
-
-**Error:** `EADDRINUSE`
-
-**Solution:**
-
-```powershell
-# Find the process using the port
-netstat -ano | findstr :3000
-netstat -ano | findstr :3001
-
-# Kill the process (replace PID with the returned number)
-taskkill /PID <PID> /F
-```
-
-### Drizzle push fails
-
-**Error:** `relation already exists` or `migration error`
-
-**Solution (development only):**
-
-```powershell
-# Clean the database and push again
-pnpm --filter api db:push --force
-```
-
-**Warning:** `--force` may delete data!
-
-### Dependencies out of sync
-
-**Symptom:** Type errors or module not found
-
-**Solution:**
-
-```powershell
-# Clean cache and reinstall
-rm -rf node_modules
-rm -rf apps/*/node_modules
-rm -rf packages/*/node_modules
-rm pnpm-lock.yaml
-
-pnpm install
-```
-
-### Next.js fails to compile
-
-**Error:** `Module not found` or `Cannot find module`
-
-**Solution:**
-
-```powershell
-# Clean Next.js cache
-rm -rf .next
-rm -rf apps/web/.next
-
-# Reinstall web dependencies
-pnpm --filter web install
-
-# Run dev again
-pnpm --filter web dev
-```
+- **Tenant** - Federacao/organizacao
+- **Club** - Clube com atletas
+- **Athlete** - Atleta com perfil
+- **AthleteAffiliation** - Historico atleta-clube
+- **Tournament** - Campeonato
+- **TournamentCategory** - Disciplina (MS, WS, MD, WD, XD)
+- **TournamentRegistration** - Inscricao
+- **Draw** - Chave gerada
+- **Match** - Partida
+- **MatchResult** - Sets de um confronto
+- **Ranking** - Ranking de uma disciplina
+- **RankingEntry** - Posicao e pontos
+- **PointsTable** - Tabela de pontos
 
 ---
 
-## 🧪 Testing (Future)
+## Roadmap
 
-When implemented:
+### Phase 0 - Fundacao 🔄
+- Monorepo, CI/CD, auth, banco, config
 
-```powershell
-# Unit tests
-pnpm test
+### Phase 1 - Atletas e Clubes 🔄
+- CRUD, importacao, perfis publicos
 
-# E2E tests with Playwright
-pnpm test:e2e
-```
+### Phase 2 - Torneios e Inscricoes 🔄
+- CRUD, categorias, inscricoes, pagina publica
 
----
+### Phase 3 - Motor de Ranking ⏳
+- Calculo automatico, cache, pagina publica
 
-## 📝 Development Checklist
+### Phase 4 - Chaves ⏳
+- Seed, todos formatos, chave publica
 
-Before committing:
+### Phase 5 - Partidas ⏳
+- Lancamento de placar, progressao, auditoria
 
-- [ ] TypeScript code without errors (`pnpm --filter web lint` / `pnpm --filter api lint`)
-- [ ] Tests passing (when implemented)
-- [ ] Migrations generated if schema changed (`pnpm --filter api db:generate`)
-- [ ] Commit follows Conventional Commits (`feat:`, `fix:`, `chore:`, etc.)
-- [ ] Branch follows pattern (`feat/phase-X-name`, `fix/description`)
+### Phase 6 - Portal Publico ⏳
+- Resultados ao vivo, stats, head-to-head
 
----
+### Phase 7 - Dashboard Admin ⏳
+- KPIs, relatorios, notificacoes
 
-## 🔗 Useful Links
-
-- **Turborepo Documentation:** https://turborepo.org/docs
-- **Drizzle ORM:** https://orm.drizzle.team
-- **Next.js 15:** https://nextjs.org/docs
-- **Fastify:** https://fastify.dev/docs
-- **Shadcn/ui:** https://ui.shadcn.com
+### Phase 8 - Mobile ⏳
+- PWA, push, testes E2E, polish
 
 ---
 
-## 📌 Project Phases
+## Proximos Passos
 
-| Phase | Scope | Status |
-|------|--------|--------|
-| Phase 0 | Monorepo, CI/CD, auth, database, base config | 🔄 In progress |
-| Phase 1 | Athletes, doubles, clubs, import, public profiles | 🔄 In progress |
-| Phase 2 | Tournaments, categories, registrations, public pages | 🔄 In progress |
-| Phase 3 | Ranking engine, points rules, cache | ⏳ Planned |
-| Phase 4 | Draw generation with seeding, all formats | ⏳ Planned |
-| Phase 5 | Match flow, score entry, progression | ⏳ Planned |
-| Phase 6 | Public portal, live results | ⏳ Planned |
-| Phase 7 | Admin dashboard, reports | ⏳ Planned |
-| Phase 8 | Mobile, PWA, push notifications | ⏳ Planned |
+1. **Phase 0:** Finalizar auth com Clerk
+2. **Phase 1:** CRUD de atletas e clubes
+3. **Phase 2:** Torneios e inscricoes
+4. **Phase 3+:** Sequencia natural
 
 ---
 
-## 🤝 Contributing
+**Documentacao completa:** `docs/ESPECIFICACAO_COMPLETA.md` (na branch de desenvolvimento)
 
-1. Create a branch for your feature (`git checkout -b feat/phase-1-athletes`)
-2. Commit your changes (`git commit -m 'feat: add athletes CRUD'`)
-3. Push to the branch (`git push origin feat/phase-1-athletes`)
-4. Open a Pull Request
-
----
-
-## 📄 License
-
-MIT — see `LICENSE` file in the project root.
-
----
-
-**Last updated:** August 2026  
-**Project version:** Phase 1 (In progress)
+**Ultima atualizacao:** 27/08/2026
