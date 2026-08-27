@@ -1,21 +1,25 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
-import "./globals.css";
-import { AppShell } from "@/components/layout/app-shell";
-import { UserModeProvider } from "@/contexts/user-mode";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Toaster } from '@/components/ui/toaster';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "BirdieAtlas",
-  description: "Protótipo de gestão de campeonatos de badminton",
+  title: 'BirdieAtlas',
+  description: 'Plataforma de gestão de campeonatos de badminton',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="pt-BR">
-      <body>
-        <UserModeProvider>
-          <AppShell>{children}</AppShell>
-        </UserModeProvider>
+      <body className={inter.className}>
+        {children}
+        <Toaster />
       </body>
     </html>
   );
