@@ -8,6 +8,8 @@ import {
   date,
   real,
   jsonb,
+  check,
+  index,
 } from 'drizzle-orm/pg-core'
 
 // ---------------------------------------------------------------------------
@@ -47,6 +49,10 @@ export const tournamentLevelEnum = pgEnum('tournament_level', [
 
 export const rankingStatusEnum = pgEnum('ranking_status', [
   'active', 'inactive', 'archived',
+])
+
+export const registrationStatusEnum = pgEnum('registration_status', [
+  'pending', 'approved', 'rejected',
 ])
 
 // ---------------------------------------------------------------------------
@@ -165,10 +171,19 @@ export const tournamentRegistrations = pgTable('tournament_registrations', {
   seed: integer('seed'),
   confirmed: boolean('confirmed').notNull().default(false),
   withdrew: boolean('withdrew').notNull().default(false),
+  status: registrationStatusEnum('status').notNull().default('pending'),
+  notes: text('notes'),
   rankingPointsAtEntry: integer('ranking_points_at_entry'),
   finalPlacement: integer('final_placement'),
   ...timestamps,
-})
+}, (table) => [
+  index('tournament_registrations_category_idx').on(table.categoryId),
+  index('tournament_registrations_status_idx').on(table.status),
+  index('tournament_registrations_athlete_idx').on(table.athleteId),
+  check('tournament_registrations_athlete_or_pair',
+    `${table.athleteId} IS NOT NULL OR ${table.athlete2Id} IS NOT NULL`,
+  ),
+])
 
 // ---------------------------------------------------------------------------
 // Draws
