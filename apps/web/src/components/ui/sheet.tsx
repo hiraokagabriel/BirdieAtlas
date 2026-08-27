@@ -24,7 +24,7 @@ const SheetOverlay = React.forwardRef<
     ref={ref}
   />
 ))
-SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
+SheetOverlay.displayName = "SheetOverlay"
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
