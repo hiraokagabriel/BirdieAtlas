@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface Club {
   id: string;
@@ -47,7 +48,7 @@ export default function ClubsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingClub, setEditingClub] = useState<Club | null>(null);
   const [deletingClub, setDeletingClub] = useState<Club | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadClubs();
@@ -55,12 +56,15 @@ export default function ClubsPage() {
 
   async function loadClubs() {
     try {
-      setError(null);
       const data = await apiFetch<Club[]>('/clubs');
       setClubs(data);
     } catch (error) {
       console.error('Failed to load clubs:', error);
-      setError('Erro ao carregar clubes. Tente novamente mais tarde.');
+      toast({
+        title: 'Erro ao carregar clubes',
+        description: 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -71,10 +75,18 @@ export default function ClubsPage() {
 
     try {
       await apiFetch(`/clubs/${deletingClub.id}`, { method: 'DELETE' });
+      toast({
+        title: 'Clube excluíıı',
+        description: `"${deletingClub.name}" foi removido com sucesso.`,
+      });
       setClubs(clubs.filter((c) => c.id !== deletingClub.id));
     } catch (error) {
       console.error('Failed to delete club:', error);
-      setError('Erro ao excluir clube. Tente novamente.');
+      toast({
+        title: 'Erro ao excluir clube',
+        description: 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
     } finally {
       setDeletingClub(null);
     }
@@ -82,11 +94,19 @@ export default function ClubsPage() {
 
   function handleCreateSuccess() {
     setIsCreateOpen(false);
+    toast({
+      title: 'Clube criado',
+      description: 'O clube foi cadastrado com sucesso.',
+    });
     loadClubs();
   }
 
   function handleEditSuccess() {
     setEditingClub(null);
+    toast({
+      title: 'Clube atualizado',
+      description: 'As informações do clube foram atualizadas.',
+    });
     loadClubs();
   }
 
@@ -104,12 +124,6 @@ export default function ClubsPage() {
           Novo Clube
         </Button>
       </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg">
-          {error}
-        </div>
-      )}
 
       <Card>
         <CardHeader>
