@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
+import { db } from '../db/index.js'
 import {
   rankings, rankingEntries, rankingTournaments,
   athletes, tenants, tournaments,
   tournamentCategories, draws, matches, matchResults, tournamentRegistrations,
   pointsTables, pointRules,
-} from '../db/schema'
+} from '../db/schema.js'
 import { eq, and, asc, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'

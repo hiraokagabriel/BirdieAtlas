@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
-import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, rankingTournaments, athletes } from '../db/schema'
+import { db } from '../db/index.js'
+import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, rankingTournaments, athletes } from '../db/schema.js'
 import { eq, and, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -397,18 +397,18 @@ export async function drawsRoutes(app: FastifyInstance) {
             )
           )
           if (existing.length) {
-            await db.update(rankingEntries).set({ points: existing[0].points + points, totalPoints: existing[0].totalPoints + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
+            await db.update(rankingEntries).set({ totalPoints: existing[0].totalPoints + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
           } else {
-            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: normA1, athlete2Id: normA2, points, totalPoints: points, position: 0 })
+            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: normA1, athlete2Id: normA2, totalPoints: points, position: 0 })
           }
         } else {
           const existing = await db.select().from(rankingEntries).where(
             and(eq(rankingEntries.rankingId, ranking.id), eq(rankingEntries.athleteId, reg.athleteId))
           )
           if (existing.length) {
-            await db.update(rankingEntries).set({ points: existing[0].points + points, totalPoints: existing[0].totalPoints + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
+            await db.update(rankingEntries).set({ totalPoints: existing[0].totalPoints + points, updatedAt: new Date() }).where(eq(rankingEntries.id, existing[0].id))
           } else {
-            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: null, points, totalPoints: points, position: 0 })
+            await db.insert(rankingEntries).values({ id: randomUUID(), rankingId: ranking.id, athleteId: reg.athleteId, athlete2Id: null, totalPoints: points, position: 0 })
           }
         }
 
@@ -416,7 +416,7 @@ export async function drawsRoutes(app: FastifyInstance) {
       }
 
       const allEntries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, ranking.id))
-      const sortedEntries = [...allEntries].sort((a, b) => b.points - a.points)
+      const sortedEntries = [...allEntries].sort((a, b) => b.totalPoints - a.totalPoints)
       for (let i = 0; i < sortedEntries.length; i++) {
         await db.update(rankingEntries).set({ position: i + 1, updatedAt: new Date() }).where(eq(rankingEntries.id, sortedEntries[i].id))
       }

@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
+import { db } from '../db/index.js'
 import {
   athletes, clubs, athleteAffiliations,
   tournaments, tournamentCategories, draws, matches, matchResults,
   tournamentRegistrations,
-} from '../db/schema'
+} from '../db/schema.js'
 import { eq, inArray, or } from 'drizzle-orm'
 
 // ---------------------------------------------------------------------------

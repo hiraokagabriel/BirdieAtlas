@@ -333,7 +333,7 @@ function RuleForm({ form, setForm, onSave, onCancel, isSaving, title }: RuleForm
           <label className="text-xs font-medium">Nível do Torneio *</label>
           <Select
             value={form.tournamentLevel}
-            onValueChange={(v) => setForm({ ...form, tournamentLevel: v as TournamentLevel })}
+            onValueChange={(v: string) => setForm({ ...form, tournamentLevel: v as TournamentLevel })}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
@@ -351,7 +351,7 @@ function RuleForm({ form, setForm, onSave, onCancel, isSaving, title }: RuleForm
           <label className="text-xs font-medium">Disciplina <span className="text-muted-foreground">(opcional)</span></label>
           <Select
             value={form.discipline || '_all'}
-            onValueChange={(v) => setForm({ ...form, discipline: v === '_all' ? '' : v })}
+            onValueChange={(v: string) => setForm({ ...form, discipline: v === '_all' ? '' : v })}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Todas" />

@@ -114,7 +114,7 @@ export default function PairsPage() {
     } else {
       await apiFetch(`/pairs/${pair.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ active: true }),
+        json: { active: true },
       })
     }
     fetchPairs()

@@ -171,8 +171,8 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
         </span>
       )}
       {r.confirmed
-        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" title="Confirmado" />
-        : <Clock        className="w-4 h-4 text-yellow-500 shrink-0" title="Pendente" />}
+        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-label="Confirmado" />
+        : <Clock        className="w-4 h-4 text-yellow-500 shrink-0" aria-label="Pendente" />}
     </div>
   )
 

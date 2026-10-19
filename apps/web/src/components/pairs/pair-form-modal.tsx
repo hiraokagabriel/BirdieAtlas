@@ -166,7 +166,7 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
       if (pair) {
         await apiFetch(`/pairs/${pair.id}`, {
           method: 'PUT',
-          body: JSON.stringify({ discipline }),
+          json: { discipline },
         })
       } else {
         // Busca tenantId do primeiro atleta via afiliação
@@ -177,7 +177,7 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
 
         await apiFetch('/pairs', {
           method: 'POST',
-          body: JSON.stringify({ tenantId, athlete1Id, athlete2Id, discipline }),
+          json: { tenantId, athlete1Id, athlete2Id, discipline },
         })
       }
       onSaved()
