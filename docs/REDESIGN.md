@@ -59,6 +59,8 @@
 
 ## Entregas
 
+A situação de cada entrega fica no [`PROGRESS.md`](../PROGRESS.md).
+
 Cada item é um PR para `main`, nesta ordem:
 
 1. **Fundação** — branch, typecheck verde, workspace, validators/types, regras de domínio e contratos de inscrição portados, `ApiError`, mudança para `/admin`, navegação admin + público, teste de rotas da navegação, CI.
@@ -99,3 +101,9 @@ Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-
 - Índices únicos parciais (`WHERE deleted_at IS NULL`) em e-mail de atleta, slug de clube e de torneio, e `(tenant, slug)` de ranking. Violação vira 409 `UNIQUE_VIOLATION`.
 - Desativar dupla agora é `PUT { active: false }`; `DELETE` exclui.
 - A aba de configurações do torneio oferecia níveis (`municipal`, `estadual`…) que nunca casavam com os valores gravados e um seletor de status que a API ignorava; agora usa o enum compartilhado e o status só muda pelo ciclo de vida.
+
+### PR 5 — Documentação
+
+- A especificação foi reescrita a partir do código: stack real (Next.js 16, Fastify 5), rotas `/admin` e públicas, contratos, schema, regras de negócio e convenções. As regras do antigo `CONTEXT.md` entraram nela e no `CLAUDE.md` da raiz.
+- O `CONTEXT.md` só existia em `feat/dashboard-crud-pages` e nunca chegou à `main`; não há arquivo a remover.
+- `PROGRESS.md` reflete a `main` atual e lista as dívidas técnicas conhecidas. O README ficou curto, com setup e links.
