@@ -13,7 +13,8 @@
     "db:reset": "drizzle-kit drop && drizzle-kit push",
     "db:seed": "tsx src/scripts/seed.ts",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@birdie-atlas/validators": "workspace:*",
@@ -24,6 +25,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "eslint": "^9.39.1",
     "@birdie-atlas/types": "workspace:*",
     "@types/node": "^22.15.0",
     "@types/pg": "^8.11.14",
