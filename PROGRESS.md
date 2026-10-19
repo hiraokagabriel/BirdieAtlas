@@ -14,7 +14,7 @@
 | 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | ❌ Pendente |
 | 3c. Aposentadoria de `pointsTables` | ❌ Pendente |
 | 4. Ciclo de vida do torneio | ✅ PR #12 |
-| 5. Documentação | ✅ Este PR |
+| 5. Documentação | ✅ PR #15 |
 
 Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
 
