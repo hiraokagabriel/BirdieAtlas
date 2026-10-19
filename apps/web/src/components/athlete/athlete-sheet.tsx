@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
-import type { AthleteRow } from '@/app/(dashboard)/athletes/page'
+import type { AthleteRow } from '@/app/admin/athletes/page'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'

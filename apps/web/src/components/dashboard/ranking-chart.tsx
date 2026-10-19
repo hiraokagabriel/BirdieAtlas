@@ -21,7 +21,7 @@ type RankingMeta = {
 type RankingEntry = {
   id: string
   position: number
-  points: number
+  totalPoints: number
   athlete: { id: string; name: string } | null
   athlete2: { id: string; name: string } | null
 }
@@ -95,7 +95,7 @@ export function RankingChart() {
           res.entries
             .sort((a, b) => a.position - b.position)
             .slice(0, 8)
-            .map((e) => ({ name: shortName(e), points: e.points }))
+            .map((e) => ({ name: shortName(e), points: e.totalPoints }))
         )
       })
       .catch(() => setData([]))

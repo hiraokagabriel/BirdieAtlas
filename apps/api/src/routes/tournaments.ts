@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
+import { db } from '../db/index.js'
 import {
   tournaments, tournamentCategories, tournamentRegistrations,
   draws, matches, matchResults, athletes,
   rankings, rankingEntries, rankingTournaments,
-} from '../db/schema'
+} from '../db/schema.js'
 import { eq, and, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -17,8 +17,8 @@ const createTournamentSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   location: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: z.string().date(),
+  endDate: z.string().date(),
   registrationDeadline: z.string().optional(),
   pointsTableId: z.string().optional(),
 })
@@ -74,7 +74,7 @@ async function removePointsFromRanking(rankingId: string, tournamentId: string) 
   await db.delete(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
   if (!tournamentIds.length) return
 
-  const { pointsTables } = await import('../db/schema')
+  const { pointsTables } = await import('../db/schema.js')
   const DOUBLES = new Set(['MD', 'WD', 'XD'])
   const isDoubles = DOUBLES.has(ranking.discipline)
   const pointsAcc = new Map<string, { athleteId: string; athlete2Id: string | null; points: number }>()

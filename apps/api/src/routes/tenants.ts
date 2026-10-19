@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
-import { tenants } from '../db/schema'
+import { db } from '../db/index.js'
+import { tenants } from '../db/schema.js'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'

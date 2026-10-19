@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
-import { pointRules, rankings } from '../db/schema'
+import { db } from '../db/index.js'
+import { pointRules, rankings } from '../db/schema.js'
 import { eq, and, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'

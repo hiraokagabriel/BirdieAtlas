@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  typecheck:
-    name: TypeScript
+  verify:
+    name: Typecheck, lint, test, build
     runs-on: ubuntu-latest
 
     steps:
@@ -17,8 +17,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,8 +27,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck web
-        run: pnpm --filter web exec tsc --noEmit
+      - name: Typecheck
+        run: pnpm turbo run check-types
 
-      - name: Typecheck api
-        run: pnpm --filter api exec tsc --noEmit
+      - name: Lint
+        run: pnpm turbo run lint
+
+      - name: Test
+        run: pnpm turbo run test
+
+      - name: Build
+        run: pnpm turbo run build

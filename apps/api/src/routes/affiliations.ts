@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { db } from '../db/index'
-import { athleteAffiliations, clubs, athletes } from '../db/schema'
+import { db } from '../db/index.js'
+import { athleteAffiliations, clubs, athletes } from '../db/schema.js'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
