@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { canTransitionTournament, type TournamentStatus } from '@birdie-atlas/validators'
+import { canTransitionTournament, type TournamentLevel, type TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 type Tournament = {
-  id: string; name: string; slug: string; status: TournamentStatus; level: string
+  id: string; name: string; slug: string; status: TournamentStatus; level: TournamentLevel
   startDate: string; endDate: string; city: string; state: string; location: string
   pointsAwarded: boolean; tenantId: string; pointsTableId: string | null
 }

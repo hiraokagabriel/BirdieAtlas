@@ -74,7 +74,9 @@ export function BracketView({
   categories: Category[]
   pointsAwarded?: boolean
 }) {
-  const [activeCategoryId, setActiveCategoryId] = useState(categories[0]?.id ?? '')
+  const [selectedCategoryId, setActiveCategoryId] = useState<string>('')
+  // As categorias chegam depois da primeira renderização: sem escolha explícita, usa a primeira
+  const activeCategoryId = selectedCategoryId || categories[0]?.id || ''
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
   const queryClient    = useQueryClient()
   const [alreadyAwarded, setAlreadyAwarded] = useState(pointsAwarded)

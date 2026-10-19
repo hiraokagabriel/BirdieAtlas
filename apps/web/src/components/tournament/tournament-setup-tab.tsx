@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { TOURNAMENT_LEVELS, type TournamentLevel } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { Save, Plus, Trash2, Check, AlertTriangle } from 'lucide-react'
 
 type Tournament = {
-  id: string; name: string; slug: string; status: string; level: string
+  id: string; name: string; slug: string; status: string; level: TournamentLevel
   startDate: string; endDate: string; city: string | null; state: string | null
   location: string | null; tenantId: string; pointsTableId: string | null; pointsAwarded: boolean
 }
@@ -17,15 +18,9 @@ const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 const DISCIPLINE_LABELS: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.', MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Misto',
 }
-const LEVELS = ['municipal', 'regional', 'estadual', 'nacional', 'internacional']
-const STATUSES = [
-  { value: 'draft', label: 'Rascunho' },
-  { value: 'registration_open', label: 'Inscrições abertas' },
-  { value: 'registration_closed', label: 'Inscrições encerradas' },
-  { value: 'in_progress', label: 'Em andamento' },
-  { value: 'completed', label: 'Encerrado' },
-  { value: 'cancelled', label: 'Cancelado' },
-]
+const LEVEL_LABELS: Record<TournamentLevel, string> = {
+  local: 'Municipal', regional: 'Regional', state: 'Estadual', national: 'Nacional', international: 'Internacional',
+}
 const DEFAULT_PLACEMENTS = [1, 2, 3, 4, 5, 6, 7, 8]
 const DEFAULT_POINTS: Record<number, number> = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 20, 6: 15, 7: 10, 8: 5 }
 
@@ -44,7 +39,6 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
     name: tournament.name,
     slug: tournament.slug,
     level: tournament.level,
-    status: tournament.status,
     startDate: tournament.startDate?.slice(0, 10) ?? '',
     endDate: tournament.endDate?.slice(0, 10) ?? '',
     city: tournament.city ?? '',
@@ -58,7 +52,6 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
       name: general.name.trim(),
       slug: general.slug.trim(),
       level: general.level,
-      status: general.status,
       startDate: general.startDate || undefined,
       endDate: general.endDate || undefined,
       city: general.city.trim() || undefined,
@@ -161,16 +154,10 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Nível</label>
-              <select value={general.level} onChange={(e) => setGeneral({ ...general, level: e.target.value })} className={selectCls}>
-                {LEVELS.map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
+              <select value={general.level} onChange={(e) => setGeneral({ ...general, level: e.target.value as TournamentLevel })} className={selectCls}>
+                {TOURNAMENT_LEVELS.map((l) => <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
               </select>
             </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Status</label>
-            <select value={general.status} onChange={(e) => setGeneral({ ...general, status: e.target.value })} className={selectCls}>
-              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
