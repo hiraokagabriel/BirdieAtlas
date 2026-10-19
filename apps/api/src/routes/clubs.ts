@@ -25,7 +25,7 @@ export async function clubsRoutes(app: FastifyInstance) {
   app.get('/clubs', async (request) => {
     const query = paginationQuerySchema.parse(request.query)
     const tenantId = await getDefaultTenantId()
-    const where = eq(clubs.tenantId, tenantId)
+    const where = and(eq(clubs.tenantId, tenantId), isNull(clubs.deletedAt))
     return paginate(
       query,
       (limit, offset) => db.select().from(clubs).where(where).orderBy(asc(clubs.name), asc(clubs.id)).limit(limit).offset(offset),
@@ -36,14 +36,14 @@ export async function clubsRoutes(app: FastifyInstance) {
   // Lookup por slug — usado pelo frontend público
   app.get('/clubs/by-slug/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    const [club] = await db.select().from(clubs).where(eq(clubs.slug, slug))
+    const [club] = await db.select().from(clubs).where(and(eq(clubs.slug, slug), isNull(clubs.deletedAt)))
     if (!club) return reply.status(404).send({ error: 'Club not found' })
     return club
   })
 
   app.get('/clubs/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [club] = await db.select().from(clubs).where(eq(clubs.id, id))
+    const [club] = await db.select().from(clubs).where(and(eq(clubs.id, id), isNull(clubs.deletedAt)))
     if (!club) return reply.status(404).send({ error: 'Club not found' })
     return club
   })
@@ -51,7 +51,7 @@ export async function clubsRoutes(app: FastifyInstance) {
   // Perfil público do clube — não expõe email nem birthDate dos atletas
   app.get('/clubs/:id/profile', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [club] = await db.select().from(clubs).where(eq(clubs.id, id))
+    const [club] = await db.select().from(clubs).where(and(eq(clubs.id, id), isNull(clubs.deletedAt)))
     if (!club) return reply.status(404).send({ error: 'Club not found' })
 
     // Afiliações ativas do clube
@@ -180,14 +180,14 @@ export async function clubsRoutes(app: FastifyInstance) {
       coverUrl: body.coverUrl === '' ? null : body.coverUrl,
       updatedAt: new Date(),
     }
-    const [club] = await db.update(clubs).set(payload).where(eq(clubs.id, id)).returning()
+    const [club] = await db.update(clubs).set(payload).where(and(eq(clubs.id, id), isNull(clubs.deletedAt))).returning()
     if (!club) return reply.status(404).send({ error: 'Club not found' })
     return club
   })
 
   app.delete('/clubs/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    await db.delete(clubs).where(eq(clubs.id, id))
+    await db.update(clubs).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(clubs.id, id), isNull(clubs.deletedAt)))
     return reply.status(204).send()
   })
 }

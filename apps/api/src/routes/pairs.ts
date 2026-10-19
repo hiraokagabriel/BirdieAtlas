@@ -49,6 +49,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     const tenantId = await getDefaultTenantId()
     const where = and(
       eq(pairs.tenantId, tenantId),
+      isNull(pairs.deletedAt),
       query.active !== undefined ? eq(pairs.active, query.active === 'true') : undefined,
       query.discipline ? eq(pairs.discipline, query.discipline) : undefined,
     )
@@ -102,7 +103,7 @@ export async function pairsRoutes(app: FastifyInstance) {
   // Busca dupla por ID
   app.get('/pairs/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [pair] = await db.select().from(pairs).where(eq(pairs.id, id))
+    const [pair] = await db.select().from(pairs).where(and(eq(pairs.id, id), isNull(pairs.deletedAt)))
     if (!pair) return reply.status(404).send({ error: 'Pair not found' })
 
     const [athlete1Raw, athlete2Raw] = await Promise.all([
@@ -139,6 +140,7 @@ export async function pairsRoutes(app: FastifyInstance) {
         eq(pairs.tenantId, tenantId),
         eq(pairs.discipline, body.discipline),
         eq(pairs.active, true),
+        isNull(pairs.deletedAt),
         or(
           and(eq(pairs.athlete1Id, body.athlete1Id), eq(pairs.athlete2Id, body.athlete2Id)),
           and(eq(pairs.athlete1Id, body.athlete2Id), eq(pairs.athlete2Id, body.athlete1Id)),
@@ -170,20 +172,21 @@ export async function pairsRoutes(app: FastifyInstance) {
     const [pair] = await db
       .update(pairs)
       .set({ ...body, updatedAt: new Date() })
-      .where(eq(pairs.id, id))
+      .where(and(eq(pairs.id, id), isNull(pairs.deletedAt)))
       .returning()
 
     if (!pair) return reply.status(404).send({ error: 'Pair not found' })
     return pair
   })
 
-  // Soft delete — desativa a dupla
+  // Soft delete: some das listas, mas o histórico (inscrições, rankings) continua íntegro.
+  // Para só desativar, use PUT { active: false }.
   app.delete('/pairs/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
     const [pair] = await db
       .update(pairs)
-      .set({ active: false, updatedAt: new Date() })
-      .where(eq(pairs.id, id))
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(pairs.id, id), isNull(pairs.deletedAt)))
       .returning()
 
     if (!pair) return reply.status(404).send({ error: 'Pair not found' })

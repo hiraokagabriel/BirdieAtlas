@@ -82,7 +82,7 @@ export async function importAthletesRoutes(app: FastifyInstance) {
     const clubList = await db
       .select({ id: clubs.id, name: clubs.name })
       .from(clubs)
-      .where(eq(clubs.tenantId, tenantId))
+      .where(and(eq(clubs.tenantId, tenantId), isNull(clubs.deletedAt)))
     const clubMap = new Map(
       clubList.map((c) => [c.name.toLowerCase().trim(), c.id])
     )
@@ -135,7 +135,7 @@ export async function importAthletesRoutes(app: FastifyInstance) {
             const [existing] = await tx
               .select({ id: athletes.id })
               .from(athletes)
-              .where(eq(athletes.email, row.email))
+              .where(and(eq(athletes.email, row.email), isNull(athletes.deletedAt)))
 
             if (existing) {
               athleteId = existing.id

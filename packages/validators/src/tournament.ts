@@ -10,6 +10,10 @@ export const TOURNAMENT_STATUSES = [
 ] as const;
 
 export const tournamentStatusSchema = z.enum(TOURNAMENT_STATUSES);
+
+export const TOURNAMENT_LEVELS = ["local", "regional", "state", "national", "international"] as const;
+export const tournamentLevelSchema = z.enum(TOURNAMENT_LEVELS);
+export type TournamentLevel = z.infer<typeof tournamentLevelSchema>;
 export type TournamentStatus = z.infer<typeof tournamentStatusSchema>;
 
 /**

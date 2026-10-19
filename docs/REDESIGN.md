@@ -63,7 +63,10 @@ Cada item é um PR para `main`, nesta ordem:
 
 1. **Fundação** — branch, typecheck verde, workspace, validators/types, regras de domínio e contratos de inscrição portados, `ApiError`, mudança para `/admin`, navegação admin + público, teste de rotas da navegação, CI.
 2. **Contratos da API** — `requireAdmin` + separação de dados pessoais, paginação, escopo de tenant e atualização dos clientes.
-3. **Migrations de schema** — migration de base (o schema divergiu das migrations por causa do `db:push`), soft delete, enum de nível, slug de rankings, inscrição XOR dupla, colunas `status`/`notes` e endpoints `/registrations`, aposentadoria de `pointsTables`.
+3. **Migrations de schema**, dividido em três PRs:
+   - **3a** — histórico de migrations novo (baseline), soft delete com índices únicos parciais, `tournaments.level` como enum, `rankings.slug` único por tenant.
+   - **3b** — inscrições: `status`/`notes` no lugar de `confirmed`/`withdrew`, `athleteId` XOR `pairId` no lugar de `athlete2Id`, endpoints `/registrations`.
+   - **3c** — aposentadoria de `pointsTables`: `award-points` e o motor de ranking só com `pointRules`.
 4. **Ciclo de vida do torneio** — endpoint de transição e UI ciente do status.
 5. **Documentação** — consolidação da especificação, reescrita do PROGRESS, remoção do CONTEXT, regras no `CLAUDE.md`.
 
@@ -87,3 +90,12 @@ Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-
 - `POST /tournaments/:id/transition { to }` cobre as transições simples, com compare-and-set no status (409 `TOURNAMENT_STATUS_CHANGED` em corrida). Encerrar continua em `/finalize` (pódio) e reabrir em `/reopen` (reverte pontos); a rota de transição responde 409 `USE_DEDICATED_ENDPOINT` para elas.
 - `/finalize` agora exige `in_progress`; inscrições novas são recusadas em torneio encerrado ou cancelado (409 `TOURNAMENT_LOCKED`).
 - Antes deste PR não havia como tirar um torneio de `draft` pela interface.
+
+### PR 3a — Baseline e schema
+
+- Só existe o banco local de desenvolvimento, com dados de seed. As 4 migrations antigas nunca tinham sido aplicadas (o banco foi todo criado com `db:push`), então o histórico recomeça em `0000_baseline.sql`, gerado do schema atual. Sem código de backfill: não há dados reais a converter.
+- `db:push` saiu dos scripts. `db:reset` recria o banco a partir das migrations e recusa produção ou host não local.
+- Exclusão vira `deletedAt` em atletas, clubes, torneios, inscrições e duplas (categorias ganham a coluna; não há rota de exclusão). Listas, buscas por id/slug e a geração de chave ignoram excluídos; nomes em chaves e históricos continuam aparecendo.
+- Índices únicos parciais (`WHERE deleted_at IS NULL`) em e-mail de atleta, slug de clube e de torneio, e `(tenant, slug)` de ranking. Violação vira 409 `UNIQUE_VIOLATION`.
+- Desativar dupla agora é `PUT { active: false }`; `DELETE` exclui.
+- A aba de configurações do torneio oferecia níveis (`municipal`, `estadual`…) que nunca casavam com os valores gravados e um seletor de status que a API ignorava; agora usa o enum compartilhado e o status só muda pelo ciclo de vida.
