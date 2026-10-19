@@ -1,0 +1,39 @@
+# BirdieAtlas — regras para agentes
+
+A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Leia a seção relevante antes de mudar comportamento, contrato ou schema, e atualize-a no mesmo PR. O andamento fica em [`PROGRESS.md`](PROGRESS.md).
+
+## Antes de entregar
+
+- Rode `pnpm turbo run check-types lint test build`: é o que o CI roda.
+- Regra de domínio nova vai para `apps/api/src/domain` ou `packages/validators`, com teste.
+- Commits em Conventional Commits. Nunca commitar direto na `main`: trabalhe numa branch e abra PR.
+
+## Regras que não se negociam
+
+- TypeScript estrito, sem `any`. Na API, imports relativos terminam em `.js`.
+- Todo input da API passa por Zod antes da lógica. Erros seguem `{ error, code?, details? }`, pelo handler único em `apps/api/src/http/errors.ts`.
+- Coleções de topo devolvem `{ data, pagination }`.
+- Autorização é feita pelo guard global em `apps/api/src/middleware/admin-guard.ts`, nunca dentro do handler. Toda escrita exige modo admin.
+- Endpoints públicos nunca devolvem e-mail, CPF, telefone ou data de nascimento: use `publicAthleteColumns`.
+- O tenant vem do servidor (`DEFAULT_TENANT_SLUG`). Ignore `tenantId` enviado pelo cliente.
+- Registros de negócio usam soft delete (`deletedAt`). Não apague fisicamente.
+- Status do torneio só muda pelo ciclo de vida (`packages/validators/src/tournament.ts`), nunca por edição direta.
+
+## Banco de dados
+
+- Schema único em `apps/api/src/db/schema.ts`. Mudou o schema: `db:generate`, revise o SQL, `db:migrate`. `db:push` é proibido.
+- `db:reset` apaga o banco local e recria pelas migrations; depois rode `db:seed`. O banco local é descartável.
+- Em `matches`, a rodada 1 é a final e a rodada de número mais alto é a primeira fase. Use o gerador de `apps/api/src/domain/bracket.ts`; não monte chaves à mão.
+
+## Web
+
+- Next.js 16 difere das versões que você conhece: leia `apps/web/AGENTS.md` e o guia em `node_modules/next/dist/docs/` antes de escrever código web.
+- Admin usa TanStack Query com `apiFetch` (`apps/web/src/lib/api.ts`); páginas públicas são Server Components.
+- Navegação só em `apps/web/src/lib/navigation.ts`. Nunca crie outra sidebar, shell ou layout administrativo.
+- Toda tela trata carregamento, erro, vazio e sucesso, só com dados reais da API.
+
+## Ambiente local
+
+- `apps/api/.env` precisa de `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true` (ver `.env.example`).
+- PostgreSQL: `docker compose up -d`.
+- Textos em português com acentuação correta, arquivos em UTF-8.

@@ -1,161 +1,125 @@
-# BirdieAtlas — Progresso do Projeto
+# BirdieAtlas — Progresso
 
-> Última atualização: **18/06/2026**  
-> Branch ativa: `feat/phase-2-3-completion`
+> Atualizado em 19/10/2026, na `main`.
+> Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
+> Atualize este arquivo no PR que concluir ou abrir um item.
 
----
+## Redesign
 
-## ✅ Phase 0 — Infraestrutura Base
+| Entrega | Situação |
+|---|---|
+| 1. Fundação | ✅ PR #10 |
+| 2. Contratos da API | ✅ PR #11 |
+| 3a. Baseline de migrations e schema | ✅ PR #13 |
+| 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | ❌ Pendente |
+| 3c. Aposentadoria de `pointsTables` | ❌ Pendente |
+| 4. Ciclo de vida do torneio | ✅ PR #12 |
+| 5. Documentação | ✅ Este PR |
 
-| Item | Status | Observação |
+Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
+
+## Phase 0 — Fundação
+
+| Item | Situação | Observação |
 |---|---|---|
-| Monorepo Turborepo (`apps/web`, `apps/api`) | ✅ Feito | |
-| TypeScript strict em todos os pacotes | ✅ Feito | |
-| Docker Compose para PostgreSQL local | ✅ Feito | Porta 5432, db `birdie_atlas` |
-| Drizzle ORM + drizzle-kit configurados | ✅ Feito | Versões fixadas: `drizzle-orm@0.41.0`, `drizzle-kit@0.30.6` |
-| Schema centralizado em `apps/api/src/db/schema.ts` | ✅ Feito | |
-| GitHub Actions — typecheck automático (tsc --noEmit) | ✅ Feito | Roda em push/PR para main |
-| `.env.example` documentado | ✅ Feito | Inclui `DEV_ADMIN_MODE` |
-| **Clerk Auth** | ❌ Pendente | Phase 0 ainda aberta — sem middleware de autenticação real |
-| Roles e middleware de autorização | ❌ Pendente | Depende do Clerk |
+| Monorepo pnpm + Turborepo, TypeScript estrito | ✅ | |
+| PostgreSQL local via `docker compose` | ✅ | |
+| Migrations versionadas, `db:reset` e `db:seed` | ✅ | Histórico começa em `0000_baseline.sql`; `db:push` proibido |
+| `packages/validators` e `packages/types` | ✅ | |
+| CI: typecheck, lint, testes e build | ✅ | Em todo push e PR para `main` |
+| Variáveis de ambiente documentadas | ✅ | `apps/api/.env.example` |
+| Modo admin de desenvolvimento | ✅ | Guard global em toda escrita e nas leituras com dados pessoais |
+| Tenant padrão no servidor | ✅ | `DEFAULT_TENANT_SLUG` |
+| Autenticação Clerk, papéis e seletor de tenant | ❌ | Sem Clerk, nenhuma escrita é possível em produção |
 
----
+## Phase 1 — Atletas, clubes e duplas
 
-## ✅ Phase 1 — Atletas, Clubes e Importação
-
-| Item | Status | Observação |
+| Item | Situação | Observação |
 |---|---|---|
-| CRUD de atletas (API + UI) | ✅ Feito | |
-| Modal "Novo Atleta" | ✅ Feito | |
-| Importação em lote via CSV | ✅ Feito | Preview + relatório de erros |
-| CRUD de clubes (API + UI) | ✅ Feito | |
-| Modal "Novo Clube" e "Editar Clube" | ✅ Feito | |
-| Afiliações atleta ↔ clube (`athlete_affiliations`) | ✅ Feito | Schema OK |
-| Filtro de gênero por disciplina nas inscrições | ✅ Feito | |
-| **Perfil público do atleta** (`/a/[athleteId]`) | ❌ Pendente | Rota planejada, não implementada |
-| **Página pública de clube** | ❌ Pendente | Sem rota pública |
-| **Gestão dedicada de duplas** | ❌ Pendente | `athlete2Id` existe nas inscrições mas sem modelo/UI dedicado |
+| CRUD de atletas | ✅ | Soft delete, e-mail único |
+| Importação em lote por CSV | ✅ | Prévia e relatório de erros |
+| CRUD de clubes | ✅ | Soft delete, slug único |
+| Afiliações atleta ↔ clube | ✅ | Um clube ativo por vez |
+| Gestão de duplas | ✅ | `/admin/pairs` |
+| Perfil público do atleta (`/a/[athleteId]`) | ✅ | Sem dados pessoais |
+| Página pública do clube (`/c/[clubSlug]`) | ✅ | |
 
----
+## Phase 2 — Torneios, categorias e inscrições
 
-## ✅ Phase 2 — Torneios, Categorias e Inscrições
-
-| Item | Status | Observação |
+| Item | Situação | Observação |
 |---|---|---|
-| CRUD de torneios (API + UI) | ✅ Feito | |
-| Busca de torneio por slug | ✅ Feito | `GET /tournaments/by-slug/:slug` |
-| Categorias de torneio com disciplina e formato | ✅ Feito | |
-| Sistema de inscrições com aba no dashboard | ✅ Feito | |
-| Geração de chave — modo aleatório | ✅ Feito | |
-| Geração de chave — com cabeças-de-chave (seeded) | ✅ Feito | |
-| Ressortear chave com reset em cascata | ✅ Feito | |
-| Encerramento de torneio com relatório de pódio | ✅ Feito | |
-| Reabertura de torneio (reverte pontos) | ✅ Feito | |
-| Tabela de pontos — editor inline e bulk update | ✅ Feito | |
-| Atribuição de pontos (`award-points`) | ✅ Feito | Trata byes, walkover, retired |
-| W.O. contabiliza como 21-0 para o vencedor | ✅ Feito | Motor lê sets salvos, nunca assume slot 1 |
-| Ret. usa parciais com vencedor fazendo 21 | ✅ Feito | Mesmo mecanismo de resolução por sets |
-| UI de lançamento de resultado (W.O./Ret.) com validação | ✅ Feito | Banner explicativo + erro se vencedor não selecionado |
-| Página de setup do torneio (aba Configurações) | ✅ Feito | |
-| **Página pública do torneio** (`/t/[slug]`) | ✅ Feito | `page.tsx` implementado em `apps/web/src/app/(public)/t/[slug]/` |
-| **Publicação de chave com bloqueio de edição** | ✅ Feito | Guard `409 DRAW_PUBLISHED` na rota `POST /draws/:drawId/redraw` — commit `69ae3bec` |
-| **Schedule view (quadra/horário por partida)** | ❌ Pendente | Componente parcial, agendamento não finalizado |
+| CRUD de torneios | ✅ | `level` como enum |
+| Ciclo de vida validado no servidor | ✅ | Transição, encerramento com pódio e reabertura que reverte pontos |
+| Categorias com disciplina e formato | ✅ | |
+| Inscrições com confirmação | ✅ | Modelo antigo (`confirmed`/`withdrew`); troca no PR 3b |
+| Aprovação/rejeição com motivo e auditoria | ❌ | PR 3b; contrato em `docs/api/tournament-registrations.md` |
+| Validação de gênero por disciplina na API de inscrição | ❌ | Hoje só a interface filtra |
+| Página pública do torneio (`/t/[slug]`) | ✅ | |
 
----
+## Phase 3 — Ranking
 
-## 🔄 Phase 3 — Motor de Ranking
-
-| Item | Status | Observação |
+| Item | Situação | Observação |
 |---|---|---|
-| Schema robusto de rankings no banco | ✅ Feito | `rankings`, `pointRules`, `rankingTournaments`, `rankingEntries` |
-| Campo `finalPlacement` em `tournament_registrations` | ✅ Feito | Motor lê este campo |
-| Motor de recálculo (`recalculateRanking`) | ✅ Feito | `POST /rankings/:id/recalculate` |
-| Tratamento de byes no motor | ✅ Feito | |
-| Vínculo `rankingTournament` criado ao atribuir pontos | ✅ Feito | `award-points` cria o link automaticamente |
-| `totalPoints` como única coluna de pontuação | ✅ Feito | Coluna legada `points` removida do schema em 11/06/2026 |
-| CRUD de `PointRules` (API + UI) | ✅ Feito | Rotas + `point-rules-manager.tsx` na aba de rankings |
-| `rankings.slug` com default vazio | ✅ Feito | **Preencher via Drizzle Studio** (`pnpm --filter api db:studio`) |
-| `tournaments.level` como `text` | ✅ Feito | Migrar para enum em migration formal futura |
-| **`PointRules` integrado ao motor `recalculateRanking`** | ✅ Feito | `resolvePointsFromRules()` — tenta regra específica (nível+disciplina), depois genérica (só nível), cai no `pointsTables` legado apenas se não houver regra |
-| **`countBestResults` aplicado no motor** | ✅ Feito | `allResults.sort(...).slice(0, countBestResults)` — aplica antes de somar `totalPoints` |
-| **`minTournamentsRequired` aplicado no motor** | ✅ Feito | Filtra atletas com `tournamentsCount < minTournamentsRequired` antes de gerar entries |
-| **Página de ranking no dashboard** (`/rankings`) | ✅ Feito | Lista com badges de `countBestResults`/`minTournamentsRequired`; detalhe com banner de regras ativas, expansão de resultados por torneio e aba de PointRules |
-| **Página pública de ranking** (`/r/[tenantSlug]`) | ✅ Feito | `page.tsx` implementado em `apps/web/src/app/(public)/r/[tenantSlug]/` |
-| **Cache Redis para rankings** (TTL 1h) | ❌ Pendente | Planejado para fase posterior |
+| Rankings, regras de pontos, vínculos e entradas | ✅ | |
+| `award-points` uma única vez por torneio | ✅ | Cria o vínculo ranking ↔ torneio |
+| Recálculo com regras específicas e genéricas | ✅ | Cai na tabela legada sem regra, até o PR 3c |
+| `countBestResults` e `minTournamentsRequired` | ✅ | |
+| Telas de ranking e regras de pontos | ✅ | `/admin/rankings` |
+| Página pública de rankings (`/r/[tenantSlug]`) | ✅ | |
+| Remoção de `pointsTables` | ❌ | PR 3c |
+| Critérios de desempate | ❌ | |
+| Cache Redis (TTL 1h) | ❌ | |
 
----
+## Phase 4 — Chaves
 
-## ❌ Phase 4 — Formatos de Chave
+| Item | Situação | Observação |
+|---|---|---|
+| Eliminação simples, sorteio aleatório e com cabeças de chave | ✅ | Gerador em `apps/api/src/domain/bracket.ts` |
+| Byes como W.O. na primeira fase | ✅ | |
+| Publicação com bloqueio de ressorteio | ✅ | `409 DRAW_PUBLISHED` |
+| Ressorteio com reset em cascata | ✅ | |
+| Eliminação dupla, round robin, grupos + eliminatória, suíço | ❌ | `draw_type` já prevê os três primeiros |
 
-| Item | Status |
+## Phase 5 — Partidas
+
+| Item | Situação | Observação |
+|---|---|---|
+| Lançamento de resultado por sets | ✅ | Inclui W.O. e desistência |
+| Avanço automático do vencedor | ✅ | Troca de vencedor desfaz as partidas seguintes |
+| Agenda: quadra e horário por partida | ✅ | Aba Agenda do torneio |
+| Auditoria de resultados (quem e quando) | ❌ | |
+| Resultados ao vivo | ❌ | |
+
+## Phase 6 — Portal público
+
+| Item | Situação |
 |---|---|
-| Double elimination | ❌ Planejado |
-| Round Robin | ❌ Planejado |
-| Grupos + eliminatória | ❌ Planejado |
-| Seed com todos os formatos | ❌ Planejado |
+| Landing, torneio, rankings, atleta e clube | ✅ |
+| Estatísticas e histórico de atletas | ❌ |
+| Head-to-head | ❌ |
 
----
+## Phase 7 — Admin
 
-## ❌ Phase 5 — Partidas ao Vivo
+| Item | Situação | Observação |
+|---|---|---|
+| Dashboard com dados reais | ✅ | |
+| Relatórios exportáveis | ❌ | |
+| Notificações | ❌ | |
+| Gestão de usuários e papéis | ❌ | Depende do Clerk |
 
-| Item | Status |
+## Phase 8 — Qualidade e mobile
+
+| Item | Situação |
 |---|---|
-| Lançamento de placar por partida | ❌ Planejado |
-| Progressão automática na chave após resultado | ❌ Planejado |
-| Auditoria de resultados (quem lançou, quando) | ❌ Planejado |
+| Testes unitários de domínio (Vitest) | ✅ |
+| Testes E2E com Playwright | ❌ |
+| PWA e push notifications | ❌ |
+| Acessibilidade WCAG 2.1 AA | ❌ |
 
----
-
-## ❌ Phase 6 — Portal Público
-
-| Item | Status |
-|---|---|
-| Página pública do torneio (`/t/[slug]`) | ✅ Feito |
-| Página pública de ranking (`/r/[tenantSlug]`) | ✅ Feito |
-| Perfil público do atleta (`/a/[athleteId]`) | ❌ Planejado |
-| Resultados ao vivo | ❌ Planejado |
-| Stats de atletas (histórico, evolução de ranking) | ❌ Planejado |
-
----
-
-## ❌ Phase 7 — Dashboard Admin
-
-| Item | Status |
-|---|---|
-| Relatórios exportáveis (PDF/CSV) | ❌ Planejado |
-| Notificações internas | ❌ Planejado |
-| Gestão de usuários e roles (pós-Clerk) | ❌ Planejado |
-
----
-
-## ❌ Phase 8 — Mobile / PWA
-
-| Item | Status |
-|---|---|
-| PWA com service worker | ❌ Planejado |
-| Push notifications | ❌ Planejado |
-| Testes E2E com Playwright | ❌ Planejado |
-
----
-
-## 🛠️ Dívidas Técnicas Abertas
+## Dívidas técnicas
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
-| Preencher `rankings.slug` nos registros existentes | 🔴 Alta | Rodar `pnpm --filter api db:studio` e preencher manualmente |
-| Rodar `pnpm --filter api db:push` para aplicar remoção de `points` | 🔴 Alta | Schema atualizado em 11/06, banco ainda tem a coluna |
-| Migrar `tournaments.level` de `text` para `tournamentLevelEnum` | 🟡 Média | Requer migration formal com `ALTER COLUMN ... USING` |
-| Fixar versões de `fastify`, `pg`, `zod`, `tsx` no `package.json` | 🟡 Média | Atualmente em `latest` — risco de quebra em `pnpm install` futuro |
-| Abrir PR da branch `feat/phase-2-3-completion` → `main` | 🟡 Média | Branch nunca foi mergeada |
-
----
-
-## 🔧 Sistema de Modo Admin (Dev)
-
-Implementado em **09/06/2026** enquanto o Clerk não está integrado.
-
-- **Ligar/desligar pelo botão**: aparece no canto inferior direito do dashboard (só em `NODE_ENV=development`)
-- **Ligar via `.env`**: `DEV_ADMIN_MODE=true` em `apps/api/.env`
-- **Ligar via API**: `PATCH http://localhost:3001/dev/admin-mode { "enabled": true }`
-- **Proteger uma rota**: `{ preHandler: requireAdmin }` importado de `apps/api/src/middleware/admin-guard.ts`
-- Em produção: a rota `/dev/admin-mode` **não é registrada** automaticamente
+| `finalPlacement` nunca é gravado | 🟡 Média | A API deriva a colocação da chave toda vez; o seed atribui o campo depois de inserir as inscrições. Decidir entre gravar no encerramento ou remover a coluna |
+| Warnings de lint no web | 🟢 Baixa | 21 warnings, sem erros |
+| Branches antigas no remoto | 🟢 Baixa | `feat/dashboard-crud-pages` (abandonada), `feat/phase-2-registration-operations` (portada), `chore/fix-dependency-versions`, `main-v2` e as branches de PRs já mergeados |

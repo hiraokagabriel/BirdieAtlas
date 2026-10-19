@@ -1,704 +1,294 @@
-# BirdieAtlas - Especificacao Completa do Projeto
+# BirdieAtlas — Especificação
 
-## Visao Geral
+> Fonte de verdade do projeto. Descreve o sistema como ele é e as regras que todo código novo segue.
+> O andamento das entregas fica em [`PROGRESS.md`](../PROGRESS.md); as decisões do redesign e o motivo delas, em [`REDESIGN.md`](REDESIGN.md).
+> Toda mudança de comportamento, contrato ou regra atualiza este documento no mesmo PR.
 
-**BirdieAtlas** e uma plataforma web full-stack para gestao de campeonatos de badminton, focada em federacoes e organizacoes esportivas.
+## Visão geral
 
-### Objetivos Principais
+BirdieAtlas é uma plataforma web para gestão de campeonatos de badminton, voltada a federações e organizadores. Cobre atletas, clubes, duplas, torneios, categorias, inscrições, chaves, partidas e rankings, com páginas públicas para consulta.
 
-1. Gerenciar atletas, clubes e afiliacoes
-2. Organizar torneios com inscricoes e categorias
-3. Gerar chaves de competicao (draws) em multiplos formatos
-4. Calcular rankings automaticamente baseado em resultados
-5. Disponibilizar portal publico com resultados e estatisticas
+Objetivos:
 
----
+1. Gerenciar atletas, clubes, afiliações e duplas.
+2. Organizar torneios com categorias e inscrições.
+3. Gerar chaves e registrar resultados.
+4. Calcular rankings a partir dos resultados.
+5. Publicar torneios, rankings, atletas e clubes num portal público.
 
-## Stack Tecnologica
+## Stack
 
-### Frontend (apps/web)
+| Camada | Tecnologia |
+|---|---|
+| Monorepo | pnpm workspaces + Turborepo |
+| Web (`apps/web`) | Next.js 16 (App Router), React 19, TypeScript estrito, Tailwind CSS v4, componentes shadcn/ui sobre `radix-ui`, TanStack Query v5 |
+| API (`apps/api`) | Node.js, Fastify 5, TypeScript estrito, Zod, Drizzle ORM 0.41 |
+| Banco | PostgreSQL 16 (Docker local, porta 5432, banco `birdie_atlas`) |
+| Testes | Vitest (API, web e pacotes) |
+| CI | GitHub Actions: typecheck, lint, testes e build em todo push e PR para `main` |
 
-- **Next.js 15** com App Router (SSR/SSG/ISR)
-- **TypeScript** strict mode obrigatorio
-- **Tailwind CSS v4** para estilizacao
-- **Shadcn/ui** para componentes base
-- **TanStack Query v5** para cache e estado servidor
-- **Zod** para validacao de schemas no cliente
+O Next.js 16 tem APIs e convenções diferentes das versões anteriores. Antes de escrever código web, consulte o guia em `node_modules/next/dist/docs/` (ver `apps/web/AGENTS.md`).
 
-### Backend (apps/api)
-
-- **Node.js + Fastify** (REST API)
-- **TypeScript** strict mode obrigatorio
-- **Drizzle ORM** com PostgreSQL
-- **Zod** para validacao de input em todos os endpoints
-- Sem BullMQ por enquanto (filas em fases posteriores)
-
-### Banco de Dados
-
-- **PostgreSQL** (local via Docker porta 5432, db birdie_atlas)
-- Drizzle Kit para migrations
-- Dev: `db:push` para sincronizar schema
-- Prod: `db:generate` → `db:migrate`
-
-### Autenticacao
-
-- **Clerk** (ainda nao integrado - Phase 0)
-- Roles planejadas:
-  - `federation_admin`
-  - `tournament_organizer`
-  - `referee`
-  - `club_manager`
-  - `athlete`
-  - `public`
-
-### Infraestrutura Planejada
-
-- **Vercel** (frontend)
-- **Railway** (backend + banco)
-- **Cloudinary/Uploadthing** para uploads
-- **Resend** para emails transacionais
-- **Sentry** para error tracking
-- **Playwright** para testes E2E
-
----
-
-## Arquitetura do Sistema
-
-### Monorepo
+## Estrutura do repositório
 
 ```
-BirdieAtlas/
-├── apps/
-│   ├── web/          # Next.js 15
-│   └── api/          # Fastify + Drizzle
-├── packages/
-│   ├── types/        # Tipos compartilhados
-│   ├── validators/   # Schemas Zod compartilhados
-│   └── config/       # eslint, tsconfig
-├── docs/             # Documentacao
-└── docker-compose.yml
+apps/
+  api/
+    drizzle/              migrations geradas (histórico começa em 0000_baseline.sql)
+    src/
+      db/                 schema.ts (fonte única do schema), index.ts, public-columns.ts
+      domain/             regras puras e testadas (chave, paginação, inscrições)
+      http/errors.ts      handler único de erros
+      middleware/         admin-guard (modo admin de desenvolvimento)
+      routes/             uma rota Fastify por recurso
+      scripts/            reset-db.ts, seed.ts
+      tenant.ts           tenant padrão do servidor
+  web/
+    src/
+      app/(public)/       portal público
+      app/admin/          área administrativa
+      components/         ui/ (shadcn), shared/ e pastas por domínio
+      lib/api.ts          apiFetch e ApiError
+      lib/navigation.ts   fonte única da navegação
+      providers/          QueryProvider
+packages/
+  validators/             schemas Zod e regras compartilhadas entre API e web
+  types/                  tipos compartilhados
+  ui/, eslint-config/, typescript-config/
+docs/                     especificação, redesign e contratos de API
 ```
 
-### Estrutura de Pastas
+## Rotas web
 
-#### Frontend (apps/web)
+Admin, sob `/admin`, identificando registros por `id`:
+
+| Rota | Conteúdo |
+|---|---|
+| `/admin` | Dashboard com dados reais da API |
+| `/admin/athletes` | Atletas, cadastro e importação |
+| `/admin/pairs` | Duplas |
+| `/admin/clubs`, `/admin/clubs/[clubId]` | Clubes |
+| `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios; o detalhe tem as abas Inscrições, Chaveamento, Agenda e Configurações |
+| `/admin/rankings`, `/admin/rankings/[rankingId]` | Rankings e regras de pontos |
+| `/admin/points-tables` | Tabelas de pontos legadas (saem no PR 3c) |
+
+Público, identificando por slug:
+
+| Rota | Conteúdo |
+|---|---|
+| `/` | Landing |
+| `/t/[slug]` | Torneio |
+| `/r/[tenantSlug]` | Rankings da federação |
+| `/a/[athleteId]` | Perfil do atleta |
+| `/c/[clubSlug]` | Clube |
+
+A navegação existe só para admin e público e vem de `apps/web/src/lib/navigation.ts`. Um teste garante que todo `href` da navegação tem uma rota. Papéis de atleta, juiz e super-admin ganham navegação quando suas páginas existirem.
+
+## Contratos da API
+
+A API roda em `http://localhost:3001`, sem prefixo `/api`.
+
+### Erros
+
+Todo erro tem o formato `{ error: string, code?: string, details?: unknown }`, produzido por um único handler (`apps/api/src/http/errors.ts`):
+
+- Falha de Zod vira `400 VALIDATION_ERROR`, com `details`.
+- Erros de cliente do Fastify mantêm o status.
+- Violação de índice único vira `409 UNIQUE_VIOLATION`.
+- O resto vira `500 INTERNAL_ERROR`, sem expor a mensagem interna.
+
+No web, `apiFetch` lança `ApiError { status, code, message, details }`.
+
+### Paginação
+
+Coleções de topo (`athletes`, `clubs`, `tournaments`, `pairs`, `rankings`, `tenants` e entradas de ranking) devolvem `{ data, pagination: { page, pageSize, total, totalPages } }`. `page` começa em 1, `pageSize` tem padrão 25 e máximo 100.
+
+Listas filhas de um recurso (partidas de uma chave, inscrições de uma categoria, categorias de um torneio, regras de pontos, afiliações) voltam completas, porque paginar uma chave a quebraria.
+
+### Autorização
+
+- Toda escrita (POST, PUT, PATCH, DELETE) exige modo admin, verificado por um hook global `onRequest` (`apps/api/src/middleware/admin-guard.ts`). Autorização nunca é checada dentro do handler.
+- Leituras que devolvem dados pessoais (`GET /athletes`, `GET /athletes/:id`) também exigem modo admin.
+- Enquanto o Clerk não está integrado, o modo admin vem de `DEV_ADMIN_MODE=true` ou de `PATCH /dev/admin-mode`. Essa rota só existe fora de produção; em produção nenhuma escrita é possível.
+
+### Dados pessoais
+
+CPF, e-mail, telefone e data de nascimento são dados pessoais. Endpoints públicos nunca os devolvem: usam `publicAthleteColumns` (`apps/api/src/db/public-columns.ts`). Logs não registram dados pessoais.
+
+### Tenant
+
+O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_TENANT_SLUG`, ou o único tenant cadastrado. `tenantId` enviado pelo cliente é ignorado. Atletas são globais (identidade entre federações); o vínculo com o tenant é a afiliação. O seletor de tenant chega com as organizações do Clerk.
+
+### Endpoints
+
+| Recurso | Endpoints |
+|---|---|
+| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/:id/profile` (público), `POST /athletes/import-csv`, `POST /import/athletes`, `GET /import/athletes/template-columns` |
+| Afiliações | `GET/POST /athletes/:athleteId/affiliations`, `PATCH/DELETE /affiliations/:id` |
+| Clubes | `GET/POST /clubs`, `GET/PUT/DELETE /clubs/:id`, `GET /clubs/by-slug/:slug`, `GET /clubs/:id/profile` |
+| Duplas | `GET/POST /pairs`, `GET/PUT/DELETE /pairs/:id` (desativar é `PUT { active: false }`) |
+| Torneios | `GET/POST /tournaments`, `GET/PUT/DELETE /tournaments/:id`, `GET /tournaments/by-slug/:slug`, `GET /tournaments/:id/public-summary`, `POST /tournaments/:id/transition`, `POST /tournaments/:id/finalize`, `POST /tournaments/:id/reopen` |
+| Categorias e inscrições | `GET/POST /tournaments/:id/categories`, `GET /tournaments/categories/:categoryId/registrations`, `POST /tournaments/categories/:categoryId/register`, `PUT /tournaments/registrations/:registrationId/confirm`, `DELETE /tournaments/registrations/:registrationId` |
+| Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
+| Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
+| Tabelas de pontos (legado) | `GET/POST /points-tables`, `POST /points-tables/bulk`, `GET /points-tables/:id/rows`, `PUT/DELETE /points-tables/:id` |
+| Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
+| Dashboard | `GET /dashboard/stats`, `GET /dashboard/recent-matches`, `GET /dashboard/upcoming-matches` |
+
+O contrato de inscrições que substitui os endpoints atuais (PR 3b) está em [`api/tournament-registrations.md`](api/tournament-registrations.md).
+
+## Modelo de dados
+
+A fonte única do schema é `apps/api/src/db/schema.ts`. Toda tabela tem `id` (texto, UUID), `createdAt` e `updatedAt`.
+
+Enums:
+
+| Enum | Valores |
+|---|---|
+| `gender` | `M`, `F` |
+| `discipline` | `MS`, `WS`, `MD`, `WD`, `XD` |
+| `tournament_status` | `draft`, `registration_open`, `registration_closed`, `in_progress`, `completed`, `cancelled` |
+| `tournament_level` | `local`, `regional`, `state`, `national`, `international` |
+| `draw_type` | `single_elimination`, `round_robin`, `group_then_elimination` |
+| `match_status` | `pending`, `in_progress`, `completed`, `walkover`, `retired` |
+| `ranking_status` | `active`, `inactive`, `archived` |
+
+Tabelas:
+
+| Tabela | Papel |
+|---|---|
+| `tenants` | Federação ou organização |
+| `clubs` | Clube de um tenant; slug único |
+| `athletes` | Atleta global; e-mail único |
+| `athlete_affiliations` | Vínculo histórico atleta ↔ clube ↔ tenant (`startedAt`, `endedAt`) |
+| `pairs` | Dupla de dois atletas numa disciplina |
+| `tournaments` | Torneio de um tenant, com status, nível e `pointsAwarded`; slug único |
+| `tournament_categories` | Categoria de um torneio: disciplina, formato, limite de inscrições, número de cabeças de chave |
+| `tournament_registrations` | Inscrição numa categoria: atleta (e parceiro, em duplas), seed, `confirmed`, `withdrew` |
+| `draws` | Chave de uma categoria; `published` bloqueia o ressorteio |
+| `matches` | Partida: `round`, `position`, duas inscrições, `nextMatchId`, status, agenda e quadra |
+| `match_results` | Um registro por set |
+| `rankings` | Ranking de um tenant por disciplina e ano, com `countBestResults` e `minTournamentsRequired`; slug único por tenant |
+| `point_rules` | Pontos por colocação para um ranking, por nível (e opcionalmente disciplina), com multiplicador e bônus de participação |
+| `ranking_tournaments` | Torneios que pontuam num ranking |
+| `ranking_entries` | Posição calculada de um atleta ou dupla num ranking |
+| `points_tables` | Legado; removida no PR 3c |
+
+Soft delete (`deletedAt`) vale para atletas, clubes, torneios, categorias, inscrições, duplas, rankings, regras de pontos e vínculos ranking ↔ torneio. Registros de negócio nunca são apagados fisicamente, porque resultados e rankings dependem deles. Listas, buscas e a geração de chave ignoram excluídos; nomes em chaves e históricos continuam aparecendo. Colunas únicas usam índice único parcial `WHERE deleted_at IS NULL`. Restauração será só pela API; ainda não há rota para isso.
+
+Mudanças já decididas (ver [`REDESIGN.md`](REDESIGN.md)):
+
+- **PR 3b:** inscrições ganham `status` (`pending`, `approved`, `rejected`) e `notes` no lugar de `confirmed`/`withdrew`, e referenciam `athleteId` XOR `pairId` no lugar de `athlete2Id`.
+- **PR 3c:** `points_tables` é aposentada; `award-points` e o motor de ranking usam só `point_rules`.
+
+## Regras de negócio
+
+### Atletas, clubes e duplas
+
+- Um atleta tem no máximo um clube ativo por vez (`409 ACTIVE_AFFILIATION_EXISTS`). Afiliações são históricas: encerram com `endedAt`.
+- Gênero por disciplina: `MS`/`MD` só masculino, `WS`/`WD` só feminino, `XD` um de cada. A interface filtra os atletas na inscrição, e `award-points` e o ranking ignoram combinações incompatíveis. A API de inscrição ainda não valida essa regra.
+
+### Ciclo de vida do torneio
 
 ```
-src/
-├── app/
-│   ├── (dashboard)/          # Painel admin (sem auth por enquanto)
-│   │   ├── layout.tsx        # Sidebar + header
-│   │   ├── dashboard/        # KPIs e visao geral
-│   │   ├── athletes/         # Listagem e detalhe de atletas
-│   │   ├── clubs/            # Listagem e detalhe de clubes
-│   │   ├── tournaments/      # Listagem e detalhe de torneios
-│   │   └── rankings/         # Listagem de rankings + /[rankingId]
-│   └── (public)/             # Rotas publicas sem auth
-│       ├── layout.tsx
-│       ├── a/[athleteId]/    # Perfil publico do atleta
-│       ├── r/[tenantSlug]/   # Pagina publica de rankings
-│       └── t/[slug]/         # Pagina publica do torneio
-├── components/
-│   ├── ui/                   # Re-exports do shadcn/ui
-│   └── shared/               # Componentes compartilhados
-├── hooks/                    # Custom hooks
-└── lib/
-    ├── api.ts                # Cliente HTTP (apiFetch)
-    └── utils.ts
+draft → registration_open → registration_closed → in_progress → completed
 ```
 
-#### Backend (apps/api)
-
-```
-src/
-├── db/
-│   ├── index.ts              # Instancia do Drizzle (db)
-│   └── schema.ts             # Schema completo (fonte da verdade)
-├── routes/
-│   ├── athletes.ts
-│   ├── clubs.ts
-│   ├── tournaments.ts
-│   ├── draws.ts
-│   ├── matches.ts
-│   ├── rankings.ts
-│   └── award-points.ts
-└── index.ts                  # Bootstrap do Fastify
-```
-
----
-
-## Modelagem de Dados
-
-### Entidades Principais
-
-#### Tenant
-```
-- id: text (PK)
-- name: text
-- slug: text (unique)
-- branding: jsonb
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### Club
-```
-- id: text (PK)
-- tenantId: text (FK -> Tenant)
-- name: text
-- shortName: text
-- logoUrl: text
-- city: text
-- state: text
-- createdAt: timestamp
-- updatedAt: timestamp
-- deletedAt: timestamp (soft delete)
-```
-
-#### Athlete
-```
-- id: text (PK)
-- tenantId: text (FK -> Tenant)
-- name: text
-- gender: text (M, F, U)
-- birthDate: date
-- currentClubId: text (FK -> Club)
-- createdAt: timestamp
-- updatedAt: timestamp
-- deletedAt: timestamp
-```
-
-#### AthleteAffiliation
-```
-- id: text (PK)
-- athleteId: text (FK -> Athlete)
-- clubId: text (FK -> Club)
-- startDate: date
-- endDate: date (null = ativo)
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### Tournament
-```
-- id: text (PK)
-- tenantId: text (FK -> Tenant)
-- name: text
-- slug: text (unique)
-- level: text (INTERNATIONAL, NATIONAL, STATE, REGIONAL, LOCAL)
-- startDate: date
-- endDate: date
-- status: text (DRAFT, PUBLISHED, IN_PROGRESS, COMPLETED, CANCELLED)
-- pointsTableId: text (FK -> PointsTable)
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### TournamentCategory
-```
-- id: text (PK)
-- tournamentId: text (FK -> Tournament)
-- name: text (MS, WS, MD, WD, XD)
-- discipline: text (MENS_SINGLES, WOMENS_SINGLES, etc.)
-- minRating: integer
-- maxRating: integer
-- ageGroup: text (U11, U13, U15, U17, U19, OPEN, SENIOR)
-- status: text (DRAFT, OPEN, CLOSED, IN_PROGRESS, COMPLETED)
-- drawGenerated: boolean
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### TournamentRegistration
-```
-- id: text (PK)
-- tournamentId: text (FK -> Tournament)
-- categoryId: text (FK -> TournamentCategory)
-- athleteId: text (FK -> Athlete)
-- pairId: text (FK -> Athlete, opcional para duplas)
-- status: text (PENDING, APPROVED, REJECTED)
-- notes: text
-- seed: integer
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### Draw
-```
-- id: text (PK)
-- categoryId: text (FK -> TournamentCategory)
-- format: text (SINGLE_ELIMINATION, DOUBLE_ELIMINATION, ROUND_ROBIN, SWISS)
-- seedMethod: text (MANUAL, RATING, RANDOM)
-- status: text (DRAFT, PUBLISHED, IN_PROGRESS, COMPLETED)
-- settings: jsonb
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### Match
-```
-- id: text (PK)
-- drawId: text (FK -> Draw)
-- roundNumber: integer
-- matchNumber: integer
-- player1Id: text (FK -> Athlete)
-- player2Id: text (FK -> Athlete)
-- winnerId: text (FK -> Athlete, nullable)
-- nextMatchId: text (FK -> Match, nullable)
-- status: text (SCHEDULED, IN_PROGRESS, COMPLETED, WALKOVER)
-- scheduledAt: timestamp
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### MatchResult
-```
-- id: text (PK)
-- matchId: text (FK -> Match, unique)
-- set1Player1: integer
-- set1Player2: integer
-- set2Player1: integer
-- set2Player2: integer
-- set3Player1: integer (nullable)
-- set3Player2: integer (nullable)
-- winnerId: text (FK -> Athlete)
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### Ranking
-```
-- id: text (PK)
-- tenantId: text (FK -> Tenant)
-- name: text
-- discipline: text
-- category: text (MS, WS, MD, WD, XD)
-- ageGroup: text
-- autoInclude: boolean
-- published: boolean
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### RankingTournament
-```
-- id: text (PK)
-- rankingId: text (FK -> Ranking)
-- tournamentId: text (FK -> Tournament)
-- weight: decimal
-- mandatory: boolean
-- createdAt: timestamp
-```
-
-#### RankingEntry
-```
-- id: text (PK)
-- rankingId: text (FK -> Ranking)
-- athleteId: text (FK -> Athlete)
-- pairId: text (FK -> Athlete, nullable)
-- position: integer
-- points: decimal
-- tournamentsPlayed: integer
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
-#### PointsTable
-```
-- id: text (PK)
-- tenantId: text (FK -> Tenant)
-- name: text
-- levels: jsonb  # { INTERNATIONAL: {...}, NATIONAL: {...}, ... }
-- createdAt: timestamp
-- updatedAt: timestamp
-```
-
----
-
-## API Endpoints Planejados
-
-### Atletas
-
-- `GET /api/athletes` - Listar atletas (com filtros e paginacao)
-- `GET /api/athletes/:id` - Obter detalhes de um atleta
-- `POST /api/athletes` - Criar novo atleta
-- `PATCH /api/athletes/:id` - Atualizar atleta
-- `DELETE /api/athletes/:id` - Remover atleta (soft delete)
-- `GET /api/athletes/:id/affiliations` - Historico de afiliacoes
-- `POST /api/athletes/:id/affiliations` - Adicionar afiliacao
-
-### Clubes
-
-- `GET /api/clubs` - Listar clubes
-- `GET /api/clubs/:id` - Obter detalhes de um clube
-- `POST /api/clubs` - Criar novo clube
-- `PATCH /api/clubs/:id` - Atualizar clube
-- `DELETE /api/clubs/:id` - Remover clube (soft delete)
-
-### Torneios
-
-- `GET /api/tournaments` - Listar torneios
-- `GET /api/tournaments/:id` - Obter detalhes de um torneio
-- `POST /api/tournaments` - Criar novo torneio
-- `PATCH /api/tournaments/:id` - Atualizar torneio
-- `DELETE /api/tournaments/:id` - Remover torneio
-- `GET /api/tournaments/:id/categories` - Listar categorias
-- `POST /api/tournaments/:id/categories` - Criar categoria
-- `PATCH /api/tournaments/:id/categories/:categoryId` - Atualizar categoria
-- `GET /api/tournaments/:id/registrations` - Listar inscricoes
-- `POST /api/tournaments/:id/registrations` - Criar inscricao
-- `PATCH /api/tournaments/:id/registrations/:registrationId` - Atualizar inscricao
-- `POST /api/tournaments/:id/registrations/:registrationId/approve` - Aprovar inscricao
-
-### Chaves (Draws)
-
-- `POST /api/tournaments/:id/categories/:categoryId/draws/generate` - Gerar chave
-- `GET /api/draws/:id` - Obter chave
-- `PATCH /api/draws/:id` - Atualizar configuracoes da chave
-- `GET /api/draws/:id/matches` - Listar partidas da chave
-
-### Partidas (Matches)
-
-- `PATCH /api/matches/:id` - Atualizar partida (agendamento, etc.)
-- `POST /api/matches/:id/results` - Lancar resultado
-- `PATCH /api/matches/:id/results` - Atualizar resultado
-- `POST /api/matches/:id/advance` - Avanocar vencedor
-
-### Rankings
-
-- `GET /api/rankings` - Listar rankings
-- `GET /api/rankings/:id` - Obter ranking com posicoes
-- `POST /api/rankings` - Criar ranking
-- `PATCH /api/rankings/:id` - Atualizar ranking
-- `POST /api/rankings/:id/recalculate` - Recalcular ranking
-- `GET /api/rankings/:id/entries` - Listar posicoes do ranking
-- `POST /api/rankings/:id/tournaments` - Vincular torneio ao ranking
-
-### Pontos (Award Points)
-
-- `GET /api/award-points/tables` - Listar tabelas de pontos
-- `POST /api/award-points/tables` - Criar tabela de pontos
-- `PATCH /api/award-points/tables/:id` - Atualizar tabela
-
----
-
-## Fluxos de Usuario
-
-### 1. Cadastro de Atleta
-
-1. Federation admin acessa `/athletes`
-2. Clica em "+ Novo Atleta"
-3. Preenche: nome, genero, data de nascimento, clube atual
-4. Sistema cria atleta com afiliacao inicial
-5. Atleta aparece na listagem
-
-### 2. Inscricao em Torneio
-
-1. Tournament organizer acessa `/tournaments/:id`
-2. Clica em "Gerenciar Inscricoes"
-3. Atleta ou dupla se inscreve em categoria
-4. Inscricao fica com status `PENDING`
-5. Organizer revisa e aprova/rejeita
-6. Inscricao aprovada aparece na lista de participantes
-
-### 3. Geracao de Chave
-
-1. Organizer acessa categoria com minimo de inscricoes
-2. Clica em "Gerar Chave"
-3. Escolhe formato (eliminacao simples, dupla, etc.)
-4. Escolhe metodo de seed (manual, rating, random)
-5. Sistema gera chave com todas as partidas
-6. Chave fica disponivel para publico
-
-### 4. Lancamento de Resultados
-
-1. Referee acessa partida em `/tournaments/:id/matches/:matchId`
-2. Clica em "Lancar Resultado"
-3. Insere sets (ex: 21-18, 19-21, 21-15)
-4. Sistema valida resultado
-5. Vencedor avanca automaticamente para proxima partida
-6. Ranking e atualizado (se configurado)
-
-### 5. Calculo de Ranking
-
-1. Sistema calcula ranking automaticamente apos torneio
-2. Ou federation admin aciona recalculo manual
-3. Ranking considera:
-   - Torneios vinculados ao ranking
-   - Peso de cada torneio
-   - Colocacao de cada atleta/dupla
-   - Tabela de pontos da federacao
-4. Ranking publicado automaticamente ou apos revisao
-
----
-
-## Roadmap por Fases
-
-### Phase 0 - Fundacao
-
-- [x] Monorepo com Turborepo
-- [x] CI/CD basico
-- [x] Docker para banco local
-- [x] Schema Drizzle inicial
-- [x] Config base (eslint, tsconfig, tailwind)
-- [ ] Auth com Clerk
-- [ ] Variaveis de ambiente documentadas
-
-**Status:** 🔄 Em andamento
-
-### Phase 1 - Atletas e Clubes
-
-- [ ] CRUD de atletas completo
-- [ ] CRUD de clubes completo
-- [ ] Afiliacoes (historico atleta-clube)
-- [ ] Importacao em massa (CSV/Excel)
-- [ ] Perfis publicos de atletas
-- [ ] Busca e filtros avancados
-
-**Status:** 🔄 Em andamento
-
-### Phase 2 - Torneios e Inscricoes
-
-- [ ] CRUD de torneios
-- [ ] Categorias de torneio
-- [ ] Sistema de inscricoes
-- [ ] Aprovacao/rejeicao de inscricoes
-- [ ] Pagina publica do torneio
-- [ ] Lista de participantes publica
-
-**Status:** 🔄 Em andamento
-
-### Phase 3 - Motor de Ranking
-
-- [ ] Modelos de ranking e entrada
-- [ ] Calculadora de pontos
-- [ ] Vinculo torneio-ranking
-- [ ] Recalculo automatico
-- [ ] Cache de rankings (Redis, TTL 1h)
-- [ ] Pagina publica de rankings
-
-**Status:** ⏳ Planejado
-
-### Phase 4 - Geracao de Chaves
-
-- [ ] Sistema de seed (manual, rating, random)
-- [ ] Eliminacao simples
-- [ ] Eliminacao dupla
-- [ ] Round-robin (grupos)
-- [ ] Sistema suico (Swiss)
-- [ ] Chave publica visual
-
-**Status:** ⏳ Planejado
-
-### Phase 5 - Fluxo de Partidas
-
-- [ ] Lancamento de placar
-- [ ] Progressao automatica
-- [ ] Walkover / desistencia
-- [ ] Revisao de resultados
-- [ ] Auditoria de alteracoes
-- [ ] Historico de partidas
-
-**Status:** ⏳ Planejado
-
-### Phase 6 - Portal Publico
-
-- [ ] Resultados ao vivo
-- [ ] Estatisticas de atletas
-- [ ] Historico de torneios
-- [ ] Head-to-head
-- [ ] Rankings por categoria
-- [ ] RSS/feeds de resultados
-
-**Status:** ⏳ Planejado
-
-### Phase 7 - Dashboard Admin
-
-- [ ] KPIs e metricas
-- [ ] Relatorios personalizaveis
-- [ ] Exportacao de dados
-- [ ] Notificacoes por email
-- [ ] Logs de auditoria
-- [ ] Gestao de usuarios e permissoes
-
-**Status:** ⏳ Planejado
-
-### Phase 8 - Mobile e Polish
-
-- [ ] PWA (instalavel)
-- [ ] Push notifications
-- [ ] Testes E2E completos
-- [ ] Performance optimization
-- [ ] Acessibilidade (WCAG)
-- [ ] Documentacao de API
-
-**Status:** ⏳ Planejado
-
----
-
-## Criterios de Aceite
-
-### Gerais
-
-- [ ] TypeScript strict mode em todos os arquivos
-- [ ] Sem `any` - usar `unknown` quando necessario
-- [ ] Zod validation em todos os endpoints da API
-- [ ] Testes unitarios para logica critica
-- [ ] Componentes com menos de 150 linhas
-- [ ] Sem prop drilling alem de 2 niveis
-
-### Frontend
-
-- [ ] Server Components por padrão (sem 'use client' desnecessario)
-- [ ] TanStack Query para todo estado servidor
-- [ ] Loading states e error states em todas as telas
-- [ ] Responsive (mobile-first)
-- [ ] next/image para todas as imagens
-- [ ] Virtualizacao para listas > 100 itens
-
-### Backend
-
-- [ ] Validaçãoo com Zod antes de qualquer logica
-- [ ] Respostas de erro padronizadas: `{ error: string, code?: string, details?: unknown }`
-- [ ] Transaçãoo Drizzle para operaçõeses criticas
-- [ ] Soft delete (`deletedAt`) para entidades de negocio
-- [ ] Indices nas colunas de filtro/ordenacao
-- [ ] Rate limiting (fase posterior)
-
-### Banco de Dados
-
-- [ ] Todo model tem `id`, `createdAt`, `updatedAt`
-- [ ] Indices em FKs e colunas de busca frequente
-- [ ] Constraints de integridade (unique, FK, check)
-- [ ] Migrations versionadas e aplicaveis
-
----
-
-## Comportamento Esperado
-
-### Sistema
-
-- **Offline-first:** Funciona parcialmente sem internet (cache)
-- **Real-time:** Atualizaçõeses em tempo real via polling (WebSockets em fase posterior)
-- **Auditavel:** Todo write tem log de quem/quando/oque
-- **Seguro:** Dados sensiveis nunca expostos em endpoints publicos
-
-### Usuario
-
-- **Intuitivo:** Fluxos claros e objetivos
-- **Rapido:** Carregamento < 3s em 3G
-- **Confiavel:** Dados sempre consistentes
-- **Acessivel:** WCAG 2.1 AA (fase 8)
-
----
-
-## Regras de Negocio
-
-### Atletas
-
-- Atleta pode ter apenas um clube ativo por vez
-- Afiliacoes sao historicas (nunca deletadas, apenas `endDate`)
-- Genero: M (masculino), F (feminino), U (unificado/misto)
-
-### Torneios
-
-- Categorias tem limite de rating (min/max) opcional
-- Inscricoes podem ser aprovadas/rejeitadas manualmente
-- Torneio so pode gerar chave apos fechamento das inscricoes
+- `cancelled` pode ser alcançado de qualquer estado antes de `completed`.
+- A tabela de transições é única, em `packages/validators/src/tournament.ts`, usada pela API e pelo web. O status só muda pelo ciclo de vida, nunca por edição direta.
+- `POST /tournaments/:id/transition { to }` faz as transições simples, com compare-and-set no status (`409 TOURNAMENT_STATUS_CHANGED` em corrida).
+- Encerrar é `POST /finalize` (exige `in_progress` e gera o pódio). Reabrir é `POST /reopen` (`completed → in_progress`, reverte os pontos). A rota de transição responde `409 USE_DEDICATED_ENDPOINT` para esses dois casos.
+- Torneio encerrado ou cancelado recusa inscrições novas (`409 TOURNAMENT_LOCKED`).
+
+### Inscrições
+
+- Uma inscrição referencia um atleta ou uma dupla, nunca os dois (regra em vigor a partir do PR 3b).
+- `rejected` exige motivo em `notes`. Aprovar é idempotente.
+- Regras de domínio em `apps/api/src/domain/registration-rules.ts` e schemas em `packages/validators`.
 
 ### Chaves
 
-- Seed define posicao inicial na chave
-- Vencedor avanca automaticamente
-- Perdedor em eliminacao dupla vai para chave de perdedores
-- Walkover = vitoria sem disputa
+- Só eliminação simples está implementada. A chave tem tamanho da próxima potência de 2 acima do número de inscritos confirmados; vagas vazias viram byes.
+- Modos de sorteio: aleatório e com cabeças de chave (cabeças 1 e 2 em extremos opostos, 3 e 4 sorteadas entre as metades, 5 a 8 entre os quartos).
+- **Rodadas contam até a final:** a rodada de número mais alto é a primeira fase e a rodada 1 é a final. Cada partida aponta para a seguinte por `nextMatchId`; a vencedora da posição `p` ocupa o slot 1 (se `p` for ímpar) ou 2 (se par) da posição `ceil(p/2)` na rodada seguinte. O gerador fica em `apps/api/src/domain/bracket.ts` e é usado pela API e pelo seed.
+- Bye é uma partida da primeira fase com um único inscrito e status `walkover`; o inscrito avança na hora.
+- Chave publicada não pode ser ressorteada (`409 DRAW_PUBLISHED`). Ressortear limpa os resultados em cascata.
 
-### Rankings
+### Resultados
 
-- Ranking pode ser automatico (todos torneios) ou manual
-- Torneios tem peso diferente no calculo
-- Empate em pontos: criterios de desempate (head-to-head, sets, etc.)
+- Resultado é uma lista de sets. O vencedor é quem venceu mais sets, e avança automaticamente para a partida seguinte.
+- Alterar o vencedor de uma partida já decidida desfaz em cascata as partidas seguintes que dependiam dele.
+- No W.O., o diálogo de resultado grava 21-0 para quem avança. Na desistência (`retired`), grava as parciais com o vencedor fazendo 21. O vencedor é sempre lido dos sets salvos, nunca presumido pelo slot.
 
----
+### Pontos e ranking
 
-## Seguranca e Auth
+- A colocação é derivada da chave: o vencedor da final é 1º e o perdedor 2º; quem perde na rodada `r` fica em `2^(r-1) + 1` (3º nas semifinais, 5º nas quartas, 9º nas oitavas). `finalize` devolve o pódio, e `award-points` e o recálculo do ranking usam a mesma regra. A coluna `finalPlacement` existe, mas a API não a grava.
+- `award-points` atribui pontos a torneios encerrados uma única vez (`pointsAwarded`; repetir responde 409) e vincula o torneio aos rankings correspondentes.
+- O recálculo do ranking resolve os pontos pela regra mais específica (nível + disciplina), depois a genérica (só nível). Até o PR 3c, cai na tabela de pontos legada quando não há regra.
+- `countBestResults` limita a soma aos melhores resultados; `minTournamentsRequired` exclui quem jogou menos torneios.
 
-### Autenticaçãoo
+## Convenções
 
-- Clerk para gestao de usuarios
-- Sessoes JWT com refresh automatico
-- MFA opcional para admins
+### TypeScript
 
-### Autorizaçãoo
+- `strict: true` em todos os pacotes.
+- Sem `any`: use tipos específicos ou `unknown`.
+- `interface` para objetos públicos, `type` para composições.
+- Valores `as const` no lugar de `enum` do TypeScript.
+- Imports relativos com extensão `.js` na API (NodeNext).
 
-- Roles checadas via middleware
-- NUNCA inline no handler
-- Cada endpoint verifica permissao necessaria
+### Web
 
-### Dados Sensiveis
+- Páginas são Server Components por padrão. `'use client'` só com estado, eventos, efeitos ou TanStack Query.
+- Páginas públicas são Server Components. O admin usa TanStack Query em tudo, via `apiFetch`; nunca `fetch` cru para a API.
+- Formulários validam com os schemas de `packages/validators`.
+- Reutilize `components/ui` e `components/shared`. Nunca crie uma segunda sidebar, shell ou layout administrativo: a área admin usa o layout de `app/admin`.
+- Toda tela trata carregamento, erro, vazio e sucesso.
+- Sem dados simulados: telas mostram apenas dados reais da API.
 
-- NUNCA expor: CPF, email, telefone em endpoints publicos
-- Logs sem dados pessoais
-- Rate limiting por IP/user (fase posterior)
+### API
 
----
+- Todo input é validado com Zod antes da lógica de negócio.
+- Regras puras ficam em `src/domain`, com testes; rotas só orquestram.
+- Operações críticas com várias escritas usam transação.
 
-## Infraestrutura
+### Banco de dados
 
-### Desenvolvimento
+- Mudanças de schema só por migration gerada: `db:generate` e depois `db:migrate`. `db:push` é proibido.
+- `db:reset` apaga e recria o banco a partir das migrations. Ele recusa produção e hosts não locais.
+- Índices em chaves estrangeiras e colunas de busca frequente; constraints de integridade (unique, FK, check).
 
-```
-Docker (PostgreSQL local)
-├── Porta 5432
-└── DB: birdie_atlas
+### Textos
 
-pnpm install
-pnpm --filter api db:push
-pnpm --filter web dev
-pnpm --filter api dev
-```
+- Arquivos em UTF-8, com acentuação correta em português em todos os textos de interface e documentação.
 
-### Produçãoo
+### Git
 
-```
-Vercel (Frontend)
-├── SSR/SSG/ISR
-├── Edge Functions
-└── CDN global
+- Conventional Commits.
+- Branches `feat/...`, `fix/...`, `docs/...` ou `chore/...`. Nunca commitar direto na `main`: todo trabalho entra por PR.
 
-Railway (Backend + DB)
-├── Fastify API
-├── PostgreSQL gerenciado
-└── Redis (cache)
+## Critério de pronto
 
-Cloudinary/Uploadthing
-└── Upload de imagens/logos
+Uma entrega só está pronta quando:
 
-Resend
-└── Emails transacionais
+- A rota está acessível pela navegação correta, sem rotas, layouts ou menus redundantes.
+- Está alinhada ao schema e ao contrato real da API.
+- Valida dados no cliente e no servidor.
+- Trata carregamento, erro, vazio e sucesso.
+- Passa `pnpm turbo run check-types lint test build`.
+- Tem testes para a lógica de domínio nova.
+- Teve os textos revisados quanto à acentuação.
+- Atualizou esta especificação e o `PROGRESS.md` quando mudou comportamento ou contrato.
 
-Sentry
-└── Error tracking
-```
+## Planejado
 
----
+O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`](../PROGRESS.md).
 
-## Proximos Passos Imediatos
-
-1. **Phase 0:** Finalizar auth com Clerk
-2. **Phase 1:** CRUD de atletas e clubes funcional
-3. **Phase 2:** Torneios e inscricoes
-4. **Phase 3:** Motor de ranking
-5. **Phase 4-8:** Sequencia natural
-
----
-
-## Notas
-
-- Este documento e a fonte da verdade para o projeto
-- Qualquer mudanca significativa deve ser refletida aqui
-- Manter atualizado a cada fase concluida
-
-**Ultima atualizaçãoo:** 27/08/2026  
-**Versao:** 1.0.0  
-**Branch:** `feat/phase-2-registration-operations`
+- **Autenticação:** Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
+- **Formatos de chave:** eliminação dupla, round robin, grupos + eliminatória e sistema suíço.
+- **Partidas:** auditoria de resultados (quem lançou e quando), resultados ao vivo por polling.
+- **Ranking:** cache (Redis, TTL de 1 hora), critérios de desempate.
+- **Portal público:** estatísticas e histórico de atletas, head-to-head.
+- **Admin:** relatórios exportáveis, notificações, gestão de usuários e papéis.
+- **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
+- **Qualidade:** testes E2E com Playwright, PWA, acessibilidade WCAG 2.1 AA.
