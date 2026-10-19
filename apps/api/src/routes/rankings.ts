@@ -153,7 +153,7 @@ async function recalculateRanking(rankingId: string) {
 
   if (ranking.autoInclude) {
     const allT = await db.select().from(tournaments)
-      .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true)))
+      .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true), isNull(tournaments.deletedAt)))
     tournamentLinks = allT.map((t) => ({ tournamentId: t.id, tournamentMultiplier: 1.0, levelOverride: null, isScoring: true }))
   } else {
     const links = await db.select().from(rankingTournaments)

@@ -13,7 +13,7 @@ import { getDefaultTenantId } from '../tenant.js'
 // ---------------------------------------------------------------------------
 function activeTournamentsOf(tenantId: string) {
   return db.select().from(tournaments)
-    .where(and(eq(tournaments.tenantId, tenantId), eq(tournaments.status, 'in_progress')))
+    .where(and(eq(tournaments.tenantId, tenantId), eq(tournaments.status, 'in_progress'), isNull(tournaments.deletedAt)))
 }
 
 function athleteDisplayName(a: { name: string } | null): string {
@@ -84,8 +84,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
       db.select({ total: countDistinct(athleteAffiliations.athleteId) })
         .from(athleteAffiliations)
         .innerJoin(athletes, eq(athletes.id, athleteAffiliations.athleteId))
-        .where(and(eq(athleteAffiliations.tenantId, tenantId), isNull(athleteAffiliations.endedAt), eq(athletes.active, true))),
-      db.select({ total: count() }).from(clubs).where(and(eq(clubs.tenantId, tenantId), eq(clubs.active, true))),
+        .where(and(eq(athleteAffiliations.tenantId, tenantId), isNull(athleteAffiliations.endedAt), eq(athletes.active, true), isNull(athletes.deletedAt))),
+      db.select({ total: count() }).from(clubs).where(and(eq(clubs.tenantId, tenantId), eq(clubs.active, true), isNull(clubs.deletedAt))),
       activeTournamentsOf(tenantId),
     ])
 

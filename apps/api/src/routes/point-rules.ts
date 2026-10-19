@@ -3,6 +3,7 @@ import { db } from '../db/index.js'
 import { pointRules, rankings } from '../db/schema.js'
 import { eq, and, isNull } from 'drizzle-orm'
 import { z } from 'zod'
+import { tournamentLevelSchema } from '@birdie-atlas/validators'
 import { randomUUID } from 'crypto'
 
 // ---------------------------------------------------------------------------
@@ -16,7 +17,7 @@ const entrySchema = z.object({
 
 const createPointRuleSchema = z.object({
   // Nível do torneio ao qual a regra se aplica
-  tournamentLevel: z.enum(['local', 'regional', 'state', 'national', 'international']),
+  tournamentLevel: tournamentLevelSchema,
   // Opcional: null = aplica a todas as disciplinas do ranking
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']).nullable().optional(),
   // Opcional: null = aplica a todas as categorias (Open, Sub-19, etc.)

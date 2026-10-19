@@ -37,6 +37,7 @@ export async function athletesRoutes(app: FastifyInstance) {
     const query = listAthletesQuerySchema.parse(request.query)
     const tenantId = await getDefaultTenantId()
     const where = and(
+      isNull(athletes.deletedAt),
       query.search
         ? or(ilike(athletes.name, `%${query.search}%`), ilike(athletes.email, `%${query.search}%`))
         : undefined,
@@ -85,7 +86,7 @@ export async function athletesRoutes(app: FastifyInstance) {
 
   app.get('/athletes/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const [athlete] = await db.select().from(athletes).where(eq(athletes.id, id))
+    const [athlete] = await db.select().from(athletes).where(and(eq(athletes.id, id), isNull(athletes.deletedAt)))
     if (!athlete) return reply.status(404).send({ error: 'Athlete not found' })
     return athlete
   })
@@ -105,7 +106,7 @@ export async function athletesRoutes(app: FastifyInstance) {
         active: athletes.active,
       })
       .from(athletes)
-      .where(eq(athletes.id, id))
+      .where(and(eq(athletes.id, id), isNull(athletes.deletedAt)))
 
     if (!athlete) return reply.status(404).send({ error: 'Athlete not found' })
 
@@ -284,14 +285,14 @@ export async function athletesRoutes(app: FastifyInstance) {
   app.put('/athletes/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
     const body = createAthleteSchema.partial().parse(request.body)
-    const [athlete] = await db.update(athletes).set({ ...body, updatedAt: new Date() }).where(eq(athletes.id, id)).returning()
+    const [athlete] = await db.update(athletes).set({ ...body, updatedAt: new Date() }).where(and(eq(athletes.id, id), isNull(athletes.deletedAt))).returning()
     if (!athlete) return reply.status(404).send({ error: 'Athlete not found' })
     return athlete
   })
 
   app.delete('/athletes/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    await db.update(athletes).set({ active: false, updatedAt: new Date() }).where(eq(athletes.id, id))
+    await db.update(athletes).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(athletes.id, id), isNull(athletes.deletedAt)))
     return reply.status(204).send()
   })
 }

@@ -8,7 +8,9 @@ import {
   date,
   real,
   jsonb,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -18,6 +20,12 @@ const timestamps = {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }
+/** Soft delete: registros de negócio nunca são apagados fisicamente (resultados e rankings dependem deles). */
+const softDelete = {
+  deletedAt: timestamp('deleted_at'),
+}
+/** Unicidade só entre registros não excluídos, para um slug/e-mail poder ser reutilizado após exclusão. */
+const notDeleted = sql`deleted_at IS NULL`
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -67,7 +75,7 @@ export const tenants = pgTable('tenants', {
 export const clubs = pgTable('clubs', {
   id: id(),
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
+  slug: text('slug').notNull(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),
   city: text('city'),
   state: text('state'),
@@ -76,8 +84,11 @@ export const clubs = pgTable('clubs', {
   primaryColor: text('primary_color'),
   secondaryColor: text('secondary_color'),
   active: boolean('active').notNull().default(true),
+  ...softDelete,
   ...timestamps,
-})
+}, (table) => [
+  uniqueIndex('clubs_slug_unique').on(table.slug).where(notDeleted),
+])
 
 // ---------------------------------------------------------------------------
 // Athletes
@@ -85,14 +96,17 @@ export const clubs = pgTable('clubs', {
 export const athletes = pgTable('athletes', {
   id: id(),
   name: text('name').notNull(),
-  email: text('email').unique(),
+  email: text('email'),
   gender: genderEnum('gender').notNull(),
   birthDate: date('birth_date'),
   nationality: text('nationality').notNull().default('BR'),
   photoUrl: text('photo_url'),
   active: boolean('active').notNull().default(true),
+  ...softDelete,
   ...timestamps,
-})
+}, (table) => [
+  uniqueIndex('athletes_email_unique').on(table.email).where(notDeleted),
+])
 
 // ---------------------------------------------------------------------------
 // Athlete Affiliations
@@ -117,6 +131,7 @@ export const pairs = pgTable('pairs', {
   athlete2Id: text('athlete2_id').notNull().references(() => athletes.id),
   discipline: disciplineEnum('discipline').notNull(),
   active: boolean('active').notNull().default(true),
+  ...softDelete,
   ...timestamps,
 })
 
@@ -127,9 +142,9 @@ export const tournaments = pgTable('tournaments', {
   id: id(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
+  slug: text('slug').notNull(),
   status: tournamentStatusEnum('status').notNull().default('draft'),
-  level: text('level').notNull().default('state'),
+  level: tournamentLevelEnum('level').notNull().default('state'),
   startDate: date('start_date').notNull(),
   endDate: date('end_date').notNull(),
   location: text('location'),
@@ -137,8 +152,11 @@ export const tournaments = pgTable('tournaments', {
   state: text('state'),
   pointsTableId: text('points_table_id').references(() => pointsTables.id),
   pointsAwarded: boolean('points_awarded').notNull().default(false),
+  ...softDelete,
   ...timestamps,
-})
+}, (table) => [
+  uniqueIndex('tournaments_slug_unique').on(table.slug).where(notDeleted),
+])
 
 // ---------------------------------------------------------------------------
 // Tournament Categories
@@ -151,6 +169,7 @@ export const tournamentCategories = pgTable('tournament_categories', {
   drawType: drawTypeEnum('draw_type').notNull().default('single_elimination'),
   maxEntries: integer('max_entries'),
   seedCount: integer('seed_count').notNull().default(4),
+  ...softDelete,
   ...timestamps,
 })
 
@@ -167,6 +186,7 @@ export const tournamentRegistrations = pgTable('tournament_registrations', {
   withdrew: boolean('withdrew').notNull().default(false),
   rankingPointsAtEntry: integer('ranking_points_at_entry'),
   finalPlacement: integer('final_placement'),
+  ...softDelete,
   ...timestamps,
 })
 
@@ -231,7 +251,7 @@ export const rankings = pgTable('rankings', {
   id: id(),
   tenantId: text('tenant_id').notNull().references(() => tenants.id),
   name: text('name').notNull(),
-  slug: text('slug').notNull().default(''),
+  slug: text('slug').notNull(),
   description: text('description'),
   discipline: disciplineEnum('discipline').notNull(),
   year: integer('year').notNull(),
@@ -243,7 +263,9 @@ export const rankings = pgTable('rankings', {
   lastCalculatedAt: timestamp('last_calculated_at'),
   deletedAt: timestamp('deleted_at'),
   ...timestamps,
-})
+}, (table) => [
+  uniqueIndex('rankings_tenant_slug_unique').on(table.tenantId, table.slug).where(notDeleted),
+])
 
 // ---------------------------------------------------------------------------
 // Point Rules

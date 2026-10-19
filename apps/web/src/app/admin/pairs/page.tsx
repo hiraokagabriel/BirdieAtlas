@@ -113,14 +113,11 @@ export default function PairsPage() {
   useEffect(() => { fetchPairs() }, [page])
 
   async function toggleActive(pair: Pair) {
-    if (pair.active) {
-      await apiFetch(`/pairs/${pair.id}`, { method: 'DELETE' })
-    } else {
-      await apiFetch(`/pairs/${pair.id}`, {
-        method: 'PUT',
-        json: { active: true },
-      })
-    }
+    // Desativar não exclui: DELETE agora é exclusão (soft delete) e tira a dupla das listas
+    await apiFetch(`/pairs/${pair.id}`, {
+      method: 'PUT',
+      json: { active: !pair.active },
+    })
     fetchPairs()
   }
 

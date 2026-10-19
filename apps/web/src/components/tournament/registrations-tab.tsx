@@ -59,7 +59,9 @@ interface Props {
 
 export function RegistrationsTab({ tournamentId, categories }: Props) {
   const queryClient = useQueryClient()
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(categories[0]?.id ?? '')
+  const [selectedCategoryId, setActiveCategoryId] = useState<string>('')
+  // As categorias chegam depois da primeira renderização: sem escolha explícita, usa a primeira
+  const activeCategoryId = selectedCategoryId || categories[0]?.id || ''
   const [showForm, setShowForm] = useState(false)
   const [athlete1, setAthlete1] = useState<AthleteOption | null>(null)
   const [athlete2Id, setAthlete2Id] = useState('')

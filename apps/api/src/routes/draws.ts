@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { draws, matches, matchResults, tournamentRegistrations, rankingEntries, pointsTables, tournamentCategories, tournaments, rankings, rankingTournaments, athletes } from '../db/schema.js'
-import { eq, and, inArray, or } from 'drizzle-orm'
+import { eq, and, inArray, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
@@ -181,7 +181,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     const { categoryId } = request.params as { categoryId: string }
     const { mode } = generateDrawSchema.parse(request.body ?? {})
 
-    const registrations = await db.select().from(tournamentRegistrations).where(eq(tournamentRegistrations.categoryId, categoryId))
+    const registrations = await db.select().from(tournamentRegistrations).where(and(eq(tournamentRegistrations.categoryId, categoryId), isNull(tournamentRegistrations.deletedAt)))
     const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
 
@@ -218,7 +218,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     await db.delete(matches).where(eq(matches.drawId, drawId))
 
     const registrations = await db.select().from(tournamentRegistrations)
-      .where(eq(tournamentRegistrations.categoryId, draw.categoryId))
+      .where(and(eq(tournamentRegistrations.categoryId, draw.categoryId), isNull(tournamentRegistrations.deletedAt)))
     const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
 
