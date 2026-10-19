@@ -1,42 +1,51 @@
-import type { FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
 // Admin Guard — Modo de desenvolvimento
 //
-// Enquanto o Clerk não está integrado, este guard controla o acesso
-// a rotas protegidas via variável de ambiente DEV_ADMIN_MODE.
+// Enquanto o Clerk não está integrado, o acesso administrativo é controlado
+// pela variável DEV_ADMIN_MODE (via .env ou PATCH /dev/admin-mode).
 //
-// Como usar:
-//   - Ligar:   DEV_ADMIN_MODE=true  (via .env ou PATCH /dev/admin-mode)
-//   - Desligar: remover a var ou setar DEV_ADMIN_MODE=false
-//
-// Em rotas Fastify, use como preHandler:
-//   app.post('/rankings', { preHandler: requireAdmin }, handler)
+// O guard roda como hook global (ver adminGuardHook): toda escrita exige admin,
+// e leituras com dados pessoais (e-mail, data de nascimento) também.
 // ---------------------------------------------------------------------------
 
-export async function requireAdmin(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<void> {
-  const isAdminMode = process.env['DEV_ADMIN_MODE'] === 'true'
+const READ_METHODS = new Set(['GET', 'HEAD'])
 
-  if (!isAdminMode) {
-    return reply.status(403).send({
-      error: 'Acesso negado.',
-      code: 'ADMIN_MODE_DISABLED',
-      hint: 'Ligue o modo admin em DEV_ADMIN_MODE=true ou via PATCH /dev/admin-mode',
-    })
-  }
+/** Leituras que devolvem dados pessoais de atletas: só para admin. */
+const ADMIN_ONLY_READS = new Set(['/athletes', '/athletes/:id'])
+
+/** Rotas que controlam o próprio modo admin ficam fora do guard. */
+const GUARD_EXEMPT = new Set(['/dev/admin-mode'])
+
+function isAdminMode(): boolean {
+  return process.env['DEV_ADMIN_MODE'] === 'true'
+}
+
+export function requiresAdmin(method: string, routeUrl: string | undefined): boolean {
+  // Preflight CORS nunca carrega credenciais nem altera dados.
+  if (method === 'OPTIONS') return false
+  if (routeUrl === undefined || GUARD_EXEMPT.has(routeUrl)) return false
+  if (!READ_METHODS.has(method)) return true
+  return ADMIN_ONLY_READS.has(routeUrl)
+}
+
+export async function adminGuardHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  if (!requiresAdmin(request.method, request.routeOptions.url)) return
+  if (isAdminMode()) return
+
+  return reply.status(403).send({
+    error: 'Acesso negado: esta operação exige o modo admin.',
+    code: 'ADMIN_MODE_DISABLED',
+    details: { hint: 'Ligue DEV_ADMIN_MODE=true no .env da API ou use o botão de modo admin no painel.' },
+  })
 }
 
 // ---------------------------------------------------------------------------
-// Rota utilitária: PATCH /dev/admin-mode
-// Permite ligar/desligar sem reiniciar o servidor.
-// NUNCA expor em produção — registre apenas quando NODE_ENV !== 'production'.
+// PATCH/GET /dev/admin-mode — liga/desliga sem reiniciar o servidor.
+// Não é registrada em produção.
 // ---------------------------------------------------------------------------
-
-import type { FastifyInstance } from 'fastify'
-import { z } from 'zod'
 
 const toggleSchema = z.object({
   enabled: z.boolean(),
@@ -46,26 +55,12 @@ export async function devAdminModeRoutes(app: FastifyInstance) {
   if (process.env['NODE_ENV'] === 'production') return
 
   app.patch('/dev/admin-mode', async (request, reply) => {
-    const result = toggleSchema.safeParse(request.body)
-
-    if (!result.success) {
-      return reply.status(400).send({ error: 'Body inválido', details: result.error.flatten() })
-    }
-
-    process.env['DEV_ADMIN_MODE'] = result.data.enabled ? 'true' : 'false'
-
-    return reply.send({
-      ok: true,
-      adminMode: result.data.enabled,
-      message: result.data.enabled
-        ? '🟢 Modo admin LIGADO'
-        : '🔴 Modo admin DESLIGADO',
-    })
+    const { enabled } = toggleSchema.parse(request.body)
+    process.env['DEV_ADMIN_MODE'] = enabled ? 'true' : 'false'
+    return reply.send({ adminMode: enabled })
   })
 
   app.get('/dev/admin-mode', async (_request, reply) => {
-    return reply.send({
-      adminMode: process.env['DEV_ADMIN_MODE'] === 'true',
-    })
+    return reply.send({ adminMode: isAdminMode() })
   })
 }

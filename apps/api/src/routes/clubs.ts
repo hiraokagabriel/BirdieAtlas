@@ -1,16 +1,18 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { clubs, athletes, athleteAffiliations, rankings, rankingEntries } from '../db/schema.js'
-import { eq, and, isNull, inArray } from 'drizzle-orm'
+import { eq, and, isNull, inArray, asc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { paginate } from '../domain/pagination.js'
+import { getDefaultTenantId } from '../tenant.js'
 
 const urlOrEmpty = z.union([z.string().url(), z.literal(''), z.undefined()])
 
 const createClubSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
-  tenantId: z.string(),
   city: z.string().optional(),
   state: z.string().optional(),
   logoUrl: urlOrEmpty,
@@ -21,9 +23,14 @@ const createClubSchema = z.object({
 
 export async function clubsRoutes(app: FastifyInstance) {
   app.get('/clubs', async (request) => {
-    const { tenantId } = request.query as { tenantId?: string }
-    if (tenantId) return db.select().from(clubs).where(eq(clubs.tenantId, tenantId))
-    return db.select().from(clubs)
+    const query = paginationQuerySchema.parse(request.query)
+    const tenantId = await getDefaultTenantId()
+    const where = eq(clubs.tenantId, tenantId)
+    return paginate(
+      query,
+      (limit, offset) => db.select().from(clubs).where(where).orderBy(asc(clubs.name), asc(clubs.id)).limit(limit).offset(offset),
+      async () => (await db.select({ total: count() }).from(clubs).where(where))[0]?.total ?? 0,
+    )
   })
 
   // Lookup por slug — usado pelo frontend público
@@ -158,13 +165,14 @@ export async function clubsRoutes(app: FastifyInstance) {
 
   app.post('/clubs', async (request, reply) => {
     const body = createClubSchema.parse(request.body)
-    const [club] = await db.insert(clubs).values({ id: randomUUID(), ...body }).returning()
+    const tenantId = await getDefaultTenantId()
+    const [club] = await db.insert(clubs).values({ id: randomUUID(), tenantId, ...body }).returning()
     return reply.status(201).send(club)
   })
 
   app.put('/clubs/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const updateSchema = createClubSchema.omit({ tenantId: true }).partial()
+    const updateSchema = createClubSchema.partial()
     const body = updateSchema.parse(request.body)
     const payload = {
       ...body,

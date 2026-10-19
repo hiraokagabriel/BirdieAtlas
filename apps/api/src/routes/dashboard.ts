@@ -5,11 +5,17 @@ import {
   tournaments, tournamentCategories, draws, matches, matchResults,
   tournamentRegistrations,
 } from '../db/schema.js'
-import { eq, inArray, or } from 'drizzle-orm'
+import { eq, inArray, or, and, isNull, count, countDistinct } from 'drizzle-orm'
+import { getDefaultTenantId } from '../tenant.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+function activeTournamentsOf(tenantId: string) {
+  return db.select().from(tournaments)
+    .where(and(eq(tournaments.tenantId, tenantId), eq(tournaments.status, 'in_progress')))
+}
+
 function athleteDisplayName(a: { name: string } | null): string {
   return a?.name ?? '?'
 }
@@ -72,19 +78,22 @@ export async function dashboardRoutes(app: FastifyInstance) {
   // GET /dashboard/stats
   // -------------------------------------------------------------------------
   app.get('/dashboard/stats', async () => {
-    const [allAthletes, allClubs, allTournaments] = await Promise.all([
-      db.select().from(athletes),
-      db.select().from(clubs),
-      db.select().from(tournaments),
+    const tenantId = await getDefaultTenantId()
+    const [[athleteCount], [clubCount], activeTournaments] = await Promise.all([
+      // Atletas ativos com afiliação vigente no tenant
+      db.select({ total: countDistinct(athleteAffiliations.athleteId) })
+        .from(athleteAffiliations)
+        .innerJoin(athletes, eq(athletes.id, athleteAffiliations.athleteId))
+        .where(and(eq(athleteAffiliations.tenantId, tenantId), isNull(athleteAffiliations.endedAt), eq(athletes.active, true))),
+      db.select({ total: count() }).from(clubs).where(and(eq(clubs.tenantId, tenantId), eq(clubs.active, true))),
+      activeTournamentsOf(tenantId),
     ])
 
-    const totalAthletes = allAthletes.filter((a) => a.active).length
-    const totalClubs    = allClubs.filter((c) => c.active).length
+    const totalAthletes = athleteCount?.total ?? 0
+    const totalClubs    = clubCount?.total ?? 0
 
     // Conta disciplinas únicas dentre torneios ativos (in_progress)
-    const activeTournamentIds = allTournaments
-      .filter((t) => t.status === 'in_progress')
-      .map((t) => t.id)
+    const activeTournamentIds = activeTournaments.map((t) => t.id)
 
     let activeCategories = 0
     if (activeTournamentIds.length) {
@@ -125,8 +134,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
   // Returns last 10 completed matches across all in_progress tournaments
   // -------------------------------------------------------------------------
   app.get('/dashboard/recent-matches', async () => {
-    const activeTournaments = await db.select().from(tournaments)
-      .then((rows) => rows.filter((t) => t.status === 'in_progress'))
+    const activeTournaments = await activeTournamentsOf(await getDefaultTenantId())
 
     if (!activeTournaments.length) return []
 
@@ -192,8 +200,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
   // Returns pending + in_progress matches across all in_progress tournaments
   // -------------------------------------------------------------------------
   app.get('/dashboard/upcoming-matches', async () => {
-    const activeTournaments = await db.select().from(tournaments)
-      .then((rows) => rows.filter((t) => t.status === 'in_progress'))
+    const activeTournaments = await activeTournamentsOf(await getDefaultTenantId())
 
     if (!activeTournaments.length) return []
 

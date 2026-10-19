@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   canEditRegistration,
   canTransitionRegistrationStatus,
-  getPagination,
   getRegistrationStatus,
   validateRegistrationStatusChange,
 } from "./registration-rules.js";
@@ -31,10 +30,5 @@ describe("registration domain rules", () => {
     expect(canEditRegistration("in_progress")).toBe(true);
     expect(canEditRegistration("completed")).toBe(false);
     expect(canEditRegistration("cancelled")).toBe(false);
-  });
-
-  it("calculates pagination consistently", () => {
-    expect(getPagination({ page: 1, pageSize: 25, total: 0 })).toEqual({ page: 1, pageSize: 25, total: 0, totalPages: 0 });
-    expect(getPagination({ page: 2, pageSize: 10, total: 21 })).toEqual({ page: 2, pageSize: 10, total: 21, totalPages: 3 });
   });
 });

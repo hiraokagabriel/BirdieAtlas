@@ -1,5 +1,8 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import { registerErrorHandling } from './http/errors.js'
+import { adminGuardHook, devAdminModeRoutes } from './middleware/admin-guard.js'
 import { athletesRoutes } from './routes/athletes.js'
 import { clubsRoutes } from './routes/clubs.js'
 import { tournamentsRoutes } from './routes/tournaments.js'
@@ -17,6 +20,11 @@ const app = Fastify({ logger: true })
 
 await app.register(cors, { origin: true })
 
+// Precisam vir antes das rotas: hooks e handlers da raiz valem para os plugins registrados depois.
+registerErrorHandling(app)
+app.addHook('onRequest', adminGuardHook)
+
+await app.register(devAdminModeRoutes)
 await app.register(athletesRoutes)
 await app.register(clubsRoutes)
 await app.register(tournamentsRoutes)

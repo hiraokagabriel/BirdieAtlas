@@ -30,6 +30,9 @@ importers:
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       drizzle-orm:
         specifier: 0.41.0
         version: 0.41.0(@types/pg@8.20.0)(gel@2.2.1)(pg@8.21.0)
@@ -55,9 +58,6 @@ importers:
       '@types/pg':
         specifier: ^8.11.14
         version: 8.20.0
-      dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
       drizzle-kit:
         specifier: 0.30.6
         version: 0.30.6

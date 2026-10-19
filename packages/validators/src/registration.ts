@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "./pagination.js";
 
 export const registrationStatusSchema = z.enum(["pending", "approved", "rejected"]);
 
@@ -10,10 +11,8 @@ export const tournamentRegistrationsParamsSchema = z.object({
   tournamentId: z.string().trim().min(1),
 });
 
-export const tournamentRegistrationsQuerySchema = z.object({
+export const tournamentRegistrationsQuerySchema = paginationQuerySchema.extend({
   status: registrationStatusSchema.optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
 }).strict();
 
 export const updateRegistrationBodySchema = z.object({
