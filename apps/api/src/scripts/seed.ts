@@ -39,6 +39,7 @@ import {
   rankingTournaments,
   rankingEntries,
 } from '../db/schema.js'
+import { buildMatchDefs, buildSlots, getSlotForPosition } from '../domain/bracket.js'
 
 // ---------------------------------------------------------------------------
 // Configuração
@@ -443,43 +444,41 @@ async function seed() {
       drawMode: 'random',
     })
 
-    const slots = 8
-    const rounds = Math.log2(slots)
+    // Same generator as the draws route: round N is the first phase, round 1 the final.
+    // The tournament is completed, so play every remaining match and advance the winner.
+    const slots = buildSlots(catRegs.map((r) => ({ id: r.id!, seed: r.seed ?? null })), 'random')
+    const matchDefs = buildMatchDefs(drawId, slots)
+    const byId = new Map(matchDefs.map((m) => [m.id, m]))
+    const score1win = [21, 21]
+    const score2win = [15, 15]
 
-    for (let round = 1; round <= rounds; round++) {
-      const matchesInRound = slots / Math.pow(2, round)
-      for (let pos = 1; pos <= matchesInRound; pos++) {
-        const matchId = uid()
-        const reg1 = round === 1 ? catRegs[(pos - 1) * 2] : undefined
-        const reg2 = round === 1 ? catRegs[(pos - 1) * 2 + 1] : undefined
-        const hasResult = round <= 2
-        const score1win = [21, 21]
-        const score2win = [15, 15]
+    for (const match of [...matchDefs].sort((a, b) => b.round - a.round)) {
+      let status: 'completed' | 'walkover' = 'walkover'
+      let winnerRegId = match.registration1Id ?? match.registration2Id
 
-        matchData.push({
-          id: matchId,
-          drawId,
-          round,
-          position: pos,
-          registration1Id: reg1?.id ?? null,
-          registration2Id: reg2?.id ?? null,
-          status: hasResult ? 'completed' : 'pending',
-          scheduledAt: isoTs(-180 + completedCategories.indexOf(cat) * 2),
-        })
-
-        if (hasResult && reg1 && reg2) {
-          const reg1Wins = Math.random() > 0.5
-          for (let set = 1; set <= 2; set++) {
-            matchResultData.push({
-              id: uid(),
-              matchId,
-              setNumber: set,
-              score1: reg1Wins ? score1win[set - 1] : score2win[set - 1],
-              score2: reg1Wins ? score2win[set - 1] : score1win[set - 1],
-            })
-          }
+      if (match.status === 'pending' && match.registration1Id && match.registration2Id) {
+        status = 'completed'
+        const reg1Wins = Math.random() > 0.5
+        winnerRegId = reg1Wins ? match.registration1Id : match.registration2Id
+        for (let set = 1; set <= 2; set++) {
+          matchResultData.push({
+            id: uid(),
+            matchId: match.id,
+            setNumber: set,
+            score1: reg1Wins ? score1win[set - 1] : score2win[set - 1],
+            score2: reg1Wins ? score2win[set - 1] : score1win[set - 1],
+          })
         }
       }
+
+      const next = match.nextMatchId ? byId.get(match.nextMatchId) : undefined
+      if (next && winnerRegId) next[getSlotForPosition(match.position)] = winnerRegId
+
+      matchData.push({
+        ...match,
+        status,
+        scheduledAt: isoTs(-180 + completedCategories.indexOf(cat) * 2),
+      })
     }
 
     const finalRegs = catRegs.slice(0, Math.min(catRegs.length, 4))
