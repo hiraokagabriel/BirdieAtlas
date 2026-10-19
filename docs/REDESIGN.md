@@ -80,3 +80,10 @@ Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-
 - **Tenant**: `DEFAULT_TENANT_SLUG` (ou o único tenant). `tenantId` enviado pelo cliente é ignorado. Atletas continuam globais (identidade entre federações); o vínculo com o tenant é a afiliação.
 - **Paginação**: coleções de topo (`athletes`, `clubs`, `tournaments`, `pairs`, `rankings`, `tenants`, entradas de ranking). Listas filhas de um recurso (partidas de uma chave, inscrições de uma categoria, categorias de um torneio, regras de pontos, afiliações) seguem completas: paginar uma chave de 128 atletas a quebraria. `points-tables` não foi paginado porque será removido no PR 3.
 - **Erros**: um único handler; Zod vira 400 `VALIDATION_ERROR` com `details`, erros de cliente do Fastify mantêm o status, o resto vira 500 `INTERNAL_ERROR` sem vazar mensagem.
+
+### PR 4 — Ciclo de vida do torneio
+
+- Tabela de transições única em `packages/validators/src/tournament.ts`, usada pela API e pelo web.
+- `POST /tournaments/:id/transition { to }` cobre as transições simples, com compare-and-set no status (409 `TOURNAMENT_STATUS_CHANGED` em corrida). Encerrar continua em `/finalize` (pódio) e reabrir em `/reopen` (reverte pontos); a rota de transição responde 409 `USE_DEDICATED_ENDPOINT` para elas.
+- `/finalize` agora exige `in_progress`; inscrições novas são recusadas em torneio encerrado ou cancelado (409 `TOURNAMENT_LOCKED`).
+- Antes deste PR não havia como tirar um torneio de `draft` pela interface.

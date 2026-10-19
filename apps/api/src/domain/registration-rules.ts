@@ -1,13 +1,5 @@
 import type { Pagination } from "@birdie-atlas/types";
-import type { RegistrationStatus } from "@birdie-atlas/validators";
-
-export type RegistrationTournamentStatus =
-  | "draft"
-  | "registration_open"
-  | "registration_closed"
-  | "in_progress"
-  | "completed"
-  | "cancelled";
+import type { RegistrationStatus, TournamentStatus } from "@birdie-atlas/validators";
 
 interface RegistrationFlags {
   confirmed: boolean;
@@ -49,6 +41,6 @@ export function validateRegistrationStatusChange(
   return null;
 }
 
-export function canEditRegistration(tournamentStatus: RegistrationTournamentStatus): boolean {
+export function canEditRegistration(tournamentStatus: TournamentStatus): boolean {
   return !["completed", "cancelled"].includes(tournamentStatus);
 }

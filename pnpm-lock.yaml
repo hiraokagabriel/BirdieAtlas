@@ -76,6 +76,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@birdie-atlas/validators':
+        specifier: workspace:*
+        version: link:../../packages/validators
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@19.2.4)
