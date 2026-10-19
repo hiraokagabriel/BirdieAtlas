@@ -1,3 +1,4 @@
+import { unstable_rethrow } from 'next/navigation'
 import type { ApiErrorBody } from '@birdie-atlas/types'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -57,6 +58,8 @@ export async function apiFetch<T>(path: string, options?: ApiFetchOptions): Prom
     }),
     ...(json === undefined && headers ? { headers } : {}),
   }).catch((err: unknown) => {
+    // Sinais internos do Next (ex.: renderização dinâmica) precisam continuar subindo.
+    unstable_rethrow(err)
     throw new ApiError(
       0,
       `Não foi possível conectar à API (${path}): ${err instanceof Error ? err.message : String(err)}`,

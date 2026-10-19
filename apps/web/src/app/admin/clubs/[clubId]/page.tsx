@@ -113,7 +113,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
 
   if (notFound) return (
     <div className="space-y-4">
-      <BackButton onClick={() => router.push('/clubs')} />
+      <BackButton onClick={() => router.push('/admin/clubs')} />
       <div className="flex items-center justify-center h-64 text-muted-foreground">Clube não encontrado.</div>
     </div>
   )
@@ -135,7 +135,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
 
   return (
     <div className="space-y-8">
-      <BackButton onClick={() => router.push('/clubs')} />
+      <BackButton onClick={() => router.push('/admin/clubs')} />
 
       {/* HERO */}
       <div className="rounded-2xl overflow-hidden border border-border">

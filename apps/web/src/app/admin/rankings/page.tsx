@@ -233,7 +233,7 @@ export default function RankingsPage() {
           {rankings.map((r) => (
             <Link
               key={r.id}
-              href={`/rankings/${r.id}`}
+              href={`/admin/rankings/${r.id}`}
               className="group rounded-xl border border-border bg-card hover:shadow-md transition-shadow p-5 space-y-3"
             >
               <div className="flex items-start justify-between gap-3">

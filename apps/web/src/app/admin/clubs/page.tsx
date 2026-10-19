@@ -70,7 +70,7 @@ export default function ClubsPage() {
           return (
             <Link
               key={club.id}
-              href={`/clubs/${club.id}`}
+              href={`/admin/clubs/${club.id}`}
               className="group rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow bg-card"
             >
               <div

@@ -40,7 +40,7 @@ export default async function TournamentsPage() {
         {tournaments.map((t) => {
           const status = statusConfig[t.status] ?? { label: t.status, className: 'bg-gray-100 text-gray-600' }
           return (
-            <Link key={t.id} href={`/tournaments/${t.slug}`}>
+            <Link key={t.id} href={`/admin/tournaments/${t.id}`}>
               <Card className="hover:shadow-md hover:border-primary/30 transition-all cursor-pointer h-full">
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start justify-between gap-2">

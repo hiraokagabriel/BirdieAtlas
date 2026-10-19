@@ -27,8 +27,8 @@ const statusMap: Record<string, { label: string; color: string }> = {
   cancelled:           { label: 'Cancelado',             color: 'bg-red-100 text-red-500' },
 }
 
-export default function TournamentPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params)
+export default function TournamentPage({ params }: { params: Promise<{ tournamentId: string }> }) {
+  const { tournamentId } = use(params)
   const router = useRouter()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -37,16 +37,16 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
   const [reopening, setReopening] = useState(false)
 
   function fetchTournament() {
-    apiFetch<Tournament>(`/tournaments/by-slug/${slug}`)
+    apiFetch<Tournament>(`/tournaments/${tournamentId}`)
       .then((t) => {
         setTournament(t)
         return apiFetch<Category[]>(`/tournaments/${t.id}/categories`)
       })
       .then(setCategories)
-      .catch(() => router.push('/tournaments'))
+      .catch(() => router.push('/admin/tournaments'))
   }
 
-  useEffect(() => { fetchTournament() }, [slug])
+  useEffect(() => { fetchTournament() }, [tournamentId])
 
   async function handleReopen() {
     if (!tournament) return
@@ -78,7 +78,7 @@ export default function TournamentPage({ params }: { params: Promise<{ slug: str
   return (
     <div className="space-y-6">
       <button
-        onClick={() => router.push('/tournaments')}
+        onClick={() => router.push('/admin/tournaments')}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />

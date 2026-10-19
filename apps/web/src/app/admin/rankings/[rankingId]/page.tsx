@@ -179,7 +179,7 @@ function EntryRow({
               <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="font-medium text-sm">
                 <Link
-                  href={`/athletes/${entry.athleteId}`}
+                  href={`/a/${entry.athleteId}`}
                   className="hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -199,7 +199,7 @@ function EntryRow({
             <div className="flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <Link
-                href={`/athletes/${entry.athleteId}`}
+                href={`/a/${entry.athleteId}`}
                 className="font-medium text-sm hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -482,7 +482,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
 
       {/* VOLTAR */}
       <button
-        onClick={() => router.push('/rankings')}
+        onClick={() => router.push('/admin/rankings')}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
