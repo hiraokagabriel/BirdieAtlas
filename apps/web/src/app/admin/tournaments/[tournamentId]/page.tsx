@@ -1,18 +1,20 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
+import { canTransitionTournament, type TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { RegistrationsTab } from '@/components/tournament/registrations-tab'
 import { FinalizeTournamentModal } from '@/components/tournament/finalize-tournament-modal'
 import { TournamentSetupTab } from '@/components/tournament/tournament-setup-tab'
+import { TournamentStatusActions } from '@/components/tournament/tournament-status-actions'
 import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag, RotateCcw, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 type Tournament = {
-  id: string; name: string; slug: string; status: string; level: string
+  id: string; name: string; slug: string; status: TournamentStatus; level: string
   startDate: string; endDate: string; city: string; state: string; location: string
   pointsAwarded: boolean; tenantId: string; pointsTableId: string | null
 }
@@ -105,7 +107,8 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <TournamentStatusActions tournamentId={tournament.id} status={tournament.status} onChanged={fetchTournament} />
           {isCompleted && (
             <button
               onClick={handleReopen}
@@ -116,7 +119,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
               {reopening ? 'Reabrindo...' : 'Reabrir campeonato'}
             </button>
           )}
-          {!isCompleted && (
+          {canTransitionTournament(tournament.status, 'completed') && (
             <button
               onClick={() => setFinalizeOpen(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"

@@ -8,7 +8,14 @@ import {
 import { eq, ne, and, inArray, asc, desc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
-import { paginationQuerySchema } from '@birdie-atlas/validators'
+import {
+  TOURNAMENT_TRANSITIONS,
+  canTransitionTournament,
+  dedicatedTransitionEndpoint,
+  paginationQuerySchema,
+  tournamentTransitionBodySchema,
+} from '@birdie-atlas/validators'
+import { canEditRegistration } from '../domain/registration-rules.js'
 import { paginate } from '../domain/pagination.js'
 import { getDefaultTenantId } from '../tenant.js'
 
@@ -306,7 +313,9 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     const [cat] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
     if (!cat) return reply.status(404).send({ error: 'Category not found' })
     const [t] = await db.select().from(tournaments).where(eq(tournaments.id, cat.tournamentId))
-    if (t?.status === 'completed') return reply.status(400).send({ error: 'Tournament is finished. No new registrations allowed.' })
+    if (t && !canEditRegistration(t.status)) {
+      return reply.status(409).send({ error: 'O torneio não aceita mais inscrições (encerrado ou cancelado).', code: 'TOURNAMENT_LOCKED' })
+    }
     const [reg] = await db.insert(tournamentRegistrations).values({
       id: randomUUID(), categoryId, ...body, confirmed: false, withdrew: false,
     }).returning()
@@ -331,11 +340,50 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return t
   })
 
+  // Transições simples do ciclo de vida. Encerrar e reabrir têm endpoints próprios (finalize/reopen).
+  app.post('/tournaments/:id/transition', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { to } = tournamentTransitionBodySchema.parse(request.body)
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+
+    if (!canTransitionTournament(tournament.status, to)) {
+      return reply.status(409).send({
+        error: `Transição inválida: ${tournament.status} → ${to}.`,
+        code: 'INVALID_TOURNAMENT_TRANSITION',
+        details: { from: tournament.status, to, allowed: TOURNAMENT_TRANSITIONS[tournament.status] },
+      })
+    }
+    const dedicated = dedicatedTransitionEndpoint(tournament.status, to)
+    if (dedicated) {
+      return reply.status(409).send({
+        error: `Use POST /tournaments/${id}/${dedicated} para esta transição.`,
+        code: 'USE_DEDICATED_ENDPOINT',
+        details: { endpoint: dedicated },
+      })
+    }
+
+    // Compare-and-set: só atualiza se o status ainda for o lido acima
+    const [updated] = await db.update(tournaments)
+      .set({ status: to, updatedAt: new Date() })
+      .where(and(eq(tournaments.id, id), eq(tournaments.status, tournament.status)))
+      .returning()
+    if (!updated) {
+      return reply.status(409).send({ error: 'O status do torneio mudou durante a operação. Recarregue e tente novamente.', code: 'TOURNAMENT_STATUS_CHANGED' })
+    }
+    return updated
+  })
+
   app.post('/tournaments/:id/finalize', async (request, reply) => {
     const { id } = request.params as { id: string }
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
-    if (tournament.status === 'completed') return reply.status(409).send({ error: 'Tournament already finished' })
+    if (!canTransitionTournament(tournament.status, 'completed')) {
+      return reply.status(409).send({
+        error: `Só torneios em andamento podem ser encerrados (status atual: ${tournament.status}).`,
+        code: 'INVALID_TOURNAMENT_TRANSITION',
+      })
+    }
     const categories = await db.select().from(tournamentCategories).where(eq(tournamentCategories.tournamentId, id))
     if (!categories.length) return reply.status(400).send({ error: 'No categories found' })
     const incomplete: string[] = []
@@ -406,7 +454,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
     if (tournament.status !== 'completed') {
-      return reply.status(409).send({ error: 'Only completed tournaments can be reopened' })
+      return reply.status(409).send({ error: 'Only completed tournaments can be reopened', code: 'INVALID_TOURNAMENT_TRANSITION' })
     }
     if (tournament.pointsAwarded) {
       const autoRankings = await db.select().from(rankings)
