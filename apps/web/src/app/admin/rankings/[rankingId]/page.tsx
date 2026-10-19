@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import {
   ChevronLeft, RefreshCw, Plus, Trash2,
@@ -35,10 +36,7 @@ type Entry = {
   athlete2: AthleteData | null
   resultsDetail: TournamentResult[]
 }
-type RankingResponse = {
-  ranking: Ranking; entries: Entry[]
-  pagination: { page: number; perPage: number; total: number; totalPages: number }
-}
+type RankingResponse = Paginated<Entry> & { ranking: Ranking }
 type EditForm = {
   name: string
   description: string
@@ -46,8 +44,6 @@ type EditForm = {
   minTournamentsRequired: string
   autoInclude: boolean
 }
-
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? ''
 
 const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
@@ -286,7 +282,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   useEffect(() => {
     if (!rankingId) return
     setLoading(true)
-    apiFetch<RankingResponse>(`/rankings/${rankingId}/entries?page=${page}&perPage=${PER_PAGE}`)
+    apiFetch<RankingResponse>(`/rankings/${rankingId}/entries?page=${page}&pageSize=${PER_PAGE}`)
       .then(setData).finally(() => setLoading(false))
   }, [rankingId, page])
 
@@ -298,8 +294,8 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   }, [rankingId])
 
   useEffect(() => {
-    const url = TENANT_ID ? `/tournaments?tenantId=${TENANT_ID}` : '/tournaments'
-    apiFetch<Tournament[]>(url).then((list) => {
+    // Torneios vinculáveis: os 100 mais recentes do tenant
+    apiFetch<Paginated<Tournament>>('/tournaments?pageSize=100').then(({ data: list }) => {
       setAllTournaments(list)
       // Merge com o tournamentMap existente para cobrir autoInclude
       setTournamentMap((prev) => {
@@ -319,7 +315,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
     try {
       await apiFetch(`/rankings/${rankingId}/recalculate`, { method: 'POST' })
       setPage(1)
-      const res = await apiFetch<RankingResponse>(`/rankings/${rankingId}/entries?page=1&perPage=${PER_PAGE}`)
+      const res = await apiFetch<RankingResponse>(`/rankings/${rankingId}/entries?page=1&pageSize=${PER_PAGE}`)
       setData(res)
     } finally {
       setRecalc(false)
@@ -602,13 +598,13 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                   </div>
                 ))}
               </div>
-            ) : !data?.entries.length ? (
+            ) : !data?.data.length ? (
               <div className="p-12 text-center text-muted-foreground">
                 <p className="font-medium">Nenhuma entrada ainda.</p>
                 <p className="text-sm mt-1">Vincule torneios e clique em Recalcular.</p>
               </div>
             ) : (
-              data.entries.map((entry) => (
+              data.data.map((entry) => (
                 <EntryRow
                   key={entry.id}
                   entry={entry}

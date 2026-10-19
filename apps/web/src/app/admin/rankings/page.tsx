@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
+import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
 import { Plus, ChevronRight, Users, User, Zap, Trophy, Shield } from 'lucide-react'
 
@@ -12,8 +14,6 @@ type Ranking = {
   countBestResults: number | null
   minTournamentsRequired: number
 }
-
-const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? ''
 
 const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
@@ -65,11 +65,8 @@ export default function RankingsPage() {
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
 
   useEffect(() => {
-    if (TENANT_ID) {
-      apiFetch<Ranking[]>(`/rankings?tenantId=${TENANT_ID}`).then(setRankings)
-    } else {
-      apiFetch<Ranking[]>('/rankings').then(setRankings)
-    }
+    // O tenant é definido pela API; rankings de uma federação cabem numa página.
+    apiFetch<Paginated<Ranking>>('/rankings?pageSize=100').then(({ data }) => setRankings(data))
   }, [])
 
   async function handleCreate(e: React.FormEvent) {
@@ -77,12 +74,10 @@ export default function RankingsPage() {
     if (!form.name.trim()) return
     setCreating(true)
     try {
-      const tenantId = TENANT_ID || ''
       const newRanking = await apiFetch<Ranking>('/rankings', {
         method: 'POST',
         json: {
           ...form,
-          tenantId,
           slug: toSlug(form.name),
           countBestResults: form.countBestResults ? Number(form.countBestResults) : undefined,
           minTournamentsRequired: Number(form.minTournamentsRequired),
@@ -91,6 +86,8 @@ export default function RankingsPage() {
       setRankings((prev) => [...prev, newRanking])
       setShowCreate(false)
       setForm(EMPTY_FORM)
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao criar ranking', description: err instanceof Error ? err.message : String(err) })
     } finally {
       setCreating(false)
     }

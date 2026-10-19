@@ -10,15 +10,16 @@ type Match = {
   nextMatchId: string | null
 }
 
-type Registration = { id: string; athleteId: string; athlete2Id: string | null; seed: number | null }
-type Athlete = { id: string; name: string }
+type Registration = {
+  id: string; athleteId: string; athlete2Id: string | null; seed: number | null
+  athleteName: string | null; athlete2Name: string | null
+}
 type MatchResult = { matchId: string; setNumber: number; score1: number; score2: number }
 type Category = { id: string; name: string; discipline: string }
 
 type Props = {
   matches: Match[]
   registrations: Registration[]
-  athletes: Athlete[]
   results: MatchResult[]
   activeCategory?: Category
   drawId: string
@@ -49,7 +50,6 @@ const disciplineWinner: Record<string, string> = {
 function getAthleteLabel(
   regId: string | null,
   registrations: Registration[],
-  athletes: Athlete[],
   isBye: boolean,
 ): { name: string; seed: number | null; isEmpty: boolean } {
   if (!regId) {
@@ -59,10 +59,8 @@ function getAthleteLabel(
   }
   const reg = registrations.find((r) => r.id === regId)
   if (!reg) return { name: '?', seed: null, isEmpty: false }
-  const a1 = athletes.find((a) => a.id === reg.athleteId)
-  const a2 = reg.athlete2Id ? athletes.find((a) => a.id === reg.athlete2Id) : null
   return {
-    name: a2 ? `${a1?.name ?? '?'} / ${a2.name}` : (a1?.name ?? '?'),
+    name: reg.athlete2Id ? `${reg.athleteName ?? '?'} / ${reg.athlete2Name ?? '?'}` : (reg.athleteName ?? '?'),
     seed: reg.seed,
     isEmpty: false,
   }
@@ -93,7 +91,7 @@ const statusLabel: Record<string, { label: string; dot: string }> = {
   retired:     { label: 'Ret.',       dot: 'bg-red-400' },
 }
 
-export function BracketDraw({ matches, registrations, athletes, results, activeCategory, drawId, readonly = false }: Props) {
+export function BracketDraw({ matches, registrations, results, activeCategory, drawId, readonly = false }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
 
   const maxRound = Math.max(...matches.map((m) => m.round))
@@ -102,10 +100,10 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
   const winnerColor = disciplineWinner[activeCategory?.discipline ?? ''] ?? 'bg-gray-50 border-gray-300'
 
   const p1Selected = selectedMatch
-    ? getAthleteLabel(selectedMatch.registration1Id, registrations, athletes, false)
+    ? getAthleteLabel(selectedMatch.registration1Id, registrations, false)
     : { name: '', seed: null, isEmpty: false }
   const p2Selected = selectedMatch
-    ? getAthleteLabel(selectedMatch.registration2Id, registrations, athletes, false)
+    ? getAthleteLabel(selectedMatch.registration2Id, registrations, false)
     : { name: '', seed: null, isEmpty: false }
   const existingResults = selectedMatch ? results.filter((r) => r.matchId === selectedMatch.id) : []
 
@@ -137,8 +135,8 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
                   {roundMatches.map((match) => {
                     // Um slot é BYE real somente na 1ª fase com status walkover
                     const isRealBye = isFirstRound && match.status === 'walkover'
-                    const p1 = getAthleteLabel(match.registration1Id, registrations, athletes, isRealBye && match.registration1Id === null)
-                    const p2 = getAthleteLabel(match.registration2Id, registrations, athletes, isRealBye && match.registration2Id === null)
+                    const p1 = getAthleteLabel(match.registration1Id, registrations, isRealBye && match.registration1Id === null)
+                    const p2 = getAthleteLabel(match.registration2Id, registrations, isRealBye && match.registration2Id === null)
 
                     const winner = getMatchWinner(match, results)
                     const score  = getMatchScore(match, results)
@@ -245,7 +243,6 @@ export function BracketDraw({ matches, registrations, athletes, results, activeC
             const champ = getAthleteLabel(
               winner === 1 ? finalMatch.registration1Id : finalMatch.registration2Id,
               registrations,
-              athletes,
               false,
             )
             return (

@@ -29,10 +29,6 @@ function groupRows(rows: PointsTableRow[]) {
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// Tenant hardcoded por enquanto (sem auth)
-const TENANT_ID = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_TENANT_ID ?? '')
-  : ''
 
 interface EditingRow {
   id: string | null // null = nova linha
@@ -55,7 +51,7 @@ export function PointsTableManager() {
 
   const { data: rows = [], isLoading } = useQuery<PointsTableRow[]>({
     queryKey: ['points-tables'],
-    queryFn: () => apiFetch(`/points-tables${TENANT_ID ? `?tenantId=${TENANT_ID}` : ''}`),
+    queryFn: () => apiFetch('/points-tables'),
   })
 
   const groups = groupRows(rows)
@@ -63,7 +59,6 @@ export function PointsTableManager() {
   const saveMutation = useMutation({
     mutationFn: (form: EditingRow) => {
       const payload = {
-        tenantId: TENANT_ID,
         name: form.name,
         tournamentLevel: form.tournamentLevel,
         placement: Number(form.placement),

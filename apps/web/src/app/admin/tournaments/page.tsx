@@ -1,4 +1,6 @@
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
+import { PagerLinks } from '@/components/shared/pager-links'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Calendar, MapPin, Trophy } from 'lucide-react'
@@ -26,8 +28,11 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-600' },
 }
 
-export default async function TournamentsPage() {
-  const tournaments = await apiFetch<Tournament[]>('/tournaments')
+export default async function TournamentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const { page = '1' } = await searchParams
+  const { data: tournaments, pagination } = await apiFetch<Paginated<Tournament>>(
+    `/tournaments?page=${encodeURIComponent(page)}&pageSize=60`,
+  )
 
   return (
     <div className="space-y-6">
@@ -73,6 +78,8 @@ export default async function TournamentsPage() {
           )
         })}
       </div>
+
+      <PagerLinks pagination={pagination} basePath="/admin/tournaments" />
     </div>
   )
 }

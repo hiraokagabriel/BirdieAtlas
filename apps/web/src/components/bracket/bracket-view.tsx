@@ -11,10 +11,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type Category    = { id: string; name: string; discipline: string }
 type Match       = { id: string; round: number; position: number; status: string; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null }
-type Registration = { id: string; athleteId: string; athlete2Id: string | null; seed: number | null; rankingPointsAtEntry: number | null }
+type Registration = {
+  id: string; athleteId: string; athlete2Id: string | null; seed: number | null; rankingPointsAtEntry: number | null
+  athleteName: string | null; athlete2Name: string | null
+}
 type Draw        = { id: string; published: boolean }
 type MatchResult = { id: string; matchId: string; setNumber: number; score1: number; score2: number }
-type Athlete     = { id: string; name: string }
 type Tournament  = { id: string; pointsTableId: string | null }
 type DrawMode    = 'random' | 'seeded'
 
@@ -106,16 +108,6 @@ export function BracketView({
     queryKey: ['registrations', activeCategoryId],
     queryFn:  () => apiFetch<Registration[]>(`/tournaments/categories/${activeCategoryId}/registrations`),
     enabled:  !!activeCategoryId,
-  })
-
-  const athleteIds = registrations
-    ? [...new Set(registrations.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
-    : []
-
-  const { data: athletes } = useQuery({
-    queryKey: ['athletes-batch', athleteIds.join(',')],
-    queryFn:  () => apiFetch<Athlete[]>('/athletes'),
-    enabled:  athleteIds.length > 0,
   })
 
   const { data: allResults } = useQuery({
@@ -408,7 +400,6 @@ export function BracketView({
           <BracketDraw
             matches={matches ?? []}
             registrations={registrations ?? []}
-            athletes={athletes ?? []}
             results={allResults ?? []}
             activeCategory={activeCategory}
             drawId={draw.id}

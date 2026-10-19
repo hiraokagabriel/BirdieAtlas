@@ -69,4 +69,14 @@ Cada item é um PR para `main`, nesta ordem:
 
 ## Dados pessoais
 
-Considerados sensíveis: CPF, e-mail e telefone.
+Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-mail e data de nascimento dos atletas; ambos são tratados como dados pessoais.
+
+## Notas de implementação
+
+### PR 2 — Contratos da API
+
+- **Guard**: hook global `onRequest` (`apps/api/src/middleware/admin-guard.ts`). Toda escrita exige modo admin; leituras com dados pessoais (`GET /athletes`, `GET /athletes/:id`) também. Preflight `OPTIONS` e `/dev/admin-mode` ficam fora. Em produção, sem Clerk, nenhuma escrita é possível.
+- **Dados pessoais**: respostas públicas usam `publicAthleteColumns` (`apps/api/src/db/public-columns.ts`). O web deixou de buscar `/athletes` para montar nomes; usa `athleteName`/`athlete2Name` das inscrições.
+- **Tenant**: `DEFAULT_TENANT_SLUG` (ou o único tenant). `tenantId` enviado pelo cliente é ignorado. Atletas continuam globais (identidade entre federações); o vínculo com o tenant é a afiliação.
+- **Paginação**: coleções de topo (`athletes`, `clubs`, `tournaments`, `pairs`, `rankings`, `tenants`, entradas de ranking). Listas filhas de um recurso (partidas de uma chave, inscrições de uma categoria, categorias de um torneio, regras de pontos, afiliações) seguem completas: paginar uma chave de 128 atletas a quebraria. `points-tables` não foi paginado porque será removido no PR 3.
+- **Erros**: um único handler; Zod vira 400 `VALIDATION_ERROR` com `details`, erros de cliente do Fastify mantêm o status, o resto vira 500 `INTERNAL_ERROR` sem vazar mensagem.

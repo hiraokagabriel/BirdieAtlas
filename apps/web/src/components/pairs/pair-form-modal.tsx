@@ -2,20 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { ATHLETE_SEARCH_LIMIT, useAthleteSearch } from '@/hooks/use-athlete-search'
 import { X, Search, Users } from 'lucide-react'
 
 type Athlete = {
   id: string
   name: string
   gender: 'M' | 'F'
-  photoUrl: string | null
-  active: boolean
 }
 
 type Pair = {
   id: string
   athlete1Id: string
   athlete2Id: string
+  athlete1?: Athlete | null
+  athlete2?: Athlete | null
   discipline: 'MD' | 'WD' | 'XD'
   active: boolean
 }
@@ -38,21 +39,19 @@ function initials(name: string) {
 }
 
 function AthleteSelector({
-  label, value, onChange, athletes, excludeId,
+  label, value, onChange, excludeId,
 }: {
   label: string
-  value: string
-  onChange: (id: string) => void
-  athletes: Athlete[]
+  value: Athlete | null
+  onChange: (athlete: Athlete) => void
   excludeId?: string
 }) {
   const [search, setSearch] = useState('')
   const [open, setOpen]     = useState(false)
+  const { athletes, total } = useAthleteSearch(search)
 
-  const selected = athletes.find((a) => a.id === value)
-  const filtered = athletes
-    .filter((a) => a.id !== excludeId)
-    .filter((a) => a.name.toLowerCase().includes(search.toLowerCase()))
+  const selected = value
+  const filtered = athletes.filter((a) => a.id !== excludeId)
 
   return (
     <div className="space-y-1.5">
@@ -102,7 +101,7 @@ function AthleteSelector({
                     key={a.id}
                     type="button"
                     className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left"
-                    onClick={() => { onChange(a.id); setOpen(false); setSearch('') }}
+                    onClick={() => { onChange(a); setOpen(false); setSearch('') }}
                   >
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
@@ -116,6 +115,9 @@ function AthleteSelector({
                 ))
               )}
             </div>
+            {total > ATHLETE_SEARCH_LIMIT && (
+              <p className="px-3 py-2 text-xs text-muted-foreground border-t border-border">Refine a busca: mostrando {ATHLETE_SEARCH_LIMIT} de {total}.</p>
+            )}
           </div>
         )}
       </div>
@@ -124,25 +126,22 @@ function AthleteSelector({
 }
 
 export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
-  const [athletes, setAthletes] = useState<Athlete[]>([])
-  const [athlete1Id, setAthlete1Id] = useState('')
-  const [athlete2Id, setAthlete2Id] = useState('')
+  const [athlete1, setAthlete1] = useState<Athlete | null>(null)
+  const [athlete2, setAthlete2] = useState<Athlete | null>(null)
+  const athlete1Id = athlete1?.id ?? ''
+  const athlete2Id = athlete2?.id ?? ''
   const [discipline, setDiscipline] = useState<'MD' | 'WD' | 'XD'>('MD')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
 
   useEffect(() => {
-    apiFetch<Athlete[]>('/athletes').then(setAthletes).catch(() => {})
-  }, [])
-
-  useEffect(() => {
     if (pair) {
-      setAthlete1Id(pair.athlete1Id)
-      setAthlete2Id(pair.athlete2Id)
+      setAthlete1(pair.athlete1 ?? null)
+      setAthlete2(pair.athlete2 ?? null)
       setDiscipline(pair.discipline)
     } else {
-      setAthlete1Id('')
-      setAthlete2Id('')
+      setAthlete1(null)
+      setAthlete2(null)
       setDiscipline('MD')
     }
     setError(null)
@@ -169,15 +168,9 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
           json: { discipline },
         })
       } else {
-        // Busca tenantId do primeiro atleta via afiliação
-        const affiliations = await apiFetch<{ tenantId: string }[]>(
-          `/affiliations?athleteId=${athlete1Id}`
-        )
-        const tenantId = affiliations[0]?.tenantId ?? 'default'
-
         await apiFetch('/pairs', {
           method: 'POST',
-          json: { tenantId, athlete1Id, athlete2Id, discipline },
+          json: { athlete1Id, athlete2Id, discipline },
         })
       }
       onSaved()
@@ -211,18 +204,16 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
           {/* Atleta 1 */}
           <AthleteSelector
             label="Atleta 1"
-            value={athlete1Id}
-            onChange={setAthlete1Id}
-            athletes={athletes}
+            value={athlete1}
+            onChange={setAthlete1}
             excludeId={athlete2Id}
           />
 
           {/* Atleta 2 */}
           <AthleteSelector
             label="Atleta 2"
-            value={athlete2Id}
-            onChange={setAthlete2Id}
-            athletes={athletes}
+            value={athlete2}
+            onChange={setAthlete2}
             excludeId={athlete1Id}
           />
 
