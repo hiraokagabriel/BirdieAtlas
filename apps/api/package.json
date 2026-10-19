@@ -11,9 +11,12 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:reset": "drizzle-kit drop && drizzle-kit push",
-    "db:seed": "tsx src/scripts/seed.ts"
+    "db:seed": "tsx src/scripts/seed.ts",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@birdie-atlas/validators": "workspace:*",
     "@fastify/cors": "^9.0.1",
     "drizzle-orm": "0.41.0",
     "fastify": "^5.8.2",
@@ -21,11 +24,13 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@birdie-atlas/types": "workspace:*",
     "@types/node": "^22.15.0",
     "@types/pg": "^8.11.14",
     "dotenv": "^17.4.2",
     "drizzle-kit": "0.30.6",
     "tsx": "^4.22.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }

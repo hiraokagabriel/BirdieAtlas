@@ -61,9 +61,9 @@
 
 Cada item é um PR para `main`, nesta ordem:
 
-1. **Fundação** — branch, workspace, validators/types, inscrições portadas, `ApiError`, mudança para `/admin`, navegação admin + público, teste de rotas da navegação, CI.
+1. **Fundação** — branch, typecheck verde, workspace, validators/types, regras de domínio e contratos de inscrição portados, `ApiError`, mudança para `/admin`, navegação admin + público, teste de rotas da navegação, CI.
 2. **Contratos da API** — `requireAdmin` + separação de dados pessoais, paginação, escopo de tenant e atualização dos clientes.
-3. **Migrations de schema** — soft delete, enum de nível, slug de rankings, inscrição XOR dupla, aposentadoria de `pointsTables`.
+3. **Migrations de schema** — migration de base (o schema divergiu das migrations por causa do `db:push`), soft delete, enum de nível, slug de rankings, inscrição XOR dupla, colunas `status`/`notes` e endpoints `/registrations`, aposentadoria de `pointsTables`.
 4. **Ciclo de vida do torneio** — endpoint de transição e UI ciente do status.
 5. **Documentação** — consolidação da especificação, reescrita do PROGRESS, remoção do CONTEXT, regras no `CLAUDE.md`.
 
