@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { useState } from 'react'
 import type { AthleteRow } from '@/app/admin/athletes/page'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -27,23 +25,22 @@ function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()
 }
 
-export function AthletesTable({ athletes: initialAthletes }: { athletes: AthleteRow[] }) {
-  const [search, setSearch] = useState('')
-  const [genderFilter, setGenderFilter] = useState<'all' | 'M' | 'F'>('all')
+export type GenderFilter = 'all' | 'M' | 'F'
+
+interface AthletesTableProps {
+  athletes: AthleteRow[]
+  total: number
+  search: string
+  onSearchChange: (value: string) => void
+  genderFilter: GenderFilter
+  onGenderFilterChange: (value: GenderFilter) => void
+}
+
+// Busca e filtro rodam no servidor: a tabela só mostra a página recebida.
+export function AthletesTable({
+  athletes: filtered, total, search, onSearchChange, genderFilter, onGenderFilterChange,
+}: AthletesTableProps) {
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteRow | null>(null)
-
-  const filtered = useMemo(() => {
-    return initialAthletes.filter((a) => {
-      const matchSearch =
-        search === '' ||
-        a.name.toLowerCase().includes(search.toLowerCase()) ||
-        (a.clubName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (a.email ?? '').toLowerCase().includes(search.toLowerCase())
-      const matchGender = genderFilter === 'all' || a.gender === genderFilter
-      return matchSearch && matchGender
-    })
-  }, [initialAthletes, search, genderFilter])
-
   return (
     <>
       {/* Filters */}
@@ -51,9 +48,9 @@ export function AthletesTable({ athletes: initialAthletes }: { athletes: Athlete
         <div className="relative flex-1 min-w-60">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, clube ou e-mail..."
+            placeholder="Buscar por nome ou e-mail..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -61,7 +58,7 @@ export function AthletesTable({ athletes: initialAthletes }: { athletes: Athlete
           {(['all', 'M', 'F'] as const).map((g) => (
             <button
               key={g}
-              onClick={() => setGenderFilter(g)}
+              onClick={() => onGenderFilterChange(g)}
               className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
                 genderFilter === g
                   ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
@@ -74,7 +71,7 @@ export function AthletesTable({ athletes: initialAthletes }: { athletes: Athlete
         </div>
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground ml-auto">
           <Users className="w-4 h-4" />
-          <span>{filtered.length} atleta{filtered.length !== 1 ? 's' : ''}</span>
+          <span>{total} atleta{total !== 1 ? 's' : ''}</span>
         </div>
       </div>
 

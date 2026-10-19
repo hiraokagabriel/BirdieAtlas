@@ -4,9 +4,9 @@ import { pointsTables } from '../db/schema.js'
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { getDefaultTenantId } from '../tenant.js'
 
 const rowSchema = z.object({
-  tenantId: z.string(),
   name: z.string().min(1),
   tournamentLevel: z.string().min(1),
   placement: z.number().int().min(1),
@@ -14,7 +14,6 @@ const rowSchema = z.object({
 })
 
 const bulkSchema = z.object({
-  tenantId: z.string(),
   name: z.string().min(1),
   tournamentLevel: z.string().min(1),
   rows: z.array(z.object({
@@ -25,9 +24,8 @@ const bulkSchema = z.object({
 
 export async function pointsTablesRoutes(app: FastifyInstance) {
   app.get('/points-tables', async (request) => {
-    const { tenantId } = request.query as { tenantId?: string }
-    if (tenantId) return db.select().from(pointsTables).where(eq(pointsTables.tenantId, tenantId))
-    return db.select().from(pointsTables)
+    // Lista de linhas (placement/points) de todas as tabelas do tenant padrão; aposentada no PR 3.
+    return db.select().from(pointsTables).where(eq(pointsTables.tenantId, await getDefaultTenantId()))
   })
 
   // Retorna todas as linhas de uma tabela pelo id de uma linha (agrupa por name+level)
@@ -44,11 +42,12 @@ export async function pointsTablesRoutes(app: FastifyInstance) {
   // Usado pelo setup do torneio para salvar tabela personalizada
   app.post('/points-tables/bulk', async (request, reply) => {
     const body = bulkSchema.parse(request.body)
+    const tenantId = await getDefaultTenantId()
 
     // Remove linhas existentes para esse grupo
     const existing = await db.select().from(pointsTables)
       .where(and(
-        eq(pointsTables.tenantId, body.tenantId),
+        eq(pointsTables.tenantId, tenantId),
         eq(pointsTables.name, body.name),
         eq(pointsTables.tournamentLevel, body.tournamentLevel),
       ))
@@ -61,7 +60,7 @@ export async function pointsTablesRoutes(app: FastifyInstance) {
     const inserted = await db.insert(pointsTables).values(
       body.rows.map((r) => ({
         id: randomUUID(),
-        tenantId: body.tenantId,
+        tenantId,
         name: body.name,
         tournamentLevel: body.tournamentLevel,
         placement: r.placement,
@@ -74,7 +73,8 @@ export async function pointsTablesRoutes(app: FastifyInstance) {
 
   app.post('/points-tables', async (request, reply) => {
     const body = rowSchema.parse(request.body)
-    const [row] = await db.insert(pointsTables).values({ id: randomUUID(), ...body }).returning()
+    const tenantId = await getDefaultTenantId()
+    const [row] = await db.insert(pointsTables).values({ id: randomUUID(), tenantId, ...body }).returning()
     return reply.status(201).send(row)
   })
 

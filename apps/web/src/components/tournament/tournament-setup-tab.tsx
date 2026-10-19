@@ -111,7 +111,6 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
       const rows = await apiFetch<PointsRow[]>('/points-tables/bulk', {
         method: 'POST',
         json: {
-          tenantId: tournament.tenantId,
           name: pointsTableName.trim() || `${tournament.name} - ${tournament.level}`,
           tournamentLevel: tournament.level,
           rows: pointsRows.filter((r) => r.points > 0).map((r) => ({ placement: r.placement, points: r.points })),

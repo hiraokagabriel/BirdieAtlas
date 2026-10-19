@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
-import { AthletesTable } from '@/components/athlete/athletes-table'
+import { AthletesTable, type GenderFilter } from '@/components/athlete/athletes-table'
+import { Pager } from '@/components/shared/pager'
 import { CsvImportModal } from '@/components/athlete/csv-import-modal'
 import { CreateAthleteModal } from '@/components/athlete/create-athlete-modal'
 import { Upload, UserPlus } from 'lucide-react'
@@ -25,9 +27,28 @@ export default function AthletesPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
 
-  const { data: athletes = [], isLoading } = useQuery<AthleteRow[]>({
-    queryKey: ['athletes'],
-    queryFn: () => apiFetch('/athletes/with-club'),
+  const [search, setSearch] = useState('')
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('all')
+  const [page, setPage] = useState(1)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Filtro novo sempre volta para a primeira página
+  useEffect(() => { setPage(1) }, [debouncedSearch, genderFilter])
+
+  const { data, isLoading } = useQuery<Paginated<AthleteRow>>({
+    queryKey: ['athletes', 'admin', page, debouncedSearch, genderFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: '25' })
+      if (debouncedSearch) params.set('search', debouncedSearch)
+      if (genderFilter !== 'all') params.set('gender', genderFilter)
+      return apiFetch(`/athletes?${params}`)
+    },
+    placeholderData: keepPreviousData,
   })
 
   return (
@@ -55,10 +76,20 @@ export default function AthletesPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || !data ? (
         <div className="text-sm text-muted-foreground p-8">Carregando...</div>
       ) : (
-        <AthletesTable athletes={athletes} />
+        <>
+          <AthletesTable
+            athletes={data.data}
+            total={data.pagination.total}
+            search={search}
+            onSearchChange={setSearch}
+            genderFilter={genderFilter}
+            onGenderFilterChange={setGenderFilter}
+          />
+          <Pager pagination={data.pagination} onPageChange={setPage} />
+        </>
       )}
 
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} />

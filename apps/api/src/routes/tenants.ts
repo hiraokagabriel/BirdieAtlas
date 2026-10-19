@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { tenants } from '../db/schema.js'
-import { eq } from 'drizzle-orm'
+import { eq, asc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { paginate } from '../domain/pagination.js'
 
 const createTenantSchema = z.object({
   name: z.string().min(1),
@@ -13,8 +15,13 @@ const createTenantSchema = z.object({
 })
 
 export async function tenantsRoutes(app: FastifyInstance) {
-  app.get('/tenants', async () => {
-    return db.select().from(tenants)
+  app.get('/tenants', async (request) => {
+    const query = paginationQuerySchema.parse(request.query)
+    return paginate(
+      query,
+      (limit, offset) => db.select().from(tenants).orderBy(asc(tenants.name), asc(tenants.id)).limit(limit).offset(offset),
+      async () => (await db.select({ total: count() }).from(tenants))[0]?.total ?? 0,
+    )
   })
 
   app.get('/tenants/:id', async (request, reply) => {

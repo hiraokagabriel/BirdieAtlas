@@ -4,11 +4,11 @@ import { athleteAffiliations, clubs, athletes } from '../db/schema.js'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { getDefaultTenantId } from '../tenant.js'
 
 const createSchema = z.object({
   athleteId: z.string().min(1),
   clubId: z.string().min(1),
-  tenantId: z.string().min(1),
   /**
    * Data de início da afiliação — AAAA-MM-DD.
    * Obrigatório. Permite granularidade mensal (basta usar AAAA-MM-01).
@@ -98,6 +98,7 @@ export async function affiliationsRoutes(app: FastifyInstance) {
     }
 
     const data = parseResult.data
+    const tenantId = await getDefaultTenantId()
 
     // Verifica conflito de afiliação ativa
     if (!data.endedAt) {
@@ -107,7 +108,7 @@ export async function affiliationsRoutes(app: FastifyInstance) {
         .where(
           and(
             eq(athleteAffiliations.athleteId, athleteId),
-            eq(athleteAffiliations.tenantId, data.tenantId),
+            eq(athleteAffiliations.tenantId, tenantId),
             isNull(athleteAffiliations.endedAt)
           )
         )
@@ -127,7 +128,7 @@ export async function affiliationsRoutes(app: FastifyInstance) {
       id,
       athleteId: data.athleteId,
       clubId: data.clubId,
-      tenantId: data.tenantId,
+      tenantId,
       startedAt: data.startedAt,
       endedAt: data.endedAt ?? null,
     })

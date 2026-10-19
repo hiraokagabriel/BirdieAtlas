@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
-import { athletes, athleteAffiliations, clubs, tenants } from '../db/schema.js'
+import { athletes, athleteAffiliations, clubs } from '../db/schema.js'
 import { eq, and, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { getDefaultTenantId } from '../tenant.js'
 
 // ---------------------------------------------------------------------------
 // Schema de validação de cada linha da planilha
@@ -37,7 +38,6 @@ const rowSchema = z.object({
 })
 
 const importBodySchema = z.object({
-  tenantId: z.string().min(1),
   /**
    * Array de objetos chave→valor lido da planilha.
    * O frontend parseia o XLSX e envia as linhas já como JSON.
@@ -75,16 +75,8 @@ export async function importAthletesRoutes(app: FastifyInstance) {
         details: parseResult.error.issues,
       })
     }
-    const { tenantId, rows } = parseResult.data
-
-    // Verifica que o tenant existe
-    const [tenant] = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.id, tenantId))
-    if (!tenant) {
-      return reply.status(404).send({ error: 'Tenant não encontrado' })
-    }
+    const { rows } = parseResult.data
+    const tenantId = await getDefaultTenantId()
 
     // Cache de clubes do tenant — evita N+1
     const clubList = await db

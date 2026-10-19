@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import type { Paginated, Pagination } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
+import { Pager } from '@/components/shared/pager'
 import {
   Users, Search, Plus, Pencil, PowerOff, Power,
   ChevronUp, ChevronDown, ArrowUpDown, Filter,
@@ -88,6 +90,8 @@ const selectCls = 'h-9 rounded-lg border border-border bg-background px-3 text-s
 // ---------------------------------------------------------------------------
 export default function PairsPage() {
   const [pairs, setPairs]           = useState<Pair[]>([])
+  const [page, setPage]             = useState(1)
+  const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading]       = useState(true)
   const [modalOpen, setModalOpen]   = useState(false)
   const [editing, setEditing]       = useState<Pair | null>(null)
@@ -100,13 +104,13 @@ export default function PairsPage() {
 
   function fetchPairs() {
     setLoading(true)
-    apiFetch<{ data: Pair[]; total: number }>('/pairs')
-      .then((res) => setPairs(res.data))
-      .catch(() => setPairs([]))
+    apiFetch<Paginated<Pair>>(`/pairs?page=${page}&pageSize=100`)
+      .then((res) => { setPairs(res.data); setPagination(res.pagination) })
+      .catch(() => { setPairs([]); setPagination(null) })
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchPairs() }, [])
+  useEffect(() => { fetchPairs() }, [page])
 
   async function toggleActive(pair: Pair) {
     if (pair.active) {
@@ -338,6 +342,8 @@ export default function PairsPage() {
           </div>
         </div>
       )}
+
+      {pagination && <Pager pagination={pagination} onPageChange={setPage} />}
 
       <PairFormModal
         open={modalOpen}

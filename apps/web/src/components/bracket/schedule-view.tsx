@@ -28,8 +28,10 @@ type Match = {
   registration1Id: string | null; registration2Id: string | null
   scheduledAt: string | null; courtNumber: number | null; nextMatchId: string | null
 }
-type Registration = { id: string; athleteId: string; athlete2Id: string | null; seed: number | null }
-type Athlete = { id: string; name: string }
+type Registration = {
+  id: string; athleteId: string; athlete2Id: string | null; seed: number | null
+  athleteName: string | null; athlete2Name: string | null
+}
 
 type Props = {
   tournamentId: string
@@ -37,13 +39,11 @@ type Props = {
   readonly?: boolean
 }
 
-function getAthleteLabel(regId: string | null, regs: Registration[], athletes: Athlete[]): string {
+function getAthleteLabel(regId: string | null, regs: Registration[]): string {
   if (!regId) return 'A definir'
   const reg = regs.find((r) => r.id === regId)
   if (!reg) return '?'
-  const a1 = athletes.find((a) => a.id === reg.athleteId)
-  const a2 = reg.athlete2Id ? athletes.find((a) => a.id === reg.athlete2Id) : null
-  return a2 ? `${a1?.name ?? '?'} / ${a2.name}` : (a1?.name ?? '?')
+  return reg.athlete2Id ? `${reg.athleteName ?? '?'} / ${reg.athlete2Name ?? '?'}` : (reg.athleteName ?? '?')
 }
 
 function getRoundLabel(round: number): string {
@@ -73,11 +73,6 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
       }
       return results
     },
-  })
-
-  const { data: athletes } = useQuery({
-    queryKey: ['athletes'],
-    queryFn: () => apiFetch<Athlete[]>('/athletes'),
   })
 
   // Flatten — inclui categoryId para satisfazer o tipo do selectedMatch
@@ -140,8 +135,8 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
             </h3>
             <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
               {dayMatches.map((match) => {
-                const p1 = getAthleteLabel(match.registration1Id, match.registrations, athletes ?? [])
-                const p2 = getAthleteLabel(match.registration2Id, match.registrations, athletes ?? [])
+                const p1 = getAthleteLabel(match.registration1Id, match.registrations)
+                const p2 = getAthleteLabel(match.registration2Id, match.registrations)
                 const status = statusLabel[match.status] ?? statusLabel.pending
                 const disciplineColor = disciplineColors[match.category.discipline] ?? 'bg-gray-100 text-gray-700'
 

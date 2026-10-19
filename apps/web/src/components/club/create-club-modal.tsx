@@ -5,9 +5,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { X, Check } from 'lucide-react'
 
-const TENANT_ID = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_TENANT_ID ?? '')
-  : ''
 
 interface Props {
   open: boolean
@@ -51,7 +48,6 @@ export function CreateClubModal({ open, onClose }: Props) {
       const payload: Record<string, string> = {
         name: form.name.trim(),
         slug: form.slug.trim(),
-        tenantId: TENANT_ID,
       }
       if (form.city.trim()) payload.city = form.city.trim()
       if (form.state.trim()) payload.state = form.state.trim().toUpperCase()

@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { athletes, athleteAffiliations, clubs, rankingEntries, rankings, tournamentRegistrations, tournamentCategories, tournaments } from '../db/schema.js'
-import { eq, isNull, and, ilike, or, inArray } from 'drizzle-orm'
+import { eq, isNull, and, ilike, or, inArray, asc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { paginate } from '../domain/pagination.js'
+import { getDefaultTenantId } from '../tenant.js'
 
 const createAthleteSchema = z.object({
   name: z.string().min(1),
@@ -12,12 +15,6 @@ const createAthleteSchema = z.object({
   birthDate: z.string().optional(),
   nationality: z.string().default('BR'),
   photoUrl: z.string().url().optional(),
-})
-
-const affiliateSchema = z.object({
-  clubId: z.string(),
-  tenantId: z.string(),
-  startedAt: z.string(),
 })
 
 // Schema para cada linha do CSV já parseada em objeto
@@ -29,54 +26,61 @@ const csvRowSchema = z.object({
   nationality: z.string().default('BR'),
 })
 
-export async function athletesRoutes(app: FastifyInstance) {
-  app.get('/athletes/with-club', async (request) => {
-    const { tenantId, search } = request.query as { tenantId?: string; search?: string }
-    const rows = await db
-      .select({
-        id: athletes.id,
-        name: athletes.name,
-        email: athletes.email,
-        gender: athletes.gender,
-        birthDate: athletes.birthDate,
-        nationality: athletes.nationality,
-        photoUrl: athletes.photoUrl,
-        active: athletes.active,
-        createdAt: athletes.createdAt,
-        clubId: clubs.id,
-        clubName: clubs.name,
-        clubSlug: clubs.slug,
-        affiliationStart: athleteAffiliations.startedAt,
-      })
-      .from(athletes)
-      .leftJoin(
-        athleteAffiliations,
-        and(
-          eq(athleteAffiliations.athleteId, athletes.id),
-          isNull(athleteAffiliations.endedAt),
-          tenantId ? eq(athleteAffiliations.tenantId, tenantId) : undefined
-        )
-      )
-      .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
-      .where(
-        search
-          ? or(ilike(athletes.name, `%${search}%`), ilike(athletes.email ?? '', `%${search}%`))
-          : undefined
-      )
-    return rows
-  })
+const listAthletesQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().min(1).optional(),
+  gender: z.enum(['M', 'F']).optional(),
+})
 
+export async function athletesRoutes(app: FastifyInstance) {
+  // Admin: lista paginada com clube atual no tenant padrão. Inclui e-mail e data de nascimento.
   app.get('/athletes', async (request) => {
-    const { tenantId, clubId } = request.query as { tenantId?: string; clubId?: string }
-    if (tenantId || clubId) {
-      const rows = await db
-        .select()
-        .from(athletes)
-        .innerJoin(athleteAffiliations, eq(athletes.id, athleteAffiliations.athleteId))
-        .where(tenantId ? eq(athleteAffiliations.tenantId, tenantId) : eq(athleteAffiliations.clubId, clubId!))
-      return rows
-    }
-    return db.select().from(athletes)
+    const query = listAthletesQuerySchema.parse(request.query)
+    const tenantId = await getDefaultTenantId()
+    const where = and(
+      query.search
+        ? or(ilike(athletes.name, `%${query.search}%`), ilike(athletes.email, `%${query.search}%`))
+        : undefined,
+      query.gender ? eq(athletes.gender, query.gender) : undefined,
+    )
+
+    return paginate(
+      query,
+      (limit, offset) =>
+        db
+          .select({
+            id: athletes.id,
+            name: athletes.name,
+            email: athletes.email,
+            gender: athletes.gender,
+            birthDate: athletes.birthDate,
+            nationality: athletes.nationality,
+            photoUrl: athletes.photoUrl,
+            active: athletes.active,
+            createdAt: athletes.createdAt,
+            clubId: clubs.id,
+            clubName: clubs.name,
+            clubSlug: clubs.slug,
+            affiliationStart: athleteAffiliations.startedAt,
+          })
+          .from(athletes)
+          .leftJoin(
+            athleteAffiliations,
+            and(
+              eq(athleteAffiliations.athleteId, athletes.id),
+              eq(athleteAffiliations.tenantId, tenantId),
+              isNull(athleteAffiliations.endedAt),
+            ),
+          )
+          .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
+          .where(where)
+          .orderBy(asc(athletes.name), asc(athletes.id))
+          .limit(limit)
+          .offset(offset),
+      async () => {
+        const [row] = await db.select({ total: count() }).from(athletes).where(where)
+        return row?.total ?? 0
+      },
+    )
   })
 
   app.get('/athletes/:id', async (request, reply) => {
@@ -275,14 +279,6 @@ export async function athletesRoutes(app: FastifyInstance) {
       createdNames: created,
       errors,
     })
-  })
-
-  app.post('/athletes/:id/affiliate', async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const body = affiliateSchema.parse(request.body)
-    await db.update(athleteAffiliations).set({ endedAt: body.startedAt, updatedAt: new Date() }).where(eq(athleteAffiliations.athleteId, id))
-    const [affiliation] = await db.insert(athleteAffiliations).values({ id: randomUUID(), athleteId: id, ...body }).returning()
-    return reply.status(201).send(affiliation)
   })
 
   app.put('/athletes/:id', async (request, reply) => {

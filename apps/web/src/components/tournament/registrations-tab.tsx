@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
+import { ATHLETE_SEARCH_LIMIT, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
 import { UserPlus, Trash2, Trophy, Users, User } from 'lucide-react'
 
 type Category = {
@@ -20,12 +21,6 @@ type Registration = {
   seed: number | null
   confirmed: boolean
   withdrew: boolean
-}
-
-type Athlete = {
-  id: string
-  name: string
-  gender: 'M' | 'F'
 }
 
 const disciplineColors: Record<string, string> = {
@@ -66,8 +61,10 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
   const queryClient = useQueryClient()
   const [activeCategoryId, setActiveCategoryId] = useState<string>(categories[0]?.id ?? '')
   const [showForm, setShowForm] = useState(false)
-  const [athleteId, setAthleteId] = useState('')
+  const [athlete1, setAthlete1] = useState<AthleteOption | null>(null)
   const [athlete2Id, setAthlete2Id] = useState('')
+  const [search, setSearch] = useState('')
+  const athleteId = athlete1?.id ?? ''
   const [seed, setSeed] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -81,37 +78,28 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
     enabled: !!activeCategoryId,
   })
 
-  const { data: athletes = [] } = useQuery<Athlete[]>({
-    queryKey: ['athletes'],
-    queryFn: () => apiFetch('/athletes'),
-  })
-
   // IDs já inscritos nesta categoria (para esconder dos selects)
   const registeredAthleteIds = new Set(
     registrations.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
   )
 
-  // Gênero do atleta 1 selecionado (para calcular o filtro do slot 2 em XD)
-  const selectedAthlete1 = athletes.find((a) => a.id === athleteId)
-  const gender1 = selectedAthlete1?.gender ?? ''
-
-  // Listas filtradas por gênero e excluindo já inscritos
+  // Busca no servidor já filtrada pelo gênero permitido em cada slot
   const g1 = allowedGender1(discipline)
-  const athletesForSlot1 = athletes.filter(
-    (a) => (g1 === 'any' || a.gender === g1) && !registeredAthleteIds.has(a.id)
-  )
+  const g2 = allowedGender2(discipline, athlete1?.gender ?? '')
+  const slot1 = useAthleteSearch(search, g1 === 'any' ? undefined : g1)
+  const slot2 = useAthleteSearch(search, g2 === 'any' ? undefined : g2)
 
-  const g2 = allowedGender2(discipline, gender1)
-  const athletesForSlot2 = athletes.filter(
-    (a) =>
-      a.id !== athleteId &&
-      (g2 === 'any' || a.gender === g2) &&
-      !registeredAthleteIds.has(a.id)
+  const athletesForSlot1 = slot1.athletes.filter((a) => !registeredAthleteIds.has(a.id))
+  const athletesForSlot2 = slot2.athletes.filter(
+    (a) => a.id !== athleteId && !registeredAthleteIds.has(a.id)
   )
+  // O atleta escolhido continua no select mesmo se a busca mudar
+  if (athlete1 && !athletesForSlot1.some((a) => a.id === athlete1.id)) athletesForSlot1.unshift(athlete1)
+  const searchTruncated = slot1.total > ATHLETE_SEARCH_LIMIT || slot2.total > ATHLETE_SEARCH_LIMIT
 
   const addMutation = useMutation({
     mutationFn: () =>
-      apiFetch(`/tournaments/categories/${activeCategoryId}/registrations`, {
+      apiFetch(`/tournaments/categories/${activeCategoryId}/register`, {
         method: 'POST',
         json: {
           athleteId,
@@ -121,7 +109,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations', activeCategoryId] })
-      setAthleteId('')
+      setAthlete1(null)
       setAthlete2Id('')
       setSeed('')
       setError(null)
@@ -151,7 +139,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
 
   // Limpa slot 2 quando muda o atleta 1 (evita par inválido em XD)
   function handleAthlete1Change(id: string) {
-    setAthleteId(id)
+    setAthlete1(athletesForSlot1.find((a) => a.id === id) ?? null)
     setAthlete2Id('')
   }
 
@@ -179,7 +167,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null); setAthleteId(''); setAthlete2Id('') }}
+            onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               activeCategoryId === cat.id
                 ? (disciplineColors[cat.discipline] ?? 'bg-gray-100 text-gray-700') + ' border-transparent'
@@ -219,6 +207,24 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
                 <span className="font-medium">Regra de gênero:</span> {genderHint[discipline]}
               </p>
             )}
+            <div className="space-y-1">
+              <label htmlFor="registration-athlete-search" className="text-xs text-muted-foreground font-medium">
+                Buscar atleta
+              </label>
+              <input
+                id="registration-athlete-search"
+                type="search"
+                placeholder="Nome ou e-mail"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {searchTruncated && (
+                <p className="text-xs text-muted-foreground">
+                  Mostrando os {ATHLETE_SEARCH_LIMIT} primeiros resultados. Refine a busca para encontrar outros atletas.
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground font-medium">

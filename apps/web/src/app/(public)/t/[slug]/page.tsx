@@ -41,7 +41,6 @@ type Registration = {
   athleteName: string | null; athlete2Name: string | null
 }
 type MatchResult = { matchId: string; setNumber: number; score1: number; score2: number }
-type Athlete = { id: string; name: string }
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -211,7 +210,6 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
   const [matchList, setMatchList]         = useState<Match[]>([])
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [results, setResults]             = useState<MatchResult[]>([])
-  const [athletes, setAthletes]           = useState<Athlete[]>([])
 
   // 1. Busca torneio pelo slug, depois o summary
   useEffect(() => {
@@ -250,10 +248,6 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
       setDrawLoaded(true)
     })
   }, [activeCategoryId])
-
-  useEffect(() => {
-    if (registrations.length) apiFetch<Athlete[]>('/athletes').then(setAthletes)
-  }, [registrations])
 
   // ---------------------------------------------------------------------------
   // Render states
@@ -380,7 +374,6 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
             <BracketDraw
               matches={matchList}
               registrations={registrations}
-              athletes={athletes}
               results={results}
               activeCategory={activeCategory}
               drawId={draw.id}

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Calendar, MapPin, TrendingUp } from 'lucide-react'
 import { unstable_rethrow } from 'next/navigation'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 
 // Dados mudam a cada torneio; renderiza por requisição em vez de prerender no build.
@@ -38,11 +39,11 @@ function formatDate(value: string): string {
 async function loadHome(): Promise<{ tournaments: PublicTournament[]; tenants: PublicTenant[] } | null> {
   try {
     const [tournaments, tenants] = await Promise.all([
-      apiFetch<PublicTournament[]>('/tournaments'),
-      apiFetch<PublicTenant[]>('/tenants'),
+      // public=true: a API já esconde rascunhos
+      apiFetch<Paginated<PublicTournament>>('/tournaments?public=true&pageSize=20'),
+      apiFetch<Paginated<PublicTenant>>('/tenants?pageSize=100'),
     ])
-    // Rascunhos não são públicos.
-    return { tournaments: tournaments.filter((t) => t.status !== 'draft'), tenants }
+    return { tournaments: tournaments.data, tenants: tenants.data }
   } catch (err) {
     unstable_rethrow(err)
     return null

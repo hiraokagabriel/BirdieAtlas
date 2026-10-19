@@ -1,14 +1,21 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { pairs, athletes, athleteAffiliations, clubs } from '../db/schema.js'
-import { eq, and, isNull, or } from 'drizzle-orm'
+import { eq, and, isNull, or, asc, desc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { paginate } from '../domain/pagination.js'
+import { getDefaultTenantId } from '../tenant.js'
 
 const DOUBLES_DISCIPLINES = ['MD', 'WD', 'XD'] as const
 
+const listPairsQuerySchema = paginationQuerySchema.extend({
+  active: z.enum(['true', 'false']).optional(),
+  discipline: z.enum(DOUBLES_DISCIPLINES).optional(),
+})
+
 const createPairSchema = z.object({
-  tenantId: z.string().min(1),
   athlete1Id: z.string().min(1),
   athlete2Id: z.string().min(1),
   discipline: z.enum(DOUBLES_DISCIPLINES),
@@ -38,30 +45,29 @@ async function getCurrentClub(athleteId: string) {
 export async function pairsRoutes(app: FastifyInstance) {
   // Lista todas as duplas com dados expandidos dos atletas e seus clubes
   app.get('/pairs', async (request) => {
-    const { tenantId, active, discipline } = request.query as {
-      tenantId?: string
-      active?: string
-      discipline?: string
-    }
+    const query = listPairsQuerySchema.parse(request.query)
+    const tenantId = await getDefaultTenantId()
+    const where = and(
+      eq(pairs.tenantId, tenantId),
+      query.active !== undefined ? eq(pairs.active, query.active === 'true') : undefined,
+      query.discipline ? eq(pairs.discipline, query.discipline) : undefined,
+    )
 
-    let query = db.select().from(pairs)
+    return paginate(
+      query,
+      async (limit, offset) => {
+        const page = await db.select().from(pairs).where(where)
+          .orderBy(desc(pairs.createdAt), asc(pairs.id)).limit(limit).offset(offset)
+        return expandPairs(page)
+      },
+      async () => (await db.select({ total: count() }).from(pairs).where(where))[0]?.total ?? 0,
+    )
+  })
 
-    const conditions = []
-    if (tenantId) conditions.push(eq(pairs.tenantId, tenantId))
-    if (active !== undefined) conditions.push(eq(pairs.active, active === 'true'))
-
-    const rawPairs = conditions.length
-      ? await db.select().from(pairs).where(and(...conditions))
-      : await db.select().from(pairs)
-
-    // Filtra por disciplina após a query (enum já valida no banco)
-    const filtered = discipline
-      ? rawPairs.filter((p) => p.discipline === discipline)
-      : rawPairs
-
-    // Expande atletas e clubes em paralelo
-    const expanded = await Promise.all(
-      filtered.map(async (pair) => {
+  // Expande atletas (só campos públicos) e clubes em paralelo
+  async function expandPairs(rawPairs: (typeof pairs.$inferSelect)[]) {
+    return Promise.all(
+      rawPairs.map(async (pair) => {
         const [athlete1, athlete2] = await Promise.all([
           db.select({
             id: athletes.id,
@@ -91,9 +97,7 @@ export async function pairsRoutes(app: FastifyInstance) {
         }
       })
     )
-
-    return { data: expanded, total: expanded.length }
-  })
+  }
 
   // Busca dupla por ID
   app.get('/pairs/:id', async (request, reply) => {
@@ -123,6 +127,7 @@ export async function pairsRoutes(app: FastifyInstance) {
   // Cria nova dupla
   app.post('/pairs', async (request, reply) => {
     const body = createPairSchema.parse(request.body)
+    const tenantId = await getDefaultTenantId()
 
     if (body.athlete1Id === body.athlete2Id) {
       return reply.status(400).send({ error: 'Os dois atletas devem ser diferentes.' })
@@ -131,7 +136,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     // Verifica duplicata ativa (mesma dupla na mesma disciplina)
     const existing = await db.select().from(pairs).where(
       and(
-        eq(pairs.tenantId, body.tenantId),
+        eq(pairs.tenantId, tenantId),
         eq(pairs.discipline, body.discipline),
         eq(pairs.active, true),
         or(
@@ -147,7 +152,7 @@ export async function pairsRoutes(app: FastifyInstance) {
 
     const [pair] = await db.insert(pairs).values({
       id: randomUUID(),
-      tenantId: body.tenantId,
+      tenantId,
       athlete1Id: body.athlete1Id,
       athlete2Id: body.athlete2Id,
       discipline: body.discipline,

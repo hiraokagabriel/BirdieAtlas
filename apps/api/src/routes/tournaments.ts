@@ -5,14 +5,20 @@ import {
   draws, matches, matchResults, athletes,
   rankings, rankingEntries, rankingTournaments,
 } from '../db/schema.js'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, ne, and, inArray, asc, desc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { paginate } from '../domain/pagination.js'
+import { getDefaultTenantId } from '../tenant.js'
+
+const listTournamentsQuerySchema = paginationQuerySchema.extend({
+  public: z.enum(['true', 'false']).optional(),
+})
 
 const createTournamentSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
-  tenantId: z.string(),
   level: z.string().default('estadual'),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -151,18 +157,29 @@ async function removePointsFromRanking(rankingId: string, tournamentId: string) 
       sorted.map((e, i) => ({
         id: randomUUID(), rankingId,
         athleteId: e.athleteId, athlete2Id: e.athlete2Id,
-        points: e.points, totalPoints: e.points, position: i + 1,
+        totalPoints: e.points, position: i + 1,
       }))
     )
   }
 }
 
 export async function tournamentsRoutes(app: FastifyInstance) {
-  // Lista todos os torneios (com filtro opcional por tenant)
+  // Lista paginada do tenant padrão. `public=true` esconde rascunhos (portal público).
   app.get('/tournaments', async (request) => {
-    const { tenantId } = request.query as { tenantId?: string }
-    if (tenantId) return db.select().from(tournaments).where(eq(tournaments.tenantId, tenantId))
-    return db.select().from(tournaments)
+    const query = listTournamentsQuerySchema.parse(request.query)
+    const tenantId = await getDefaultTenantId()
+    const where = and(
+      eq(tournaments.tenantId, tenantId),
+      query.public === 'true' ? ne(tournaments.status, 'draft') : undefined,
+    )
+    return paginate(
+      query,
+      (limit, offset) =>
+        db.select().from(tournaments).where(where)
+          .orderBy(desc(tournaments.startDate), asc(tournaments.id))
+          .limit(limit).offset(offset),
+      async () => (await db.select({ total: count() }).from(tournaments).where(where))[0]?.total ?? 0,
+    )
   })
 
   // Deve vir ANTES de /tournaments/:id para nao colidir com o parametro dinamico
@@ -260,7 +277,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     const athleteIds = [...new Set(
       regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
     )]
-    const athleteRows = await db.select().from(athletes).where(inArray(athletes.id, athleteIds))
+    const athleteRows = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, athleteIds))
     const athleteMap = new Map(athleteRows.map((a) => [a.id, a.name]))
     return regs.map((r) => ({
       ...r,
@@ -271,7 +288,8 @@ export async function tournamentsRoutes(app: FastifyInstance) {
 
   app.post('/tournaments', async (request, reply) => {
     const body = createTournamentSchema.parse(request.body)
-    const [t] = await db.insert(tournaments).values({ id: randomUUID(), status: 'draft', ...body }).returning()
+    const tenantId = await getDefaultTenantId()
+    const [t] = await db.insert(tournaments).values({ id: randomUUID(), status: 'draft', tenantId, ...body }).returning()
     return reply.status(201).send(t)
   })
 

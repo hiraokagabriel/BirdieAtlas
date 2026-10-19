@@ -14,12 +14,6 @@ interface RegistrationFlags {
   withdrew: boolean;
 }
 
-interface PaginationInput {
-  page: number;
-  pageSize: number;
-  total: number;
-}
-
 const STATUS_TRANSITIONS: Record<RegistrationStatus, readonly RegistrationStatus[]> = {
   pending: ["pending", "approved", "rejected"],
   approved: ["approved", "pending", "rejected"],
@@ -57,13 +51,4 @@ export function validateRegistrationStatusChange(
 
 export function canEditRegistration(tournamentStatus: RegistrationTournamentStatus): boolean {
   return !["completed", "cancelled"].includes(tournamentStatus);
-}
-
-export function getPagination({ page, pageSize, total }: PaginationInput): Pagination {
-  return {
-    page,
-    pageSize,
-    total,
-    totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
-  };
 }

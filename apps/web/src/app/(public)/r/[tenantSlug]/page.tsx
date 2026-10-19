@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { Trophy, ChevronLeft, ChevronRight, Users, User } from 'lucide-react'
 import Link from 'next/link'
@@ -12,15 +13,11 @@ type Ranking = {
 }
 type AthleteData = { id: string; name: string; gender: string }
 type Entry = {
-  id: string; position: number; points: number
+  id: string; position: number; totalPoints: number
   athleteId: string; athlete2Id: string | null
   athlete: AthleteData | null; athlete2: AthleteData | null
 }
-type RankingResponse = {
-  ranking: Ranking
-  entries: Entry[]
-  pagination: { page: number; perPage: number; total: number; totalPages: number }
-}
+type RankingResponse = Paginated<Entry> & { ranking: Ranking }
 
 const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
@@ -58,7 +55,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
   const PER_PAGE = 25
 
   useEffect(() => {
-    apiFetch<Ranking[]>(`/rankings?tenantSlug=${tenantSlug}`).then((list) => {
+    apiFetch<Paginated<Ranking>>(`/rankings?tenantSlug=${encodeURIComponent(tenantSlug)}&pageSize=100`).then(({ data: list }) => {
       setRankings(list)
       if (list.length) setActiveRankingId(list[0].id)
     })
@@ -67,18 +64,14 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
   useEffect(() => {
     if (!activeRankingId) return
     setLoading(true)
+    apiFetch<RankingResponse>(`/rankings/${activeRankingId}/entries?page=${page}&pageSize=${PER_PAGE}`)
+      .then(setData).finally(() => setLoading(false))
+  }, [activeRankingId, page])
+
+  function selectRanking(id: string) {
+    setActiveRankingId(id)
     setPage(1)
-    apiFetch<RankingResponse>(`/rankings/${activeRankingId}/entries?page=1&perPage=${PER_PAGE}`)
-      .then(setData).finally(() => setLoading(false))
-  }, [activeRankingId])
-
-  useEffect(() => {
-    if (!activeRankingId || page === 1) return
-    setLoading(true)
-    apiFetch<RankingResponse>(`/rankings/${activeRankingId}/entries?page=${page}&perPage=${PER_PAGE}`)
-      .then(setData).finally(() => setLoading(false))
-  }, [page])
-
+  }
   const activeRanking = rankings.find((r) => r.id === activeRankingId)
   const isDoubles = activeRanking ? ['MD', 'WD', 'XD'].includes(activeRanking.discipline) : false
   const pagination = data?.pagination
@@ -100,7 +93,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
           const isActive = r.id === activeRankingId
           const color = isActive ? disciplineActiveColors[r.discipline] : disciplineColors[r.discipline]
           return (
-            <button key={r.id} onClick={() => setActiveRankingId(r.id)}
+            <button key={r.id} onClick={() => selectRanking(r.id)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}
             >
               {disciplineLabel[r.discipline] ?? r.discipline}
@@ -130,13 +123,13 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
               </div>
             ))}
           </div>
-        ) : !data?.entries.length ? (
+        ) : !data?.data.length ? (
           <div className="p-12 text-center text-muted-foreground">
             <p className="font-medium">Nenhuma entrada encontrada</p>
           </div>
         ) : (
           <div>
-            {data.entries.map((entry, idx) => {
+            {data.data.map((entry, idx) => {
               const isTop3 = entry.position <= 3
               return (
                 <div key={entry.id}
@@ -178,7 +171,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
                     <span className={`font-semibold tabular-nums ${
                       isTop3 ? 'text-yellow-700 dark:text-yellow-400 text-base' : 'text-sm text-foreground'
                     }`}>
-                      {entry.points.toLocaleString('pt-BR')}
+                      {entry.totalPoints.toLocaleString('pt-BR')}
                     </span>
                   </div>
                 </div>

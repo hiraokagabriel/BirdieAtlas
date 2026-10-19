@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
+import { Pager } from '@/components/shared/pager'
 import { CreateClubModal } from '@/components/club/create-club-modal'
 import Link from 'next/link'
 import { MapPin, Search, Plus } from 'lucide-react'
@@ -19,10 +21,12 @@ export default function ClubsPage() {
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
 
-  const { data: clubs = [] } = useQuery<Club[]>({
-    queryKey: ['clubs'],
-    queryFn: () => apiFetch('/clubs'),
+  const [page, setPage] = useState(1)
+  const { data } = useQuery<Paginated<Club>>({
+    queryKey: ['clubs', page],
+    queryFn: () => apiFetch(`/clubs?page=${page}&pageSize=100`),
   })
+  const clubs = data?.data ?? []
 
   const filtered = clubs.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,6 +104,8 @@ export default function ClubsPage() {
           )
         })}
       </div>
+
+      {data && <Pager pagination={data.pagination} onPageChange={setPage} />}
 
       <CreateClubModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>

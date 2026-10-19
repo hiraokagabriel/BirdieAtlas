@@ -7,6 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts'
+import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 
 type Category = 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
@@ -26,10 +27,7 @@ type RankingEntry = {
   athlete2: { id: string; name: string } | null
 }
 
-type EntriesResponse = {
-  ranking: RankingMeta
-  entries: RankingEntry[]
-}
+type EntriesResponse = Paginated<RankingEntry> & { ranking: RankingMeta }
 
 const categoryConfig: Record<Category, { color: string; label: string }> = {
   MS: { color: '#3b82f6', label: 'Simples Masculino' },
@@ -74,10 +72,11 @@ export function RankingChart() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiFetch<RankingMeta[]>('/rankings?tenantSlug=fpb-sp').then((list) => {
+    // Rankings do tenant padrão, mais recentes primeiro: fica o primeiro de cada disciplina
+    apiFetch<Paginated<RankingMeta>>('/rankings?pageSize=100').then(({ data: list }) => {
       const map: Partial<Record<Category, string>> = {}
       for (const r of list) {
-        if (CATEGORIES.includes(r.discipline as Category)) {
+        if (CATEGORIES.includes(r.discipline as Category) && !map[r.discipline as Category]) {
           map[r.discipline as Category] = r.id
         }
       }
@@ -89,10 +88,10 @@ export function RankingChart() {
     const id = rankingMap[active]
     if (!id) { setData([]); setLoading(false); return }
     setLoading(true)
-    apiFetch<EntriesResponse>(`/rankings/${id}/entries?perPage=10`)
+    apiFetch<EntriesResponse>(`/rankings/${id}/entries?pageSize=10`)
       .then((res) => {
         setData(
-          res.entries
+          res.data
             .sort((a, b) => a.position - b.position)
             .slice(0, 8)
             .map((e) => ({ name: shortName(e), points: e.totalPoints }))

@@ -6,9 +6,13 @@ import {
   tournamentCategories, draws, matches, matchResults, tournamentRegistrations,
   pointsTables, pointRules,
 } from '../db/schema.js'
-import { eq, and, asc, inArray, isNull } from 'drizzle-orm'
+import { eq, and, asc, desc, inArray, isNull, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { publicAthleteColumns } from '../db/public-columns.js'
+import { paginate } from '../domain/pagination.js'
+import { getDefaultTenantId } from '../tenant.js'
 
 // ---------------------------------------------------------------------------
 // Helpers de gênero e disciplina
@@ -333,8 +337,11 @@ async function recalculateRanking(rankingId: string) {
 // ---------------------------------------------------------------------------
 // Rotas
 // ---------------------------------------------------------------------------
+const listRankingsQuerySchema = paginationQuerySchema.extend({
+  tenantSlug: z.string().trim().min(1).optional(),
+})
+
 const createRankingSchema = z.object({
-  tenantId: z.string(),
   name: z.string().min(1),
   slug: z.string().min(1),
   description: z.string().optional(),
@@ -348,22 +355,28 @@ const createRankingSchema = z.object({
 
 export async function rankingsRoutes(app: FastifyInstance) {
 
-  app.get('/rankings', async (request) => {
-    const { tenantId, tenantSlug } = request.query as { tenantId?: string; tenantSlug?: string }
+  // Com `tenantSlug` (portal público): rankings ativos e públicos daquele tenant.
+  // Sem ele (admin): todos os rankings do tenant padrão.
+  app.get('/rankings', async (request, reply) => {
+    const query = listRankingsQuerySchema.parse(request.query)
 
-    if (tenantSlug) {
-      const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, tenantSlug))
-      if (!tenant) return []
-      return db.select().from(rankings)
-        .where(and(eq(rankings.tenantId, tenant.id), eq(rankings.status, 'active')))
+    let where
+    if (query.tenantSlug) {
+      const [tenant] = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, query.tenantSlug))
+      if (!tenant) return reply.status(404).send({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' })
+      where = and(eq(rankings.tenantId, tenant.id), eq(rankings.status, 'active'), eq(rankings.isPublic, true))
+    } else {
+      where = eq(rankings.tenantId, await getDefaultTenantId())
     }
 
-    if (tenantId) {
-      return db.select().from(rankings)
-        .where(and(eq(rankings.tenantId, tenantId), eq(rankings.status, 'active')))
-    }
-
-    return db.select().from(rankings)
+    return paginate(
+      query,
+      (limit, offset) =>
+        db.select().from(rankings).where(where)
+          .orderBy(desc(rankings.year), asc(rankings.discipline), asc(rankings.id))
+          .limit(limit).offset(offset),
+      async () => (await db.select({ total: count() }).from(rankings).where(where))[0]?.total ?? 0,
+    )
   })
 
   app.get('/rankings/:rankingId', async (request, reply) => {
@@ -375,8 +388,10 @@ export async function rankingsRoutes(app: FastifyInstance) {
 
   app.post('/rankings', async (request, reply) => {
     const body = createRankingSchema.parse(request.body)
+    const tenantId = await getDefaultTenantId()
     const [ranking] = await db.insert(rankings).values({
       id: randomUUID(),
+      tenantId,
       ...body,
       status: 'active',
     }).returning()
@@ -444,42 +459,38 @@ export async function rankingsRoutes(app: FastifyInstance) {
     }
   })
 
+  // Público: atletas saem só com colunas públicas (sem e-mail/data de nascimento).
   app.get('/rankings/:rankingId/entries', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
-    const { page = '1', perPage = '50' } = request.query as { page?: string; perPage?: string }
-    const pageNum    = Math.max(1, parseInt(page))
-    const perPageNum = Math.min(100, Math.max(1, parseInt(perPage)))
-    const offset = (pageNum - 1) * perPageNum
+    const query = paginationQuerySchema.parse(request.query)
 
     const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
     if (!ranking) return reply.status(404).send({ error: 'Ranking not found' })
 
-    const entries = await db.select().from(rankingEntries)
-      .where(eq(rankingEntries.rankingId, rankingId))
-      .orderBy(asc(rankingEntries.position))
-      .limit(perPageNum)
-      .offset(offset)
+    const where = eq(rankingEntries.rankingId, rankingId)
+    const page = await paginate(
+      query,
+      async (limit, offset) => {
+        const entries = await db.select().from(rankingEntries).where(where)
+          .orderBy(asc(rankingEntries.position), asc(rankingEntries.id))
+          .limit(limit).offset(offset)
 
-    const athleteIds = [...new Set(entries.flatMap((e) => [e.athleteId, e.athlete2Id].filter(Boolean) as string[]))]
-    const athleteList = athleteIds.length
-      ? await db.select().from(athletes).where(inArray(athletes.id, athleteIds))
-      : []
-    const athleteMap = new Map(athleteList.map((a) => [a.id, a]))
+        const athleteIds = [...new Set(entries.flatMap((e) => [e.athleteId, e.athlete2Id].filter(Boolean) as string[]))]
+        const athleteList = athleteIds.length
+          ? await db.select(publicAthleteColumns).from(athletes).where(inArray(athletes.id, athleteIds))
+          : []
+        const athleteMap = new Map(athleteList.map((a) => [a.id, a]))
 
-    const enriched = entries.map((e) => ({
-      ...e,
-      athlete:  athleteMap.get(e.athleteId) ?? null,
-      athlete2: e.athlete2Id ? (athleteMap.get(e.athlete2Id) ?? null) : null,
-    }))
+        return entries.map((e) => ({
+          ...e,
+          athlete:  athleteMap.get(e.athleteId) ?? null,
+          athlete2: e.athlete2Id ? (athleteMap.get(e.athlete2Id) ?? null) : null,
+        }))
+      },
+      async () => (await db.select({ total: count() }).from(rankingEntries).where(where))[0]?.total ?? 0,
+    )
 
-    const total = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
-      .then((r) => r.length)
-
-    return {
-      ranking,
-      entries: enriched,
-      pagination: { page: pageNum, perPage: perPageNum, total, totalPages: Math.ceil(total / perPageNum) },
-    }
+    return { ...page, ranking }
   })
 
   app.post('/rankings/audit-gender', async (_request, _reply) => {
