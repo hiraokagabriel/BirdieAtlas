@@ -71,9 +71,9 @@ const placementLabel = (p: number) => {
 }
 
 function PositionBadge({ pos }: { pos: number }) {
-  if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400 text-yellow-900 font-bold text-sm">🥇</span>
-  if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 text-gray-800 font-bold text-sm">🥈</span>
-  if (pos === 3) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-600/80 text-white font-bold text-sm">🥉</span>
+  if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
+  if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
+  if (pos === 3) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-bronze text-medal-bronze-foreground font-bold text-sm">🥉</span>
   return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
 }
 
@@ -114,7 +114,7 @@ function ResultsDetail({
               <div className="flex items-center gap-2 min-w-0">
                 {countBestResults !== null && (
                   <span className={`shrink-0 w-2 h-2 rounded-full ${
-                    counted ? 'bg-green-500' : 'bg-muted-foreground/40'
+                    counted ? 'bg-success' : 'bg-muted-foreground/40'
                   }`} />
                 )}
                 <span className="truncate text-muted-foreground">{name}</span>
@@ -161,7 +161,7 @@ function EntryRow({
     <>
       <div
         className={`grid grid-cols-[3rem_1fr_auto_2rem] gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 ${
-          isTop3 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
+          isTop3 ? 'bg-medal-gold/10' : ''
         } ${hasDetails ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
         onClick={() => hasDetails && setOpen((v) => !v)}
         role={hasDetails ? 'button' : undefined}
@@ -215,7 +215,7 @@ function EntryRow({
 
         <div className="flex items-center justify-end">
           <span className={`font-semibold tabular-nums ${
-            isTop3 ? 'text-yellow-700 text-base' : 'text-sm'
+            isTop3 ? 'text-warning text-base' : 'text-sm'
           }`}>
             {entry.totalPoints.toLocaleString('pt-BR')}
           </span>
@@ -497,19 +497,19 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
               {disciplineLabel[ranking.discipline] ?? ranking.discipline}
             </span>
             {ranking.autoInclude && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-success/30 bg-success/10 text-success text-xs">
                 <Zap className="w-3 h-3" />
                 Inclusão automática
               </span>
             )}
             {ranking.countBestResults && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs">
                 <Trophy className="w-3 h-3" />
                 Top {ranking.countBestResults} torneios
               </span>
             )}
             {ranking.minTournamentsRequired > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground text-xs">
                 <Shield className="w-3 h-3" />
                 Mín. {ranking.minTournamentsRequired} torneios
               </span>
@@ -558,7 +558,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
 
           {/* Banner de regras ativas */}
           {(ranking.countBestResults || ranking.minTournamentsRequired > 0) && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div className="rounded-lg border border-info/30 bg-info/10 px-4 py-3 text-sm text-info flex flex-wrap items-center gap-x-4 gap-y-1">
               {ranking.countBestResults && (
                 <span className="flex items-center gap-1.5">
                   <Trophy className="w-3.5 h-3.5" />
@@ -571,7 +571,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                   Mínimo de <strong>{ranking.minTournamentsRequired}</strong> torneio{ranking.minTournamentsRequired !== 1 ? 's' : ''} para participar
                 </span>
               )}
-              <span className="flex items-center gap-1.5 ml-auto text-blue-600">
+              <span className="flex items-center gap-1.5 ml-auto text-info">
                 <Medal className="w-3.5 h-3.5" />
                 Clique em uma linha para ver o detalhamento
               </span>
@@ -641,7 +641,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
       {tab === 'tournaments' && (
         <div className="space-y-6">
           {ranking.autoInclude && (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center gap-2">
+            <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success flex items-center gap-2">
               <Zap className="w-4 h-4 shrink-0" />
               Este ranking usa inclusão automática — todos os torneios com pontos distribuídos são considerados ao recalcular.
               Os vínculos manuais abaixo são ignorados nesse modo.
@@ -656,7 +656,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
               <div className="space-y-2">
                 {unlinkable.map((t) => (
                   <div key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{t.name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -667,7 +667,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                     <button
                       onClick={() => handleUnlink(t.id)}
                       disabled={unlinking === t.id}
-                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors disabled:opacity-50"
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

@@ -17,9 +17,9 @@ type Category = {
 type Registration = RegistrationResponse
 
 const STATUS_BADGE: Record<RegistrationStatus, { label: string; className: string }> = {
-  pending: { label: 'Pendente', className: 'bg-yellow-50 text-yellow-700' },
-  approved: { label: 'Aprovada', className: 'bg-green-100 text-green-700' },
-  rejected: { label: 'Recusada', className: 'bg-red-50 text-red-700' },
+  pending: { label: 'Pendente', className: 'bg-warning/10 text-warning' },
+  approved: { label: 'Aprovada', className: 'bg-success/10 text-success' },
+  rejected: { label: 'Recusada', className: 'bg-destructive/10 text-destructive' },
 }
 
 const disciplineColors: Record<string, string> = {
@@ -198,7 +198,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
             onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               activeCategoryId === cat.id
-                ? (disciplineColors[cat.discipline] ?? 'bg-gray-100 text-gray-700') + ' border-transparent'
+                ? (disciplineColors[cat.discipline] ?? 'bg-muted text-muted-foreground') + ' border-transparent'
                 : 'border-border text-muted-foreground hover:text-foreground bg-background'
             }`}
           >
@@ -273,7 +273,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                   ))}
                 </select>
                 {athletesForSlot1.length === 0 && (
-                  <p className="text-xs text-amber-600">Nenhum atleta disponível para esta categoria.</p>
+                  <p className="text-xs text-warning">Nenhum atleta disponível para esta categoria.</p>
                 )}
               </div>
 
@@ -308,7 +308,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
             </div>
 
             {error && (
-              <p className="text-xs text-red-600 font-medium">{error}</p>
+              <p className="text-xs text-destructive font-medium">{error}</p>
             )}
 
             <div className="flex items-center gap-3">
@@ -349,8 +349,8 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
 
                     {reg.seed ? (
                       <span className="inline-flex items-center gap-1 w-8 shrink-0">
-                        <Trophy className="w-3 h-3 text-yellow-500" aria-hidden="true" />
-                        <span className="text-xs font-semibold text-yellow-600">{reg.seed}</span>
+                        <Trophy className="w-3 h-3 text-warning" aria-hidden="true" />
+                        <span className="text-xs font-semibold text-warning">{reg.seed}</span>
                       </span>
                     ) : (
                       <span className="w-8 shrink-0" />
@@ -373,7 +373,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                           <button
                             onClick={() => approveMutation.mutate(reg.id)}
                             disabled={busy}
-                            className={`${iconBtn} hover:bg-green-50 hover:text-green-600`}
+                            className={`${iconBtn} hover:bg-success/10 hover:text-success`}
                             title="Aprovar inscrição"
                             aria-label={`Aprovar inscrição de ${reg.athleteName ?? reg.athleteId}`}
                           >
@@ -384,7 +384,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                           <button
                             onClick={() => { setRejectingId(reg.id); setRejectReason('') }}
                             disabled={busy}
-                            className={`${iconBtn} hover:bg-red-50 hover:text-red-600`}
+                            className={`${iconBtn} hover:bg-destructive/10 hover:text-destructive`}
                             title="Recusar inscrição"
                             aria-label={`Recusar inscrição de ${reg.athleteName ?? reg.athleteId}`}
                           >
@@ -405,7 +405,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                         <button
                           onClick={() => removeMutation.mutate(reg.id)}
                           disabled={busy}
-                          className={`${iconBtn} hover:bg-red-50 hover:text-red-600`}
+                          className={`${iconBtn} hover:bg-destructive/10 hover:text-destructive`}
                           title="Remover inscrição"
                           aria-label={`Remover inscrição de ${reg.athleteName ?? reg.athleteId}`}
                         >
@@ -440,7 +440,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                       <button
                         type="submit"
                         disabled={busy || !rejectReason.trim()}
-                        className="h-8 px-3 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                        className="h-8 px-3 rounded-lg bg-destructive text-background text-xs font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                       >
                         Recusar
                       </button>

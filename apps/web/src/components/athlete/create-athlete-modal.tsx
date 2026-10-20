@@ -81,10 +81,10 @@ export function CreateAthleteModal({ open, onClose }: Props) {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="ex: João Silva"
               className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.name ? 'border-red-400' : 'border-border'
+                errors.name ? 'border-destructive' : 'border-border'
               }`}
             />
-            {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
 
           {/* Gênero */}
@@ -117,10 +117,10 @@ export function CreateAthleteModal({ open, onClose }: Props) {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="ex: joao@email.com"
               className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.email ? 'border-red-400' : 'border-border'
+                errors.email ? 'border-destructive' : 'border-border'
               }`}
             />
-            {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+            {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
           </div>
 
           {/* Data de nascimento (opcional) */}
@@ -147,7 +147,7 @@ export function CreateAthleteModal({ open, onClose }: Props) {
           </div>
 
           {mutation.isError && (
-            <p className="text-xs text-red-500">Erro ao criar atleta. Tente novamente.</p>
+            <p className="text-xs text-destructive">Erro ao criar atleta. Tente novamente.</p>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">

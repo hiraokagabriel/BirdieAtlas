@@ -54,11 +54,11 @@ const DISCIPLINES: { value: Discipline; label: string }[] = [
 ]
 
 const LEVEL_COLORS: Record<TournamentLevel, string> = {
-  local:         'bg-zinc-100 text-zinc-700',
-  regional:      'bg-blue-100 text-blue-700',
-  state:         'bg-purple-100 text-purple-700',
-  national:      'bg-amber-100 text-amber-700',
-  international: 'bg-emerald-100 text-emerald-700',
+  local:         'bg-level-local text-level-local-foreground',
+  regional:      'bg-level-regional text-level-regional-foreground',
+  state:         'bg-level-state text-level-state-foreground',
+  national:      'bg-level-national text-level-national-foreground',
+  international: 'bg-level-international text-level-international-foreground',
 }
 
 // ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ function RuleRow({ rule, onEdit, onDelete, isDeleting }: RuleRowProps) {
           {rule.discipline && <Badge variant="outline">{rule.discipline}</Badge>}
           {rule.category   && <Badge variant="secondary">{rule.category}</Badge>}
           {rule.multiplier !== 1 && (
-            <span className="text-xs text-amber-600 font-medium">×{rule.multiplier}</span>
+            <span className="text-xs text-warning font-medium">×{rule.multiplier}</span>
           )}
           {rule.participationBonus > 0 && (
             <span className="text-xs text-blue-600 font-medium">+{rule.participationBonus} participação</span>

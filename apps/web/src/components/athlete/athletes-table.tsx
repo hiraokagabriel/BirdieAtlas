@@ -61,7 +61,7 @@ export function AthletesTable({
               onClick={() => onGenderFilterChange(g)}
               className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
                 genderFilter === g
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
+                  ? 'bg-card text-card-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -136,7 +136,7 @@ export function AthletesTable({
                   <TableCell>
                     <Badge
                       variant="secondary"
-                      className={athlete.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}
+                      className={athlete.active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}
                     >
                       {athlete.active ? 'Ativo' : 'Inativo'}
                     </Badge>

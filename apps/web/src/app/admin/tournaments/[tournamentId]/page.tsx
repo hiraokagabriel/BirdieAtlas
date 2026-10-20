@@ -21,12 +21,12 @@ type Tournament = {
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number; maxEntries: number | null }
 
 const statusMap: Record<string, { label: string; color: string }> = {
-  draft:                { label: 'Rascunho',             color: 'bg-gray-100 text-gray-700' },
+  draft:                { label: 'Rascunho',             color: 'bg-muted text-muted-foreground' },
   registration_open:   { label: 'Inscrições abertas',    color: 'bg-blue-100 text-blue-700' },
-  registration_closed: { label: 'Inscrições encerradas', color: 'bg-yellow-100 text-yellow-700' },
-  in_progress:         { label: 'Em andamento',          color: 'bg-green-100 text-green-700' },
-  completed:           { label: 'Encerrado',             color: 'bg-gray-100 text-gray-500' },
-  cancelled:           { label: 'Cancelado',             color: 'bg-red-100 text-red-500' },
+  registration_closed: { label: 'Inscrições encerradas', color: 'bg-warning/10 text-warning' },
+  in_progress:         { label: 'Em andamento',          color: 'bg-success/10 text-success' },
+  completed:           { label: 'Encerrado',             color: 'bg-muted text-muted-foreground' },
+  cancelled:           { label: 'Cancelado',             color: 'bg-destructive/10 text-destructive' },
 }
 
 export default function TournamentPage({ params }: { params: Promise<{ tournamentId: string }> }) {
@@ -67,7 +67,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
 
   if (!tournament) return null
 
-  const status      = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-gray-100 text-gray-700' }
+  const status      = statusMap[tournament.status] ?? { label: tournament.status, color: 'bg-muted text-muted-foreground' }
   const isCompleted = tournament.status === 'completed'
 
   const TABS = [
@@ -122,7 +122,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           {canTransitionTournament(tournament.status, 'completed') && (
             <button
               onClick={() => setFinalizeOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive text-background text-sm font-semibold hover:bg-destructive/90 transition-colors"
             >
               <Flag className="w-4 h-4" />
               Encerrar campeonato

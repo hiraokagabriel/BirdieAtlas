@@ -36,8 +36,8 @@ function AdminModeToggleInner() {
         'transition-all duration-200 select-none',
         isSyncing ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:scale-105 active:scale-95',
         isAdmin
-          ? 'bg-emerald-500 border-emerald-600 text-white hover:bg-emerald-600'
-          : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200',
+          ? 'bg-primary border-primary text-primary-foreground hover:bg-primary/90'
+          : 'bg-foreground border-foreground text-background/80 hover:text-background',
       ].join(' ')}
     >
       {isAdmin ? (

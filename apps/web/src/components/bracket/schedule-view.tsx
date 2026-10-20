@@ -15,11 +15,11 @@ const disciplineColors: Record<string, string> = {
 }
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
-  pending: { label: 'Aguardando', dot: 'bg-gray-300' },
-  in_progress: { label: 'Ao vivo', dot: 'bg-green-500 animate-pulse' },
+  pending: { label: 'Aguardando', dot: 'bg-muted-foreground/40' },
+  in_progress: { label: 'Ao vivo', dot: 'bg-success animate-pulse' },
   completed: { label: 'Encerrada', dot: 'bg-blue-400' },
-  walkover: { label: 'W.O.', dot: 'bg-yellow-400' },
-  retired: { label: 'Ret.', dot: 'bg-red-400' },
+  walkover: { label: 'W.O.', dot: 'bg-warning' },
+  retired: { label: 'Ret.', dot: 'bg-destructive' },
 }
 
 type Category = { id: string; name: string; discipline: string }
@@ -138,7 +138,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
                 const p1 = getAthleteLabel(match.registration1Id, match.registrations)
                 const p2 = getAthleteLabel(match.registration2Id, match.registrations)
                 const status = statusLabel[match.status] ?? statusLabel.pending
-                const disciplineColor = disciplineColors[match.category.discipline] ?? 'bg-gray-100 text-gray-700'
+                const disciplineColor = disciplineColors[match.category.discipline] ?? 'bg-muted text-muted-foreground'
 
                 return (
                   <div key={match.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">

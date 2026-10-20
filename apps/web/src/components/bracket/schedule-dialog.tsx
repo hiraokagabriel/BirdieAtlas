@@ -100,7 +100,7 @@ export function ScheduleDialog({ match, open, onClose, player1Name, player2Name,
         {match?.scheduledAt && (
           <button
             onClick={() => { setScheduledAt(''); setCourtNumber('') }}
-            className="flex items-center gap-1.5 text-xs text-red-500 hover:underline"
+            className="flex items-center gap-1.5 text-xs text-destructive hover:underline"
           >
             <X className="w-3 h-3" /> Remover agendamento
           </button>

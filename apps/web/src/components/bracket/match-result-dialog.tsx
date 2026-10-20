@@ -224,7 +224,7 @@ export function MatchResultDialog({
         </DialogHeader>
 
         {isEdit && (
-          <div className="flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
             <span>⚠️</span>
             <span>Se o vencedor mudar, as partidas seguintes serão reabertas automaticamente.</span>
           </div>
@@ -233,9 +233,9 @@ export function MatchResultDialog({
         {/* Players */}
         <div className="rounded-lg border border-border overflow-hidden">
           <div className={`flex items-center gap-3 px-4 py-3 border-b border-border ${
-            winner === 1 ? 'bg-green-50' : 'bg-muted/30'
+            winner === 1 ? 'bg-success/10' : 'bg-muted/30'
           }`}>
-            {winner === 1 && <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />}
+            {winner === 1 && <Trophy className="w-4 h-4 text-warning shrink-0" />}
             <span className={`text-sm flex-1 truncate ${
               winner === 1 ? 'font-semibold' : winner === 2 ? 'text-muted-foreground' : 'font-medium'
             }`}>{player1Name}</span>
@@ -244,9 +244,9 @@ export function MatchResultDialog({
             </span>
           </div>
           <div className={`flex items-center gap-3 px-4 py-3 ${
-            winner === 2 ? 'bg-green-50' : ''
+            winner === 2 ? 'bg-success/10' : ''
           }`}>
-            {winner === 2 && <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />}
+            {winner === 2 && <Trophy className="w-4 h-4 text-warning shrink-0" />}
             <span className={`text-sm flex-1 truncate ${
               winner === 2 ? 'font-semibold' : winner === 1 ? 'text-muted-foreground' : 'font-medium'
             }`}>{player2Name}</span>
@@ -264,7 +264,7 @@ export function MatchResultDialog({
               onClick={() => handleResultTypeChange(type)}
               className={`flex-1 py-1 rounded-md text-xs font-semibold transition-all ${
                 resultType === type
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
+                  ? 'bg-card text-card-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -301,7 +301,7 @@ export function MatchResultDialog({
                     value={game.score1}
                     onChange={(e) => updateGame(idx, 'score1', e.target.value)}
                     className={`text-center font-mono ${
-                      gw === 1 ? 'border-green-400 bg-green-50 font-bold' : ''
+                      gw === 1 ? 'border-success bg-success/10 font-bold' : ''
                     }`}
                   />
                   <p className="text-center text-xs text-muted-foreground font-medium">
@@ -312,7 +312,7 @@ export function MatchResultDialog({
                     value={game.score2}
                     onChange={(e) => updateGame(idx, 'score2', e.target.value)}
                     className={`text-center font-mono ${
-                      gw === 2 ? 'border-green-400 bg-green-50 font-bold' : ''
+                      gw === 2 ? 'border-success bg-success/10 font-bold' : ''
                     }`}
                   />
                   <div />
@@ -328,7 +328,7 @@ export function MatchResultDialog({
             <div className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 border ${
               resultType === 'walkover'
                 ? 'bg-orange-50 border-orange-200 text-orange-700'
-                : 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-info/10 border-info/30 text-info'
             }`}>
               <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>
@@ -361,7 +361,7 @@ export function MatchResultDialog({
             </div>
 
             {showValidationError && (
-              <p className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
+              <p className="flex items-center gap-1.5 text-xs text-destructive font-medium">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 Selecione o vencedor antes de confirmar.
               </p>
@@ -371,7 +371,7 @@ export function MatchResultDialog({
 
         {/* Erro de validação — modo Normal */}
         {resultType === 'completed' && showValidationError && gameValidationError && (
-          <p className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
+          <p className="flex items-center gap-1.5 text-xs text-destructive font-medium">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             {gameValidationError}
           </p>

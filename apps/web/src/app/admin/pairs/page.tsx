@@ -292,7 +292,7 @@ export default function PairsPage() {
                     {/* Status */}
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        pair.active ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
+                        pair.active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
                       }`}>
                         {pair.active ? 'Ativa' : 'Inativa'}
                       </span>
@@ -322,7 +322,7 @@ export default function PairsPage() {
                         <button
                           onClick={() => toggleActive(pair)}
                           className={`p-1.5 rounded-lg hover:bg-muted transition-colors ${
-                            pair.active ? 'text-muted-foreground hover:text-destructive' : 'text-muted-foreground hover:text-green-600'
+                            pair.active ? 'text-muted-foreground hover:text-destructive' : 'text-muted-foreground hover:text-success'
                           }`}
                           title={pair.active ? 'Desativar dupla' : 'Reativar dupla'}
                         >

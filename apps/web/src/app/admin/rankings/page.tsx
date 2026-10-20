@@ -245,7 +245,7 @@ export default function RankingsPage() {
 
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
-                  disciplineColors[r.discipline] ?? 'bg-gray-100 text-gray-700 border-gray-200'
+                  disciplineColors[r.discipline] ?? 'bg-muted text-muted-foreground border-border'
                 }`}>
                   {['MD','WD','XD'].includes(r.discipline)
                     ? <Users className="w-3 h-3" />
@@ -258,21 +258,21 @@ export default function RankingsPage() {
                 </span>
 
                 {r.autoInclude && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700 text-xs">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-success/30 bg-success/10 text-success text-xs">
                     <Zap className="w-3 h-3" />
                     Auto
                   </span>
                 )}
 
                 {r.countBestResults && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-xs">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs">
                     <Trophy className="w-3 h-3" />
                     Top {r.countBestResults}
                   </span>
                 )}
 
                 {r.minTournamentsRequired > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 text-xs">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground text-xs">
                     <Shield className="w-3 h-3" />
                     Mín. {r.minTournamentsRequired}
                   </span>

@@ -205,7 +205,7 @@ export function BracketView({
             <button
               key={cat.id}
               onClick={() => { setActiveCategoryId(cat.id); setGenerateError(null); setShowRedraw(false) }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-muted text-muted-foreground border-border'}`}
             >
               {cat.name}
             </button>
@@ -216,10 +216,10 @@ export function BracketView({
       {/* Publish banner + Ressortear button */}
       {draw && (
         <div className={`flex items-center justify-between px-4 py-2.5 rounded-lg border ${
-          draw.published ? 'bg-green-50 border-green-200 text-green-800' : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+          draw.published ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'
         }`}>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${draw.published ? 'bg-green-500' : 'bg-yellow-400'}`} />
+            <div className={`w-2 h-2 rounded-full ${draw.published ? 'bg-success' : 'bg-warning'}`} />
             <span className="text-sm font-medium">
               {draw.published ? 'Chaveamento publicado — visível na página pública' : 'Rascunho — não visível na página pública'}
             </span>
@@ -229,7 +229,7 @@ export function BracketView({
             {draw.published ? (
               <span
                 title="Despublique a chave antes de ressortear"
-                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md text-green-400 cursor-not-allowed select-none"
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md text-success/50 cursor-not-allowed select-none"
               >
                 <Lock className="w-3.5 h-3.5" />
                 Ressortear
@@ -237,7 +237,7 @@ export function BracketView({
             ) : (
               <button
                 onClick={() => { setShowRedraw((v) => !v); setRedrawError(null) }}
-                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md transition-colors hover:bg-yellow-100 text-yellow-700"
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md transition-colors hover:bg-warning/10 text-warning"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Ressortear
@@ -249,8 +249,8 @@ export function BracketView({
               disabled={isTogglingPublish}
               className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md transition-colors ${
                 draw.published
-                  ? 'hover:bg-green-100 text-green-700'
-                  : 'hover:bg-yellow-100 text-yellow-700'
+                  ? 'hover:bg-success/10 text-success'
+                  : 'hover:bg-warning/10 text-warning'
               }`}
             >
               {isTogglingPublish
@@ -284,7 +284,7 @@ export function BracketView({
           </div>
 
           {redrawError && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               {redrawError}
             </div>
@@ -300,7 +300,7 @@ export function BracketView({
             <button
               onClick={() => redraw()}
               disabled={isRedrawing}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent/80 disabled:opacity-50 transition-colors"
             >
               {isRedrawing
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Ressorteando...</>
@@ -313,14 +313,14 @@ export function BracketView({
       {/* Award points banner */}
       {allTournamentDone && (
         <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
-          alreadyAwarded || awardResult ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
+          alreadyAwarded || awardResult ? 'bg-success/10 border-success/30' : 'bg-info/10 border-info/30'
         }`}>
           <div className="flex items-center gap-2">
             {alreadyAwarded || awardResult
-              ? <CheckCircle2 className="w-4 h-4 text-green-600" />
+              ? <CheckCircle2 className="w-4 h-4 text-success" />
               : <Trophy className="w-4 h-4 text-blue-600" />}
             <div>
-              <p className={`text-sm font-medium ${alreadyAwarded || awardResult ? 'text-green-800' : 'text-blue-800'}`}>
+              <p className={`text-sm font-medium ${alreadyAwarded || awardResult ? 'text-success' : 'text-info'}`}>
                 {alreadyAwarded
                   ? 'Pontos já distribuídos'
                   : awardResult
@@ -338,7 +338,7 @@ export function BracketView({
             <button
               onClick={() => awardPoints()}
               disabled={isAwarding}
-              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isAwarding
                 ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Distribuindo...</>
@@ -375,7 +375,7 @@ export function BracketView({
               <DrawModeCard mode="random" selected={selectedMode === 'random'} onSelect={setSelectedMode} />
             </div>
             {generateError && (
-              <div className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+              <div className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 {generateError}
               </div>

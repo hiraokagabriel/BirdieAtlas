@@ -95,7 +95,7 @@ export function AthleteSheet({
                   </Badge>
                   <Badge
                     variant="secondary"
-                    className={athlete.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}
+                    className={athlete.active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}
                   >
                     {athlete.active ? 'Ativo' : 'Inativo'}
                   </Badge>
@@ -151,7 +151,7 @@ export function AthleteSheet({
                             </div>
                           </div>
                           {!aff.endedAt && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs shrink-0">Atual</Badge>
+                            <Badge variant="secondary" className="bg-success/10 text-success text-xs shrink-0">Atual</Badge>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
