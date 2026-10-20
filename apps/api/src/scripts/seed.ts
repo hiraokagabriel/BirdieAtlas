@@ -34,7 +34,6 @@ import {
   draws,
   matches,
   matchResults,
-  pointsTables,
   rankings,
   pointRules,
   rankingTournaments,
@@ -175,7 +174,6 @@ async function seed() {
     await db.delete(tournamentRegistrations)
     await db.delete(pairs)
     await db.delete(tournamentCategories)
-    await db.delete(pointsTables)
     await db.delete(tournaments)
     await db.delete(athleteAffiliations)
     await db.delete(athletes)
@@ -204,36 +202,6 @@ async function seed() {
 
   if (!tenant || !tenant2) throw new Error('Tenants não encontrados após upsert.')
   console.log(`   ✓ tenants (reutilizados ou criados)`)
-
-  // -------------------------------------------------------------------------
-  // 3. TABELAS DE PONTOS
-  // -------------------------------------------------------------------------
-  console.log('📊 Criando tabelas de pontos...')
-  const placements = [1, 2, 3, 5, 9, 17, 25, 33]
-  const levelPointsMap: Record<string, number[]> = {
-    international: [4000, 3200, 2400, 1600, 800, 400, 200, 100],
-    national:      [2000, 1600, 1200,  800, 400, 200, 100,  50],
-    state:         [1000,  800,  600,  400, 200, 100,  50,  25],
-    regional:      [ 500,  400,  300,  200, 100,  50,  25,  10],
-    local:         [ 250,  200,  150,  100,  50,  25,  10,   5],
-  }
-
-  const pointsTableData: typeof pointsTables.$inferInsert[] = []
-
-  for (const [level, pointsArr] of Object.entries(levelPointsMap)) {
-    for (let i = 0; i < placements.length; i++) {
-      pointsTableData.push({
-        id: uid(),
-        tenantId: tenant.id,
-        name: `Tabela ${level.charAt(0).toUpperCase() + level.slice(1)} [${RUN_ID}]`,
-        tournamentLevel: level,
-        placement: placements[i],
-        points: pointsArr[i],
-      })
-    }
-  }
-  await db.insert(pointsTables).values(pointsTableData)
-  console.log(`   ✓ ${pointsTableData.length} entradas de pontos (5 níveis × 8 colocações)`)
 
   // -------------------------------------------------------------------------
   // 4. CLUBS
@@ -556,8 +524,8 @@ async function seed() {
   ]
 
   for (const ranking of rankingData) {
-    for (const level of (['state', 'national', 'international'] as const)) {
-      const multiplierMap = { state: 1.0, national: 1.5, international: 2.0 }
+    for (const level of LEVELS) {
+      const multiplierMap = { local: 0.5, regional: 0.75, state: 1.0, national: 1.5, international: 2.0 }
       pointRuleData.push({
         id: uid(),
         rankingId: ranking.id!,
@@ -662,7 +630,6 @@ async function seed() {
    Chaves:                ${drawData.length}
    Partidas:              ${matchData.length}
    Sets:                  ${matchResultData.length}
-   Tabelas de pontos:     ${pointsTableData.length}
    Rankings:              ${rankingData.length}
    Regras de pontos:      ${pointRuleData.length}
    Vínculos rank↔tourn:   ${rankingTournamentData.length}

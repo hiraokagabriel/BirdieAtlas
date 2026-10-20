@@ -156,7 +156,6 @@ export const tournaments = pgTable('tournaments', {
   location: text('location'),
   city: text('city'),
   state: text('state'),
-  pointsTableId: text('points_table_id').references(() => pointsTables.id),
   pointsAwarded: boolean('points_awarded').notNull().default(false),
   ...softDelete,
   ...timestamps,
@@ -244,19 +243,6 @@ export const matchResults = pgTable('match_results', {
   setNumber: integer('set_number').notNull(),
   score1: integer('score1').notNull(),
   score2: integer('score2').notNull(),
-  ...timestamps,
-})
-
-// ---------------------------------------------------------------------------
-// Points Table
-// ---------------------------------------------------------------------------
-export const pointsTables = pgTable('points_tables', {
-  id: id(),
-  tenantId: text('tenant_id').notNull().references(() => tenants.id),
-  name: text('name').notNull(),
-  tournamentLevel: text('tournament_level').notNull(),
-  placement: integer('placement').notNull(),
-  points: integer('points').notNull(),
   ...timestamps,
 })
 

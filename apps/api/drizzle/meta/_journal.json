@@ -22,6 +22,13 @@
       "when": 1792525576892,
       "tag": "0002_registrations_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792527202383,
+      "tag": "0003_retire_points_tables",
+      "breakpoints": true
     }
   ]
 }
