@@ -2,17 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   canEditRegistration,
   canTransitionRegistrationStatus,
-  getRegistrationStatus,
   validateRegistrationStatusChange,
 } from "./registration-rules.js";
 
 describe("registration domain rules", () => {
-  it("maps persisted flags to domain status", () => {
-    expect(getRegistrationStatus({ confirmed: false, withdrew: false })).toBe("pending");
-    expect(getRegistrationStatus({ confirmed: true, withdrew: false })).toBe("approved");
-    expect(getRegistrationStatus({ confirmed: true, withdrew: true })).toBe("rejected");
-  });
-
   it("allows supported status transitions", () => {
     expect(canTransitionRegistrationStatus("pending", "approved")).toBe(true);
     expect(canTransitionRegistrationStatus("approved", "pending")).toBe(true);

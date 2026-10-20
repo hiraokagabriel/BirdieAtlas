@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
-import { athletes, athleteAffiliations, clubs, rankingEntries, rankings, tournamentRegistrations, tournamentCategories, tournaments } from '../db/schema.js'
+import { athletes, athleteAffiliations, clubs, pairs, rankingEntries, rankings, tournamentRegistrations, tournamentCategories, tournaments } from '../db/schema.js'
 import { eq, isNull, and, ilike, or, inArray, asc, count } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
 import { getDefaultTenantId } from '../tenant.js'
 
@@ -182,16 +183,14 @@ export async function athletesRoutes(app: FastifyInstance) {
       partnerName: r.partnerId ? (partnerMap.get(r.partnerId) ?? null) : null,
     }))
 
-    // Histórico de torneios confirmados
-    const regs1 = await db
-      .select()
-      .from(tournamentRegistrations)
-      .where(and(eq(tournamentRegistrations.athleteId, id), eq(tournamentRegistrations.confirmed, true)))
-    const regs2 = await db
-      .select()
-      .from(tournamentRegistrations)
-      .where(and(eq(tournamentRegistrations.athlete2Id, id), eq(tournamentRegistrations.confirmed, true)))
-    const allRegs = [...regs1, ...regs2]
+    // Histórico de torneios: inscrições aprovadas, sozinho ou em qualquer dupla (inclusive duplas excluídas)
+    const myPairs = await db.select({ id: pairs.id }).from(pairs)
+      .where(or(eq(pairs.athlete1Id, id), eq(pairs.athlete2Id, id)))
+    const pairIds = myPairs.map((p) => p.id)
+    const allRegs = await selectRegistrations(and(
+      eq(tournamentRegistrations.status, 'approved'),
+      or(eq(tournamentRegistrations.athleteId, id), pairIds.length ? inArray(tournamentRegistrations.pairId, pairIds) : undefined),
+    ))
 
     const categoryIds = [...new Set(allRegs.map((r) => r.categoryId))]
     const categoryList = categoryIds.length
@@ -211,7 +210,6 @@ export async function athletesRoutes(app: FastifyInstance) {
       return {
         registrationId: reg.id,
         seed: reg.seed,
-        withdrew: reg.withdrew,
         finalPlacement: reg.finalPlacement,
         categoryId: reg.categoryId,
         categoryName: category?.name ?? '',

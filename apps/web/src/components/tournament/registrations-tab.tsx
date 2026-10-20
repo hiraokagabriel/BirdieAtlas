@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { Paginated } from '@birdie-atlas/types'
+import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
-import { UserPlus, Trash2, Trophy, Users, User } from 'lucide-react'
+import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'lucide-react'
 
 type Category = {
   id: string
@@ -12,15 +14,12 @@ type Category = {
   discipline: string
 }
 
-type Registration = {
-  id: string
-  athleteId: string
-  athlete2Id: string | null
-  athleteName: string | null
-  athlete2Name: string | null
-  seed: number | null
-  confirmed: boolean
-  withdrew: boolean
+type Registration = RegistrationResponse
+
+const STATUS_BADGE: Record<RegistrationStatus, { label: string; className: string }> = {
+  pending: { label: 'Pendente', className: 'bg-yellow-50 text-yellow-700' },
+  approved: { label: 'Aprovada', className: 'bg-green-100 text-green-700' },
+  rejected: { label: 'Recusada', className: 'bg-red-50 text-red-700' },
 }
 
 const disciplineColors: Record<string, string> = {
@@ -54,10 +53,13 @@ function allowedGender2(discipline: string, gender1: 'M' | 'F' | ''): 'M' | 'F' 
 
 interface Props {
   tournamentId: string
+  tournamentStatus: TournamentStatus
   categories: Category[]
 }
 
-export function RegistrationsTab({ tournamentId, categories }: Props) {
+export function RegistrationsTab({ tournamentId, tournamentStatus, categories }: Props) {
+  // Encerrado ou cancelado: a API recusa qualquer alteração, então a tela nem oferece
+  const locked = tournamentStatus === 'completed' || tournamentStatus === 'cancelled'
   const queryClient = useQueryClient()
   const [selectedCategoryId, setActiveCategoryId] = useState<string>('')
   // As categorias chegam depois da primeira renderização: sem escolha explícita, usa a primeira
@@ -69,20 +71,27 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
   const athleteId = athlete1?.id ?? ''
   const [seed, setSeed] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
   const doubles = activeCategory ? isDoubles(activeCategory.discipline) : false
   const discipline = activeCategory?.discipline ?? ''
 
-  const { data: registrations = [], isLoading } = useQuery<Registration[]>({
-    queryKey: ['registrations', activeCategoryId],
-    queryFn: () => apiFetch(`/tournaments/categories/${activeCategoryId}/registrations`),
+  // Chave própria: a lista pública usa ['registrations', categoryId] com outro formato de resposta
+  const { data, isLoading } = useQuery<Paginated<Registration>>({
+    queryKey: ['registrations', 'admin', tournamentId, activeCategoryId],
+    queryFn: () => apiFetch(`/registrations/tournament/${tournamentId}?categoryId=${activeCategoryId}&pageSize=100`),
     enabled: !!activeCategoryId,
   })
+  const registrations = data?.data ?? []
+  const total = data?.pagination.total ?? 0
 
-  // IDs já inscritos nesta categoria (para esconder dos selects)
+  // Atletas que já ocupam uma vaga na categoria (recusadas liberam a vaga)
   const registeredAthleteIds = new Set(
-    registrations.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
+    registrations
+      .filter((r) => r.status !== 'rejected')
+      .flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
   )
 
   // Busca no servidor já filtrada pelo gênero permitido em cada slot
@@ -110,7 +119,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrations', activeCategoryId] })
+      queryClient.invalidateQueries({ queryKey: ['registrations'] })
       setAthlete1(null)
       setAthlete2Id('')
       setSeed('')
@@ -123,13 +132,30 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
     },
   })
 
+  // Sem onError próprio: o erro da API (ex.: REGISTRATION_IN_DRAW) aparece no toast global
   const removeMutation = useMutation({
     mutationFn: (registrationId: string) =>
       apiFetch(`/tournaments/registrations/${registrationId}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['registrations'] }),
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (registrationId: string) =>
+      apiFetch(`/registrations/${registrationId}/approve`, { method: 'POST', json: {} }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['registrations'] }),
+  })
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status, notes }: { id: string; status: RegistrationStatus; notes?: string }) =>
+      apiFetch(`/registrations/${id}`, { method: 'PATCH', json: { status, ...(notes !== undefined ? { notes } : {}) } }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrations', activeCategoryId] })
+      queryClient.invalidateQueries({ queryKey: ['registrations'] })
+      setRejectingId(null)
+      setRejectReason('')
     },
   })
+
+  const busy = removeMutation.isPending || approveMutation.isPending || statusMutation.isPending
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -178,7 +204,7 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
           >
             {isDoubles(cat.discipline) ? <Users className="w-3 h-3" /> : <User className="w-3 h-3" />}
             {cat.name}
-            <span className="opacity-60">({registrations.length})</span>
+            {activeCategoryId === cat.id && <span className="opacity-60">({total})</span>}
           </button>
         ))}
       </div>
@@ -189,20 +215,24 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
           <p className="text-sm font-semibold">
             {activeCategory?.name} —{' '}
             <span className="text-muted-foreground font-normal">
-              {isLoading ? '...' : `${registrations.length} inscrito${registrations.length !== 1 ? 's' : ''}`}
+              {isLoading ? '...' : `${total} ${total === 1 ? 'inscrição' : 'inscrições'}`}
             </span>
           </p>
-          <button
-            onClick={() => { setShowForm((v) => !v); setError(null) }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            Inscrever
-          </button>
+          {locked ? (
+            <span className="text-xs text-muted-foreground">Torneio encerrado: inscrições bloqueadas</span>
+          ) : (
+            <button
+              onClick={() => { setShowForm((v) => !v); setError(null) }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Inscrever
+            </button>
+          )}
         </div>
 
         {/* Formulário inline */}
-        {showForm && (
+        {showForm && !locked && (
           <form onSubmit={handleSubmit} className="px-4 py-3 border-b border-border bg-muted/20 space-y-3">
             {discipline && (
               <p className="text-xs text-muted-foreground">
@@ -309,44 +339,123 @@ export function RegistrationsTab({ tournamentId, categories }: Props) {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {registrations.map((reg, index) => (
-              <div key={reg.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
-                <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">{index + 1}</span>
+            {registrations.map((reg, index) => {
+              const badge = STATUS_BADGE[reg.status]
+              const iconBtn = 'shrink-0 p-1.5 rounded-lg text-muted-foreground transition-colors disabled:opacity-50'
+              return (
+                <div key={reg.id} className="px-4 py-3 hover:bg-muted/20 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">{index + 1}</span>
 
-                {reg.seed ? (
-                  <span className="inline-flex items-center gap-1 w-8 shrink-0">
-                    <Trophy className="w-3 h-3 text-yellow-500" />
-                    <span className="text-xs font-semibold text-yellow-600">{reg.seed}</span>
-                  </span>
-                ) : (
-                  <span className="w-8 shrink-0" />
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {reg.athleteName ?? reg.athleteId}
-                    {reg.athlete2Name && (
-                      <span className="text-muted-foreground"> / {reg.athlete2Name}</span>
+                    {reg.seed ? (
+                      <span className="inline-flex items-center gap-1 w-8 shrink-0">
+                        <Trophy className="w-3 h-3 text-yellow-500" aria-hidden="true" />
+                        <span className="text-xs font-semibold text-yellow-600">{reg.seed}</span>
+                      </span>
+                    ) : (
+                      <span className="w-8 shrink-0" />
                     )}
-                  </p>
+
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${reg.status === 'rejected' ? 'line-through text-muted-foreground' : ''}`}>
+                        {reg.athleteName ?? reg.athleteId}
+                        {reg.athlete2Name && (
+                          <span className="text-muted-foreground"> / {reg.athlete2Name}</span>
+                        )}
+                      </p>
+                    </div>
+
+                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>{badge.label}</span>
+
+                    {!locked && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {reg.status === 'pending' && (
+                          <button
+                            onClick={() => approveMutation.mutate(reg.id)}
+                            disabled={busy}
+                            className={`${iconBtn} hover:bg-green-50 hover:text-green-600`}
+                            title="Aprovar inscrição"
+                            aria-label={`Aprovar inscrição de ${reg.athleteName ?? reg.athleteId}`}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {reg.status !== 'rejected' && (
+                          <button
+                            onClick={() => { setRejectingId(reg.id); setRejectReason('') }}
+                            disabled={busy}
+                            className={`${iconBtn} hover:bg-red-50 hover:text-red-600`}
+                            title="Recusar inscrição"
+                            aria-label={`Recusar inscrição de ${reg.athleteName ?? reg.athleteId}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {reg.status === 'rejected' && (
+                          <button
+                            onClick={() => statusMutation.mutate({ id: reg.id, status: 'pending' })}
+                            disabled={busy}
+                            className={`${iconBtn} hover:bg-muted hover:text-foreground`}
+                            title="Reabrir como pendente"
+                            aria-label={`Reabrir inscrição de ${reg.athleteName ?? reg.athleteId}`}
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeMutation.mutate(reg.id)}
+                          disabled={busy}
+                          className={`${iconBtn} hover:bg-red-50 hover:text-red-600`}
+                          title="Remover inscrição"
+                          aria-label={`Remover inscrição de ${reg.athleteName ?? reg.athleteId}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {reg.status === 'rejected' && reg.notes && (
+                    <p className="mt-1 ml-[3.5rem] text-xs text-muted-foreground">Motivo: {reg.notes}</p>
+                  )}
+
+                  {rejectingId === reg.id && (
+                    <form
+                      className="mt-2 ml-[3.5rem] flex items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        statusMutation.mutate({ id: reg.id, status: 'rejected', notes: rejectReason.trim() })
+                      }}
+                    >
+                      <label htmlFor={`reject-reason-${reg.id}`} className="sr-only">Motivo da recusa</label>
+                      <input
+                        id={`reject-reason-${reg.id}`}
+                        autoFocus
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Motivo da recusa (obrigatório)"
+                        maxLength={1000}
+                        className="flex-1 h-8 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <button
+                        type="submit"
+                        disabled={busy || !rejectReason.trim()}
+                        className="h-8 px-3 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      >
+                        Recusar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRejectingId(null)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </form>
+                  )}
                 </div>
-
-                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                  reg.confirmed ? 'bg-green-100 text-green-700' : 'bg-yellow-50 text-yellow-700'
-                }`}>
-                  {reg.confirmed ? 'Confirmado' : 'Pendente'}
-                </span>
-
-                <button
-                  onClick={() => removeMutation.mutate(reg.id)}
-                  disabled={removeMutation.isPending}
-                  className="shrink-0 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors"
-                  title="Remover inscrição"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

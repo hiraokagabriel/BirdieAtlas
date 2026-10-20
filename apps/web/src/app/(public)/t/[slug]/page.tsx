@@ -37,7 +37,7 @@ type Match  = {
 type Registration = {
   id: string; athleteId: string; athlete2Id: string | null
   seed: number | null; rankingPointsAtEntry: number | null
-  confirmed: boolean; withdrew: boolean
+  status: 'pending' | 'approved'
   athleteName: string | null; athlete2Name: string | null
 }
 type MatchResult = { matchId: string; setNumber: number; score1: number; score2: number }
@@ -151,8 +151,8 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
     <p className="text-sm text-muted-foreground py-4 text-center">Nenhum inscrito ainda.</p>
   )
 
-  const confirmed = regs.filter((r) => r.confirmed && !r.withdrew)
-  const pending   = regs.filter((r) => !r.confirmed && !r.withdrew)
+  const confirmed = regs.filter((r) => r.status === 'approved')
+  const pending   = regs.filter((r) => r.status === 'pending')
 
   const renderRow = (r: Registration) => (
     <div key={r.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
@@ -169,8 +169,8 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
           #{r.seed}
         </span>
       )}
-      {r.confirmed
-        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-label="Confirmado" />
+      {r.status === 'approved'
+        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-label="Aprovada" />
         : <Clock        className="w-4 h-4 text-yellow-500 shrink-0" aria-label="Pendente" />}
     </div>
   )

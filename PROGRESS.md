@@ -11,7 +11,7 @@
 | 1. Fundação | ✅ PR #10 |
 | 2. Contratos da API | ✅ PR #11 |
 | 3a. Baseline de migrations e schema | ✅ PR #13 |
-| 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | ❌ Pendente |
+| 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | 🔄 Em PR |
 | 3c. Aposentadoria de `pointsTables` | ❌ Pendente |
 | 4. Ciclo de vida do torneio | ✅ PR #12 |
 | 5. Documentação | ✅ PR #15 |
@@ -51,9 +51,9 @@ Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
 | CRUD de torneios | ✅ | `level` como enum |
 | Ciclo de vida validado no servidor | ✅ | Transição, encerramento com pódio e reabertura que reverte pontos |
 | Categorias com disciplina e formato | ✅ | |
-| Inscrições com confirmação | ✅ | Modelo antigo (`confirmed`/`withdrew`); troca no PR 3b |
-| Aprovação/rejeição com motivo e auditoria | ❌ | PR 3b; contrato em `docs/api/tournament-registrations.md` |
-| Validação de gênero por disciplina na API de inscrição | ❌ | Hoje só a interface filtra |
+| Inscrições com status (pendente, aprovada, recusada) | ✅ | Atleta XOR dupla; só aprovadas entram na chave. Aprovar, recusar com motivo, reabrir e remover na aba Inscrições |
+| Auditoria de aprovação e recusa (quem e quando) | ❌ | Depende de identidade de usuário (Clerk); hoje só `notes` e `updatedAt`. Contrato em `docs/api/tournament-registrations.md` |
+| Elegibilidade na API de inscrição | ✅ | Gênero, atleta ativo, sem inscrição duplicada na categoria e limite de vagas, sob lock da categoria |
 | Página pública do torneio (`/t/[slug]`) | ✅ | |
 
 ## Phase 3 — Ranking

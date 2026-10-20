@@ -6,6 +6,7 @@ import {
   tournamentRegistrations,
 } from '../db/schema.js'
 import { eq, inArray, or, and, isNull, count, countDistinct } from 'drizzle-orm'
+import { selectRegistrations } from '../db/registrations.js'
 import { getDefaultTenantId } from '../tenant.js'
 
 // ---------------------------------------------------------------------------
@@ -51,8 +52,7 @@ function scoreString(sets: { setNumber: number; score1: number; score2: number }
 async function buildRegAthleteMap(regIds: string[]) {
   if (!regIds.length) return new Map<string, { a1Name: string; a2Name: string | null }>()
 
-  const regs = await db.select().from(tournamentRegistrations)
-    .where(inArray(tournamentRegistrations.id, regIds))
+  const regs = await selectRegistrations(inArray(tournamentRegistrations.id, regIds), { includeDeleted: true })
 
   const athleteIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
   const athleteRows = athleteIds.length
