@@ -13,8 +13,8 @@ import { z } from 'zod'
 
 const READ_METHODS = new Set(['GET', 'HEAD'])
 
-/** Leituras que devolvem dados pessoais de atletas: só para admin. */
-const ADMIN_ONLY_READS = new Set(['/athletes', '/athletes/:id'])
+/** Leituras que devolvem dados pessoais de atletas ou notas internas: só para admin. */
+const ADMIN_ONLY_READS = new Set(['/athletes', '/athletes/:id', '/registrations/tournament/:tournamentId'])
 
 /** Rotas que controlam o próprio modo admin ficam fora do guard. */
 const GUARD_EXEMPT = new Set(['/dev/admin-mode'])

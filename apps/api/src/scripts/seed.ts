@@ -30,6 +30,7 @@ import {
   tournaments,
   tournamentCategories,
   tournamentRegistrations,
+  pairs,
   draws,
   matches,
   matchResults,
@@ -172,6 +173,7 @@ async function seed() {
     await db.delete(matches)
     await db.delete(draws)
     await db.delete(tournamentRegistrations)
+    await db.delete(pairs)
     await db.delete(tournamentCategories)
     await db.delete(pointsTables)
     await db.delete(tournaments)
@@ -366,6 +368,9 @@ async function seed() {
   // -------------------------------------------------------------------------
   console.log('📝 Criando inscrições...')
   const registrationData: typeof tournamentRegistrations.$inferInsert[] = []
+  const pairData: typeof pairs.$inferInsert[] = []
+  const pairIdByKey = new Map<string, string>()
+  const tenantOfTournament = new Map(tournamentData.map((t) => [t.id, t.tenantId]))
   const maleAthletes = athleteData.filter((a) => a.gender === 'M')
   const femaleAthletes = athleteData.filter((a) => a.gender === 'F')
 
@@ -388,7 +393,7 @@ async function seed() {
       const athlete = available[Math.floor(Math.random() * available.length)]
       usedAthletes.add(athlete.id!)
 
-      let athlete2Id: string | undefined = undefined
+      let partnerId: string | undefined = undefined
       if (isDouble) {
         let partner2Pool = pool
         if (cat.discipline === 'XD') {
@@ -398,23 +403,36 @@ async function seed() {
         if (available2.length === 0) break
         const a2 = available2[Math.floor(Math.random() * available2.length)]
         usedAthletes.add(a2.id!)
-        athlete2Id = a2.id
+        partnerId = a2.id
+      }
+
+      // Duplas viram registros em pairs, reaproveitados entre torneios; a inscrição aponta para a dupla.
+      let pairId: string | undefined = undefined
+      if (partnerId) {
+        const tenantId = tenantOfTournament.get(cat.tournamentId)!
+        const key = [tenantId, cat.discipline, ...[athlete.id!, partnerId].sort()].join('|')
+        pairId = pairIdByKey.get(key)
+        if (!pairId) {
+          pairId = uid()
+          pairIdByKey.set(key, pairId)
+          pairData.push({ id: pairId, tenantId, athlete1Id: athlete.id!, athlete2Id: partnerId, discipline: cat.discipline })
+        }
       }
 
       registrationData.push({
         id: uid(),
         categoryId: cat.id!,
-        athleteId: athlete.id!,
-        athlete2Id,
-        confirmed: Math.random() > 0.1,
-        withdrew: false,
+        athleteId: pairId ? undefined : athlete.id!,
+        pairId,
+        status: Math.random() > 0.1 ? 'approved' : 'pending',
         seed: i < 4 ? i + 1 : undefined,
         finalPlacement: undefined,
       })
     }
   }
+  if (pairData.length) await db.insert(pairs).values(pairData)
   await db.insert(tournamentRegistrations).values(registrationData)
-  console.log(`   ✓ ${registrationData.length} inscrições`)
+  console.log(`   ✓ ${pairData.length} duplas, ${registrationData.length} inscrições`)
 
   // -------------------------------------------------------------------------
   // 10. DRAWS + MATCHES
@@ -433,7 +451,7 @@ async function seed() {
   const updatedRegistrations = [...registrationData]
 
   for (const cat of completedCategories) {
-    const catRegs = registrationData.filter((r) => r.categoryId === cat.id && r.confirmed)
+    const catRegs = registrationData.filter((r) => r.categoryId === cat.id && r.status === 'approved')
     if (catRegs.length < 2) continue
 
     const drawId = uid()

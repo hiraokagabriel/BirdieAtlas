@@ -1,22 +1,11 @@
 import type { Pagination } from "@birdie-atlas/types";
 import type { RegistrationStatus, TournamentStatus } from "@birdie-atlas/validators";
 
-interface RegistrationFlags {
-  confirmed: boolean;
-  withdrew: boolean;
-}
-
 const STATUS_TRANSITIONS: Record<RegistrationStatus, readonly RegistrationStatus[]> = {
   pending: ["pending", "approved", "rejected"],
   approved: ["approved", "pending", "rejected"],
   rejected: ["rejected", "pending"],
 };
-
-export function getRegistrationStatus({ confirmed, withdrew }: RegistrationFlags): RegistrationStatus {
-  if (withdrew) return "rejected";
-  if (confirmed) return "approved";
-  return "pending";
-}
 
 export function canTransitionRegistrationStatus(
   currentStatus: RegistrationStatus,

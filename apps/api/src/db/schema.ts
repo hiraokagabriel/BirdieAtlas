@@ -9,6 +9,8 @@ import {
   real,
   jsonb,
   uniqueIndex,
+  index,
+  check,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -55,6 +57,10 @@ export const tournamentLevelEnum = pgEnum('tournament_level', [
 
 export const rankingStatusEnum = pgEnum('ranking_status', [
   'active', 'inactive', 'archived',
+])
+
+export const registrationStatusEnum = pgEnum('registration_status', [
+  'pending', 'approved', 'rejected',
 ])
 
 // ---------------------------------------------------------------------------
@@ -179,16 +185,26 @@ export const tournamentCategories = pgTable('tournament_categories', {
 export const tournamentRegistrations = pgTable('tournament_registrations', {
   id: id(),
   categoryId: text('category_id').notNull().references(() => tournamentCategories.id),
-  athleteId: text('athlete_id').notNull().references(() => athletes.id),
-  athlete2Id: text('athlete2_id').references(() => athletes.id),
+  // Singles: athleteId. Duplas: pairId (os atletas vêm da dupla). Exatamente um dos dois.
+  athleteId: text('athlete_id').references(() => athletes.id),
+  pairId: text('pair_id').references(() => pairs.id),
   seed: integer('seed'),
-  confirmed: boolean('confirmed').notNull().default(false),
-  withdrew: boolean('withdrew').notNull().default(false),
+  status: registrationStatusEnum('status').notNull().default('pending'),
+  notes: text('notes'),
   rankingPointsAtEntry: integer('ranking_points_at_entry'),
   finalPlacement: integer('final_placement'),
   ...softDelete,
   ...timestamps,
-})
+}, (table) => [
+  check('registrations_athlete_xor_pair', sql`(${table.athleteId} IS NULL) <> (${table.pairId} IS NULL)`),
+  // Um atleta ou dupla por categoria; inscrições recusadas ou excluídas não ocupam a vaga.
+  uniqueIndex('registrations_category_athlete_unique').on(table.categoryId, table.athleteId)
+    .where(sql`deleted_at IS NULL AND status <> 'rejected'`),
+  uniqueIndex('registrations_category_pair_unique').on(table.categoryId, table.pairId)
+    .where(sql`deleted_at IS NULL AND status <> 'rejected'`),
+  index('registrations_category_idx').on(table.categoryId),
+  index('registrations_status_idx').on(table.status),
+])
 
 // ---------------------------------------------------------------------------
 // Draws

@@ -16,7 +16,7 @@ import {
   paginationQuerySchema,
   tournamentTransitionBodySchema,
 } from '@birdie-atlas/validators'
-import { canEditRegistration } from '../domain/registration-rules.js'
+import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
 import { getDefaultTenantId } from '../tenant.js'
 
@@ -135,7 +135,7 @@ async function removePointsFromRanking(rankingId: string, tournamentId: string) 
       }
       const regIds = [...placementByReg.keys()]
       if (!regIds.length) continue
-      const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
+      const regs = await selectRegistrations(inArray(tournamentRegistrations.id, regIds), { includeDeleted: true })
       const aIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
       const athleteRows = aIds.length ? await db.select().from(athletes).where(inArray(athletes.id, aIds)) : []
       const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
@@ -217,8 +217,10 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     let completedMatches = 0
 
     const categorySummaries = await Promise.all(cats.map(async (cat) => {
-      const regs = await db.select().from(tournamentRegistrations)
-        .where(and(eq(tournamentRegistrations.categoryId, cat.id), isNull(tournamentRegistrations.deletedAt)))
+      // Recusadas não competem: não entram nas contagens públicas
+      const regs = await selectRegistrations(
+        and(eq(tournamentRegistrations.categoryId, cat.id), ne(tournamentRegistrations.status, 'rejected')),
+      )
 
       const athleteIds = new Set<string>()
       regs.forEach((r) => {
@@ -278,23 +280,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     return db.select().from(tournamentCategories).where(and(eq(tournamentCategories.tournamentId, id), isNull(tournamentCategories.deletedAt)))
   })
 
-  app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
-    const { categoryId } = request.params as { categoryId: string }
-    const regs = await db.select().from(tournamentRegistrations)
-      .where(and(eq(tournamentRegistrations.categoryId, categoryId), isNull(tournamentRegistrations.deletedAt)))
-    if (!regs.length) return []
-    const athleteIds = [...new Set(
-      regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])
-    )]
-    const athleteRows = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, athleteIds))
-    const athleteMap = new Map(athleteRows.map((a) => [a.id, a.name]))
-    return regs.map((r) => ({
-      ...r,
-      athleteName: athleteMap.get(r.athleteId) ?? null,
-      athlete2Name: r.athlete2Id ? (athleteMap.get(r.athlete2Id) ?? null) : null,
-    }))
-  })
-
   app.post('/tournaments', async (request, reply) => {
     const body = createTournamentSchema.parse(request.body)
     const tenantId = await getDefaultTenantId()
@@ -307,31 +292,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     const body = createCategorySchema.parse(request.body)
     const [cat] = await db.insert(tournamentCategories).values({ id: randomUUID(), tournamentId: id, ...body }).returning()
     return reply.status(201).send(cat)
-  })
-
-  app.post('/tournaments/categories/:categoryId/register', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
-    const body = (request.body as { athleteId: string; athlete2Id?: string; seed?: number; rankingPointsAtEntry?: number })
-    const [cat] = await db.select().from(tournamentCategories).where(and(eq(tournamentCategories.id, categoryId), isNull(tournamentCategories.deletedAt)))
-    if (!cat) return reply.status(404).send({ error: 'Category not found' })
-    const [t] = await db.select().from(tournaments).where(and(eq(tournaments.id, cat.tournamentId), isNull(tournaments.deletedAt)))
-    if (t && !canEditRegistration(t.status)) {
-      return reply.status(409).send({ error: 'O torneio não aceita mais inscrições (encerrado ou cancelado).', code: 'TOURNAMENT_LOCKED' })
-    }
-    const [reg] = await db.insert(tournamentRegistrations).values({
-      id: randomUUID(), categoryId, ...body, confirmed: false, withdrew: false,
-    }).returning()
-    return reply.status(201).send(reg)
-  })
-
-  app.put('/tournaments/registrations/:registrationId/confirm', async (request, reply) => {
-    const { registrationId } = request.params as { registrationId: string }
-    const [reg] = await db.update(tournamentRegistrations)
-      .set({ confirmed: true, updatedAt: new Date() })
-      .where(eq(tournamentRegistrations.id, registrationId))
-      .returning()
-    if (!reg) return reply.status(404).send({ error: 'Registration not found' })
-    return reg
   })
 
   app.put('/tournaments/:id', async (request, reply) => {
@@ -430,7 +390,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       const top4 = [...placementByReg.entries()].sort((a, b) => a[1] - b[1]).slice(0, 4)
       if (!top4.length) continue
       const regIds = top4.map(([regId]) => regId)
-      const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
+      const regs = await selectRegistrations(inArray(tournamentRegistrations.id, regIds), { includeDeleted: true })
       const athleteIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
       const athleteRows = athleteIds.length ? await db.select().from(athletes).where(inArray(athletes.id, athleteIds)) : []
       const athleteMap = new Map(athleteRows.map((a) => [a.id, a.name]))
@@ -488,12 +448,6 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   app.delete('/tournaments/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
     await db.update(tournaments).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(tournaments.id, id), isNull(tournaments.deletedAt)))
-    return reply.status(204).send()
-  })
-
-  app.delete('/tournaments/registrations/:registrationId', async (request, reply) => {
-    const { registrationId } = request.params as { registrationId: string }
-    await db.update(tournamentRegistrations).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(tournamentRegistrations.id, registrationId), isNull(tournamentRegistrations.deletedAt)))
     return reply.status(204).send()
   })
 }

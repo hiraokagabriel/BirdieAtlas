@@ -5,6 +5,8 @@ import { eq, and, inArray, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, getSlotForPosition } from '../domain/bracket.js'
+import { isDoublesDiscipline, isGenderCompatible, normalizePair } from '../domain/eligibility.js'
+import { selectRegistrations } from '../db/registrations.js'
 
 const upsertMatchResultSchema = z.object({
   sets: z.array(z.object({ setNumber: z.number(), score1: z.number(), score2: z.number() })),
@@ -19,22 +21,6 @@ const scheduleMatchSchema = z.object({
 const generateDrawSchema = z.object({
   mode: z.enum(['random', 'seeded']).default('seeded'),
 })
-
-function isGenderCompatible(discipline: string, gender1: 'M' | 'F', gender2?: 'M' | 'F'): boolean {
-  if (discipline === 'MS' || discipline === 'MD') return gender1 === 'M' && (gender2 === undefined || gender2 === 'M')
-  if (discipline === 'WS' || discipline === 'WD') return gender1 === 'F' && (gender2 === undefined || gender2 === 'F')
-  if (discipline === 'XD') {
-    if (!gender2) return false
-    return (gender1 === 'M' && gender2 === 'F') || (gender1 === 'F' && gender2 === 'M')
-  }
-  return true
-}
-
-const DOUBLES_DISCIPLINES = new Set(['MD', 'WD', 'XD'])
-
-function normalizePair(id1: string, id2: string): [string, string] {
-  return id1 < id2 ? [id1, id2] : [id2, id1]
-}
 
 function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
   const wins1 = sets.filter((s) => s.score1 > s.score2).length
@@ -74,9 +60,8 @@ export async function drawsRoutes(app: FastifyInstance) {
     const { categoryId } = request.params as { categoryId: string }
     const { mode } = generateDrawSchema.parse(request.body ?? {})
 
-    const registrations = await db.select().from(tournamentRegistrations).where(and(eq(tournamentRegistrations.categoryId, categoryId), isNull(tournamentRegistrations.deletedAt)))
-    const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
-    if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
+    const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, categoryId), eq(tournamentRegistrations.status, 'approved')))
+    if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
     const slots      = buildSlots(confirmed, mode)
     const [draw]     = await db.insert(draws).values({ id: randomUUID(), categoryId, drawMode: mode }).returning()
@@ -101,29 +86,29 @@ export async function drawsRoutes(app: FastifyInstance) {
       })
     }
 
-    const existingMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
-    const matchIds = existingMatches.map((m) => m.id)
-
-    if (matchIds.length) {
-      await db.delete(matchResults).where(inArray(matchResults.matchId, matchIds))
-    }
-
-    await db.delete(matches).where(eq(matches.drawId, drawId))
-
-    const registrations = await db.select().from(tournamentRegistrations)
-      .where(and(eq(tournamentRegistrations.categoryId, draw.categoryId), isNull(tournamentRegistrations.deletedAt)))
-    const confirmed = registrations.filter((r) => r.confirmed && !r.withdrew)
-    if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 confirmed registrations' })
+    // Valida antes de apagar: uma refação que falha não pode destruir a chave atual.
+    const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, draw.categoryId), eq(tournamentRegistrations.status, 'approved')))
+    if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
     const slots     = buildSlots(confirmed, mode)
     const matchDefs = buildMatchDefs(drawId, slots)
 
-    await db.insert(matches).values(matchDefs)
+    // Apagar a chave antiga e gravar a nova é uma operação só: ou troca inteira, ou nada.
+    const updated = await db.transaction(async (tx) => {
+      const existingMatches = await tx.select({ id: matches.id }).from(matches).where(eq(matches.drawId, drawId))
+      const matchIds = existingMatches.map((m) => m.id)
+      if (matchIds.length) {
+        await tx.delete(matchResults).where(inArray(matchResults.matchId, matchIds))
+      }
+      await tx.delete(matches).where(eq(matches.drawId, drawId))
+      await tx.insert(matches).values(matchDefs)
 
-    const [updated] = await db.update(draws)
-      .set({ drawMode: mode, published: false, generatedAt: new Date(), updatedAt: new Date() })
-      .where(eq(draws.id, drawId))
-      .returning()
+      const [row] = await tx.update(draws)
+        .set({ drawMode: mode, published: false, generatedAt: new Date(), updatedAt: new Date() })
+        .where(eq(draws.id, drawId))
+        .returning()
+      return row
+    })
 
     return reply.status(200).send({ draw: updated, matchCount: matchDefs.length, mode })
   })
@@ -247,13 +232,13 @@ export async function drawsRoutes(app: FastifyInstance) {
 
       const regIds = [...placementByReg.keys()]
       if (!regIds.length) continue
-      const regs = await db.select().from(tournamentRegistrations).where(inArray(tournamentRegistrations.id, regIds))
+      const regs = await selectRegistrations(inArray(tournamentRegistrations.id, regIds), { includeDeleted: true })
 
       const allAthleteIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
       const athleteRows = allAthleteIds.length ? await db.select().from(athletes).where(inArray(athletes.id, allAthleteIds)) : []
       const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
 
-      const isDoubles = DOUBLES_DISCIPLINES.has(category.discipline)
+      const isDoubles = isDoublesDiscipline(category.discipline)
 
       for (const [regId, placement] of placementByReg.entries()) {
         const reg = regs.find((r) => r.id === regId)
