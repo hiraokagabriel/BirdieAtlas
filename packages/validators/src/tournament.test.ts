@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  TOURNAMENT_LEVELS,
+  TOURNAMENT_LEVEL_LABELS,
   TOURNAMENT_STATUSES,
+  TOURNAMENT_STATUS_LABELS,
   canTransitionTournament,
   dedicatedTransitionEndpoint,
   tournamentTransitionBodySchema,
@@ -41,5 +44,18 @@ describe("tournament lifecycle", () => {
     expect(tournamentTransitionBodySchema.safeParse({ to: "registration_open" }).success).toBe(true);
     expect(tournamentTransitionBodySchema.safeParse({ to: "archived" }).success).toBe(false);
     expect(tournamentTransitionBodySchema.safeParse({ to: "draft", extra: 1 }).success).toBe(false);
+  });
+});
+
+describe("tournament labels", () => {
+  it("has a Portuguese label for every level and status", () => {
+    for (const level of TOURNAMENT_LEVELS) {
+      expect(TOURNAMENT_LEVEL_LABELS[level]).toMatch(/\S/);
+    }
+    for (const status of TOURNAMENT_STATUSES) {
+      expect(TOURNAMENT_STATUS_LABELS[status]).toMatch(/\S/);
+    }
+    expect(TOURNAMENT_LEVEL_LABELS.international).toBe("Internacional");
+    expect(TOURNAMENT_LEVEL_LABELS.state).toBe("Estadual");
   });
 });

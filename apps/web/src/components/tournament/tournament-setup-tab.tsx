@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
-import { TOURNAMENT_LEVELS, type TournamentLevel } from '@birdie-atlas/validators'
+import { TOURNAMENT_LEVELS, TOURNAMENT_LEVEL_LABELS as LEVEL_LABELS, type TournamentLevel } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { Save, Plus, Check, AlertTriangle } from 'lucide-react'
 
@@ -17,9 +17,6 @@ type Category = { id: string; name: string; discipline: string; maxEntries: numb
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 const DISCIPLINE_LABELS: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.', MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Misto',
-}
-const LEVEL_LABELS: Record<TournamentLevel, string> = {
-  local: 'Municipal', regional: 'Regional', state: 'Estadual', national: 'Nacional', international: 'Internacional',
 }
 
 const inputCls = 'w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring'

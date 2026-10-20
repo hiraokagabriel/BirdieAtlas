@@ -16,6 +16,25 @@ export const tournamentLevelSchema = z.enum(TOURNAMENT_LEVELS);
 export type TournamentLevel = z.infer<typeof tournamentLevelSchema>;
 export type TournamentStatus = z.infer<typeof tournamentStatusSchema>;
 
+/** Rótulos em português do nível do torneio. Fonte única para telas administrativas e públicas. */
+export const TOURNAMENT_LEVEL_LABELS: Record<TournamentLevel, string> = {
+  local: "Municipal",
+  regional: "Regional",
+  state: "Estadual",
+  national: "Nacional",
+  international: "Internacional",
+};
+
+/** Rótulos em português do status do torneio. */
+export const TOURNAMENT_STATUS_LABELS: Record<TournamentStatus, string> = {
+  draft: "Rascunho",
+  registration_open: "Inscrições abertas",
+  registration_closed: "Inscrições encerradas",
+  in_progress: "Em andamento",
+  completed: "Encerrado",
+  cancelled: "Cancelado",
+};
+
 /**
  * Ciclo de vida do torneio. Fonte única para API e web.
  * - Avança em ordem: rascunho → inscrições abertas → inscrições encerradas → em andamento → encerrado.
