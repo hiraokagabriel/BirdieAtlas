@@ -86,7 +86,7 @@ A navegação existe só para admin e público e vem de `apps/web/src/lib/naviga
 
 ## Contratos da API
 
-A API roda em `http://localhost:3001`, sem prefixo `/api`.
+A API roda em `http://localhost:3001`, sem prefixo `/api`. O web a chama direto do navegador, então o CORS precisa liberar `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` e `OPTIONS` (o padrão do `@fastify/cors` libera só `GET`, `HEAD` e `POST`, e o navegador bloquearia toda escrita que não é `POST`). Teste de escrita com `curl` não pega esse problema: confira no navegador.
 
 ### Erros
 
@@ -128,14 +128,15 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Clubes | `GET/POST /clubs`, `GET/PUT/DELETE /clubs/:id`, `GET /clubs/by-slug/:slug`, `GET /clubs/:id/profile` |
 | Duplas | `GET/POST /pairs`, `GET/PUT/DELETE /pairs/:id` (desativar é `PUT { active: false }`) |
 | Torneios | `GET/POST /tournaments`, `GET/PUT/DELETE /tournaments/:id`, `GET /tournaments/by-slug/:slug`, `GET /tournaments/:id/public-summary`, `POST /tournaments/:id/transition`, `POST /tournaments/:id/finalize`, `POST /tournaments/:id/reopen` |
-| Categorias e inscrições | `GET/POST /tournaments/:id/categories`, `GET /tournaments/categories/:categoryId/registrations`, `POST /tournaments/categories/:categoryId/register`, `PUT /tournaments/registrations/:registrationId/confirm`, `DELETE /tournaments/registrations/:registrationId` |
+| Categorias | `GET/POST /tournaments/:id/categories` |
+| Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
 | Tabelas de pontos (legado) | `GET/POST /points-tables`, `POST /points-tables/bulk`, `GET /points-tables/:id/rows`, `PUT/DELETE /points-tables/:id` |
 | Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
 | Dashboard | `GET /dashboard/stats`, `GET /dashboard/recent-matches`, `GET /dashboard/upcoming-matches` |
 
-O contrato de inscrições que substitui os endpoints atuais (PR 3b) está em [`api/tournament-registrations.md`](api/tournament-registrations.md).
+O contrato detalhado de inscrições está em [`api/tournament-registrations.md`](api/tournament-registrations.md).
 
 ## Modelo de dados
 
@@ -152,6 +153,7 @@ Enums:
 | `draw_type` | `single_elimination`, `round_robin`, `group_then_elimination` |
 | `match_status` | `pending`, `in_progress`, `completed`, `walkover`, `retired` |
 | `ranking_status` | `active`, `inactive`, `archived` |
+| `registration_status` | `pending`, `approved`, `rejected` |
 
 Tabelas:
 
@@ -164,7 +166,7 @@ Tabelas:
 | `pairs` | Dupla de dois atletas numa disciplina |
 | `tournaments` | Torneio de um tenant, com status, nível e `pointsAwarded`; slug único |
 | `tournament_categories` | Categoria de um torneio: disciplina, formato, limite de inscrições, número de cabeças de chave |
-| `tournament_registrations` | Inscrição numa categoria: atleta (e parceiro, em duplas), seed, `confirmed`, `withdrew` |
+| `tournament_registrations` | Inscrição numa categoria: `athleteId` (simples) XOR `pairId` (duplas, constraint `registrations_athlete_xor_pair`), seed, `status` e `notes`. Índices únicos parciais impedem o mesmo atleta ou dupla duas vezes na categoria (recusadas e excluídas não ocupam a vaga) |
 | `draws` | Chave de uma categoria; `published` bloqueia o ressorteio |
 | `matches` | Partida: `round`, `position`, duas inscrições, `nextMatchId`, status, agenda e quadra |
 | `match_results` | Um registro por set |
@@ -178,7 +180,6 @@ Soft delete (`deletedAt`) vale para atletas, clubes, torneios, categorias, inscr
 
 Mudanças já decididas (ver [`REDESIGN.md`](REDESIGN.md)):
 
-- **PR 3b:** inscrições ganham `status` (`pending`, `approved`, `rejected`) e `notes` no lugar de `confirmed`/`withdrew`, e referenciam `athleteId` XOR `pairId` no lugar de `athlete2Id`.
 - **PR 3c:** `points_tables` é aposentada; `award-points` e o motor de ranking usam só `point_rules`.
 
 ## Regras de negócio
@@ -186,7 +187,7 @@ Mudanças já decididas (ver [`REDESIGN.md`](REDESIGN.md)):
 ### Atletas, clubes e duplas
 
 - Um atleta tem no máximo um clube ativo por vez (`409 ACTIVE_AFFILIATION_EXISTS`). Afiliações são históricas: encerram com `endedAt`.
-- Gênero por disciplina: `MS`/`MD` só masculino, `WS`/`WD` só feminino, `XD` um de cada. A interface filtra os atletas na inscrição, e `award-points` e o ranking ignoram combinações incompatíveis. A API de inscrição ainda não valida essa regra.
+- Gênero por disciplina: `MS`/`MD` só masculino, `WS`/`WD` só feminino, `XD` um de cada. A API de inscrição valida a regra (`422 GENDER_INCOMPATIBLE`), a interface filtra os atletas, e `award-points` e o ranking continuam ignorando combinações incompatíveis. A regra mora em `apps/api/src/domain/eligibility.ts`.
 
 ### Ciclo de vida do torneio
 
@@ -202,13 +203,17 @@ draft → registration_open → registration_closed → in_progress → complete
 
 ### Inscrições
 
-- Uma inscrição referencia um atleta ou uma dupla, nunca os dois (regra em vigor a partir do PR 3b).
-- `rejected` exige motivo em `notes`. Aprovar é idempotente.
-- Regras de domínio em `apps/api/src/domain/registration-rules.ts` e schemas em `packages/validators`.
+- Uma inscrição referencia um atleta (categorias de simples) ou uma dupla (categorias de duplas), nunca os dois. Quem inscreve duplas informa `pairId` ou os dois atletas; neste caso a dupla é reaproveitada se já existir (mesmo tenant e disciplina, em qualquer ordem) ou criada. Dupla inativa recusa inscrição (`409 PAIR_INACTIVE`).
+- Estados: `pending` (ao inscrever), `approved` (única que entra na chave) e `rejected` (exige motivo em `notes`, que nunca aparece nas rotas públicas). Transições: `pending → approved | rejected`, `approved → pending | rejected`, `rejected → pending`. Aprovar é idempotente.
+- Elegibilidade na hora de inscrever (`apps/api/src/domain/eligibility.ts`): número de atletas coerente com a disciplina, regra de gênero, atleta ativo, atleta fora de outra inscrição ativa da categoria (sozinho ou em dupla: `409 ATHLETE_ALREADY_REGISTERED`) e vaga livre (`409 CATEGORY_FULL`). A checagem roda sob lock da linha da categoria, para que inscrições simultâneas não passem juntas pelo limite.
+- Quem já está numa chave não pode ser recusado, movido de categoria nem removido (`409 REGISTRATION_IN_DRAW`): refaça a chave antes. Só se muda de categoria dentro do mesmo torneio e da mesma disciplina.
+- Torneio encerrado ou cancelado recusa qualquer alteração (`409 TOURNAMENT_LOCKED`).
+- A lista pública de uma categoria esconde recusadas e `notes`; a lista administrativa (`GET /registrations/tournament/:id`, exige modo admin) mostra tudo, paginada, com filtros `status` e `categoryId`.
+- Regras de domínio em `apps/api/src/domain` (`registration-rules.ts`, `eligibility.ts`), schemas em `packages/validators`. O código lê atletas de uma inscrição por `selectRegistrations` (`apps/api/src/db/registrations.ts`), que resolve `athleteId`/`athlete2Id` pela dupla; não leia as colunas direto.
 
 ### Chaves
 
-- Só eliminação simples está implementada. A chave tem tamanho da próxima potência de 2 acima do número de inscritos confirmados; vagas vazias viram byes.
+- Só eliminação simples está implementada. A chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
 - Modos de sorteio: aleatório e com cabeças de chave (cabeças 1 e 2 em extremos opostos, 3 e 4 sorteadas entre as metades, 5 a 8 entre os quartos).
 - **Rodadas contam até a final:** a rodada de número mais alto é a primeira fase e a rodada 1 é a final. Cada partida aponta para a seguinte por `nextMatchId`; a vencedora da posição `p` ocupa o slot 1 (se `p` for ímpar) ou 2 (se par) da posição `ceil(p/2)` na rodada seguinte. O gerador fica em `apps/api/src/domain/bracket.ts` e é usado pela API e pelo seed.
 - Bye é uma partida da primeira fase com um único inscrito e status `walkover`; o inscrito avança na hora.

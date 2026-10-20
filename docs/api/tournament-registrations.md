@@ -1,79 +1,77 @@
 # Contrato de inscrições em torneios
 
-> Status: contrato definido em `packages/validators` e `apps/api/src/domain/registration-rules.ts`. Os endpoints entram no PR 3 do redesign (ver `docs/REDESIGN.md`), junto com as colunas `status`/`notes` e a referência XOR a dupla.
+> Status: implementado. Schemas em `packages/validators/src/registration.ts`; regras em `apps/api/src/domain` (`registration-rules.ts`, `eligibility.ts`); rotas em `apps/api/src/routes/registrations.ts`. A especificação geral está em [`ESPECIFICACAO_COMPLETA.md`](../ESPECIFICACAO_COMPLETA.md).
 
-## Objetivo
+## Modelo
 
-Padronizar o contrato utilizado pelo frontend e pela API para consulta, edição e aprovação de inscrições.
+Uma inscrição pertence a uma categoria e referencia exatamente um atleta (`athleteId`, categorias de simples) ou uma dupla (`pairId`, categorias de duplas). Na resposta, `athleteId` e `athlete2Id` são sempre os atletas da inscrição: em duplas, os da dupla.
 
-## Regras de domínio
+Estados: `pending` (ao inscrever), `approved` (única que entra na chave) e `rejected` (exige motivo em `notes`).
 
-- Uma inscrição deve referenciar exatamente um atleta ou uma dupla.
-- `pending` representa uma inscrição aguardando revisão.
-- `approved` representa uma inscrição validada e elegível para fechamento da categoria.
-- `rejected` representa uma inscrição recusada e deve possuir um motivo em `notes`.
-- A aprovação é idempotente e não pode duplicar pontos ou eventos.
-- Inscrições de torneios publicados ou finalizados ficam bloqueadas para edição comum.
-- Campos desconhecidos devem ser rejeitados pelos schemas de entrada.
+| De | Para |
+|---|---|
+| `pending` | `approved`, `rejected` |
+| `approved` | `pending`, `rejected` |
+| `rejected` | `pending` |
 
-## Consulta
+Campos desconhecidos são rejeitados (`400 VALIDATION_ERROR`).
 
-`GET /registrations/tournament/:tournamentId`
+## Inscrever
 
-Query params:
+`POST /tournaments/categories/:categoryId/register`
 
-- `status`: `pending`, `approved` ou `rejected`.
-- `page`: página iniciando em 1.
-- `pageSize`: de 1 a 100, padrão 25.
+```json
+{ "athleteId": "…", "seed": 2 }
+```
 
-## Atualização
+Simples: só `athleteId`. Duplas: `pairId`, ou `athleteId` + `athlete2Id` (a dupla é reaproveitada ou criada). `seed` é opcional. Responde `201` com a inscrição `pending`.
+
+| Status | Código | Quando |
+|---|---|---|
+| 404 | `CATEGORY_NOT_FOUND`, `TOURNAMENT_NOT_FOUND`, `PAIR_NOT_FOUND`, `ATHLETE_NOT_FOUND` | Recurso inexistente ou excluído |
+| 409 | `TOURNAMENT_LOCKED` | Torneio encerrado ou cancelado |
+| 422 | `WRONG_PARTICIPANT_COUNT` | Atletas demais ou de menos para a disciplina |
+| 422 | `GENDER_INCOMPATIBLE`, `ATHLETE_INACTIVE`, `PAIR_DISCIPLINE_MISMATCH` | Regra de elegibilidade |
+| 409 | `ATHLETE_ALREADY_REGISTERED` | Atleta já em outra inscrição ativa da categoria, sozinho ou em dupla |
+| 409 | `CATEGORY_FULL` | Limite de vagas (`maxEntries`) atingido |
+| 409 | `PAIR_INACTIVE` | A dupla existe, mas está inativa |
+
+A verificação roda sob lock da linha da categoria: inscrições simultâneas não passam juntas pelo limite de vagas.
+
+## Consultar
+
+**Público:** `GET /tournaments/categories/:categoryId/registrations` devolve a lista completa (sem paginação) das inscrições `pending` e `approved`, com `athleteName`/`athlete2Name`. Nunca devolve `notes` nem inscrições recusadas.
+
+**Admin:** `GET /registrations/tournament/:tournamentId` (exige modo admin) devolve `{ data, pagination }` com todas as inscrições, inclusive recusadas e com `notes`.
+
+Query: `status` (`pending`, `approved`, `rejected`), `categoryId`, `page` (a partir de 1) e `pageSize` (1 a 100, padrão 25).
+
+## Atualizar
 
 `PATCH /registrations/:registrationId`
 
-Body:
-
 ```json
-{
-  "categoryId": "category-id",
-  "status": "approved",
-  "notes": "Pagamento conferido"
-}
+{ "status": "rejected", "notes": "Documento inválido" }
 ```
 
-O body deve conter ao menos um campo. Se `status` for `rejected`, `notes` deve conter o motivo da rejeição. O backend deve validar a elegibilidade antes de aceitar a troca de categoria ou aprovação.
+Campos: `categoryId`, `status`, `notes`; ao menos um. `rejected` exige `notes`. `categoryId` só aceita categoria do mesmo torneio e da mesma disciplina.
 
-## Aprovação
+| Status | Código | Quando |
+|---|---|---|
+| 404 | `REGISTRATION_NOT_FOUND` | Inscrição inexistente |
+| 409 | `TOURNAMENT_LOCKED` | Torneio encerrado ou cancelado |
+| 422 | `INVALID_REGISTRATION_TRANSITION` | Transição fora da tabela acima |
+| 422 | `INVALID_REGISTRATION_CATEGORY` | Categoria de outro torneio ou disciplina |
+| 409 | `REGISTRATION_IN_DRAW` | Recusar ou mover quem já está numa chave |
 
-`POST /registrations/:registrationId/approve`
+## Aprovar
 
-Body opcional:
+`POST /registrations/:registrationId/approve`, body opcional `{ "notes": "…" }`. Idempotente: aprovar uma inscrição já aprovada devolve a inscrição como está. Os mesmos erros de `PATCH` valem.
 
-```json
-{
-  "notes": "Documentação conferida"
-}
-```
+## Remover
 
-A aprovação deve ser idempotente: aprovar uma inscrição já aprovada não pode duplicar eventos, pontos ou registros relacionados.
+`DELETE /tournaments/registrations/:registrationId` faz soft delete (`204`). Recusa com `409 TOURNAMENT_LOCKED` ou `409 REGISTRATION_IN_DRAW`.
 
-## Auditoria
+## Pendente
 
-Toda criação, atualização, aprovação ou rejeição deve produzir um evento com:
-
-- ação;
-- inscrição;
-- usuário responsável;
-- status anterior;
-- status seguinte;
-- motivo;
-- data e hora.
-
-## Erros
-
-```json
-{
-  "error": "A inscrição não pode ser aprovada.",
-  "code": "REGISTRATION_NOT_ELIGIBLE",
-  "details": {}
-}
-```
+**Auditoria** (quem aprovou ou recusou, quando, e o motivo) depende de identidade de usuário e entra junto com o Clerk. Hoje só `notes` e `updatedAt` registram o que aconteceu.

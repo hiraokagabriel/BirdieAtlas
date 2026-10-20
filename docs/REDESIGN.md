@@ -102,6 +102,18 @@ Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-
 - Desativar dupla agora é `PUT { active: false }`; `DELETE` exclui.
 - A aba de configurações do torneio oferecia níveis (`municipal`, `estadual`…) que nunca casavam com os valores gravados e um seletor de status que a API ignorava; agora usa o enum compartilhado e o status só muda pelo ciclo de vida.
 
+### PR 3b — Inscrições
+
+- **Duas migrations (expandir e contrair)**, para poder testar o backfill com dados reais antes de apagar colunas. A `0001` adiciona `pair_id`, `status` e `notes`, torna `athlete_id` opcional e faz o backfill: `confirmed`/`withdrew` viram `status` (recusada recebe o motivo "Desistência registrada antes da migração"), cada par de atletas de duplas vira uma linha em `pairs` (reaproveitando duplas já existentes, preservando a ordem original dos atletas) e a inscrição aponta para ela. Dados inconsistentes (simples com parceiro, dupla sem parceiro) abortam a migração em vez de serem adivinhados. A `0002` remove `athlete2_id`, `confirmed` e `withdrew` e cria a constraint XOR e os índices únicos.
+- Verificado antes de apagar as colunas, em banco populado (559 inscrições, 319 de duplas): mesmos atletas em cada dupla, simples intactas, status iguais às flags antigas e nenhuma linha perdida.
+- Uma única porta de leitura, `selectRegistrations` (`apps/api/src/db/registrations.ts`), resolve os atletas pela dupla. Chaves, pontos, ranking, dashboard e perfil do atleta passam por ela; nenhum código lê `athleteId`/`pairId` direto.
+- Regras de elegibilidade em `apps/api/src/domain/eligibility.ts`, que também substituiu três cópias das mesmas funções de gênero e disciplina (em `draws.ts` e `rankings.ts`).
+- Inscrever roda numa transação que trava a linha da categoria. Teste com 5 inscrições simultâneas para a última vaga: 1 vence, 4 recebem 409.
+- A interface de inscrições antes não tinha como aprovar nada (só `confirmed: true` por rota que nenhuma tela chamava), então uma inscrição nova nunca entrava na chave. Agora há aprovar, recusar com motivo, reabrir e remover.
+- Refazer a chave apagava as partidas antes de validar que havia 2 inscritos aprovados; agora valida primeiro e troca a chave numa transação.
+- O CORS só liberava GET, HEAD e POST, então o navegador bloqueava todo PUT, PATCH e DELETE da API. Passou despercebido porque os testes eram feitos com `curl`, que não passa por CORS.
+- Fora do escopo: auditoria de quem aprovou ou recusou depende de identidade de usuário e entra com o Clerk.
+
 ### PR 5 — Documentação
 
 - A especificação foi reescrita a partir do código: stack real (Next.js 16, Fastify 5), rotas `/admin` e públicas, contratos, schema, regras de negócio e convenções. As regras do antigo `CONTEXT.md` entraram nela e no `CLAUDE.md` da raiz.
