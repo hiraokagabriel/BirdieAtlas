@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
 import { TOURNAMENT_LEVELS, type TournamentLevel } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
-import { Save, Plus, Trash2, Check, AlertTriangle } from 'lucide-react'
+import { Save, Plus, Check, AlertTriangle } from 'lucide-react'
 
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: TournamentLevel
   startDate: string; endDate: string; city: string | null; state: string | null
-  location: string | null; tenantId: string; pointsTableId: string | null; pointsAwarded: boolean
+  location: string | null; tenantId: string; pointsAwarded: boolean
 }
 type Category = { id: string; name: string; discipline: string; maxEntries: number | null; seedCount: number }
-type PointsRow = { id?: string; placement: number; points: number }
 
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 const DISCIPLINE_LABELS: Record<string, string> = {
@@ -21,8 +21,6 @@ const DISCIPLINE_LABELS: Record<string, string> = {
 const LEVEL_LABELS: Record<TournamentLevel, string> = {
   local: 'Municipal', regional: 'Regional', state: 'Estadual', national: 'Nacional', international: 'Internacional',
 }
-const DEFAULT_PLACEMENTS = [1, 2, 3, 4, 5, 6, 7, 8]
-const DEFAULT_POINTS: Record<number, number> = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 20, 6: 15, 7: 10, 8: 5 }
 
 const inputCls = 'w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
 const selectCls = 'w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer'
@@ -79,62 +77,6 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
     } catch { setCatError('Erro ao criar categoria') }
     finally { setCatSaving(false) }
   }
-
-  // ── Tabela de pontos ──────────────────────────────────────────
-  const [pointsRows, setPointsRows] = useState<PointsRow[]>(
-    DEFAULT_PLACEMENTS.map((p) => ({ placement: p, points: DEFAULT_POINTS[p] ?? 0 }))
-  )
-  const [pointsLoaded, setPointsLoaded] = useState(false)
-  const [pointsSaved, setPointsSaved] = useState(false)
-  const [pointsTableName, setPointsTableName] = useState(`${tournament.name} - ${tournament.level}`)
-
-  useEffect(() => {
-    if (!tournament.pointsTableId || pointsLoaded) return
-    apiFetch<PointsRow[]>(`/points-tables/${tournament.pointsTableId}/rows`)
-      .then((rows) => {
-        if (rows.length) setPointsRows(rows.map((r) => ({ id: r.id, placement: r.placement, points: r.points })))
-        setPointsLoaded(true)
-      })
-      .catch(() => setPointsLoaded(true))
-  }, [tournament.pointsTableId, pointsLoaded])
-
-  const pointsMutation = useMutation({
-    mutationFn: async () => {
-      // 1. Salva tabela bulk
-      const rows = await apiFetch<PointsRow[]>('/points-tables/bulk', {
-        method: 'POST',
-        json: {
-          name: pointsTableName.trim() || `${tournament.name} - ${tournament.level}`,
-          tournamentLevel: tournament.level,
-          rows: pointsRows.filter((r) => r.points > 0).map((r) => ({ placement: r.placement, points: r.points })),
-        },
-      }) as PointsRow[]
-      // 2. Vincula a primeira linha ao torneio como pointsTableId
-      if (rows.length) {
-        await apiFetch(`/tournaments/${tournament.id}`, {
-          method: 'PUT',
-          json: { pointsTableId: rows[0].id },
-        })
-      }
-      return rows
-    },
-    onSuccess: () => { setPointsSaved(true); setTimeout(() => setPointsSaved(false), 2000); onRefresh() },
-  })
-
-  function updatePoints(placement: number, value: string) {
-    setPointsRows((prev) => prev.map((r) => r.placement === placement ? { ...r, points: Number(value) || 0 } : r))
-  }
-
-  function addPlacement() {
-    const next = Math.max(...pointsRows.map((r) => r.placement)) + 1
-    setPointsRows((prev) => [...prev, { placement: next, points: 0 }])
-  }
-
-  function removePlacement(placement: number) {
-    setPointsRows((prev) => prev.filter((r) => r.placement !== placement))
-  }
-
-  const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -250,64 +192,20 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
 
       <div className="border-t border-border" />
 
-      {/* ── Tabela de pontos ── */}
-      <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Tabela de pontos</h3>
-          <p className="text-xs text-muted-foreground mt-1">Define quantos pontos cada colocação vale neste campeonato.</p>
-        </div>
-
+      {/* ── Pontuação ── */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pontuação de ranking</h3>
+        <p className="text-sm text-muted-foreground">
+          Quantos pontos cada colocação vale é definido por ranking, no nível do torneio (<span className="font-medium text-foreground">{LEVEL_LABELS[tournament.level]}</span>).
+          Configure em <Link href="/admin/rankings" className="font-medium text-primary hover:underline">Rankings</Link>, aba Regras de pontos.
+          Quando todas as partidas terminarem, distribua os pontos na aba Chaveamento.
+        </p>
         {tournament.pointsAwarded && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-            <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-yellow-700">Pontos já foram distribuídos. Alterar a tabela não recalcula retroativamente — use &quot;Reabrir campeonato&quot; para isso.</p>
+            <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-xs text-yellow-700">Os pontos já foram distribuídos. Mudar as regras não recalcula: reabra o campeonato para tirar os pontos dos rankings e distribua de novo.</p>
           </div>
         )}
-
-        <div className="space-y-1">
-          <label className="text-xs font-medium">Nome da tabela</label>
-          <input value={pointsTableName} onChange={(e) => setPointsTableName(e.target.value)} className={inputCls} />
-        </div>
-
-        <div className="rounded-xl border border-border overflow-hidden">
-          <div className="grid grid-cols-[1fr_1fr_auto] text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2 bg-muted/30 border-b border-border">
-            <span>Colocação</span><span>Pontos</span><span />
-          </div>
-          {pointsRows.map((row) => (
-            <div key={row.placement} className="grid grid-cols-[1fr_1fr_auto] items-center px-4 py-2 border-b border-border last:border-0">
-              <span className="text-sm">{medals[row.placement] ?? `${row.placement}º`}</span>
-              <input
-                type="number"
-                min={0}
-                value={row.points}
-                onChange={(e) => updatePoints(row.placement, e.target.value)}
-                className="h-8 w-24 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              <button onClick={() => removePlacement(row.placement)} className="ml-3 p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <button
-            onClick={addPlacement}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Adicionar colocação
-          </button>
-          <button
-            onClick={() => pointsMutation.mutate()}
-            disabled={pointsMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
-            {pointsSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            {pointsSaved ? 'Salvo!' : pointsMutation.isPending ? 'Salvando...' : 'Salvar tabela'}
-          </button>
-        </div>
-        {pointsMutation.isError && <p className="text-xs text-red-500">Erro ao salvar tabela de pontos.</p>}
       </section>
     </div>
   )

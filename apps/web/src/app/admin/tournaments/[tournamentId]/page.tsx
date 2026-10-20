@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation'
 type Tournament = {
   id: string; name: string; slug: string; status: TournamentStatus; level: TournamentLevel
   startDate: string; endDate: string; city: string; state: string; location: string
-  pointsAwarded: boolean; tenantId: string; pointsTableId: string | null
+  pointsAwarded: boolean; tenantId: string
 }
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number; maxEntries: number | null }
 
