@@ -154,7 +154,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
         ))}
       </div>
 
-      {tab === 'registrations' && <RegistrationsTab tournamentId={tournament.id} categories={categories} />}
+      {tab === 'registrations' && <RegistrationsTab tournamentId={tournament.id} tournamentStatus={tournament.status} categories={categories} />}
       {tab === 'bracket'       && <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} />}
       {tab === 'schedule'      && <ScheduleView tournamentId={tournament.id} categories={categories} />}
       {tab === 'setup'         && (

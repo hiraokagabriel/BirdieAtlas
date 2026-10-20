@@ -41,7 +41,6 @@ type RankingPosition = {
 type TournamentEntry = {
   registrationId: string
   seed: number | null
-  withdrew: boolean
   finalPlacement: number | null
   categoryId: string
   categoryName: string
@@ -393,11 +392,6 @@ export default function PublicAthletePage({ params }: { params: Promise<{ athlet
                     {entry.seed !== null && (
                       <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
                         #{entry.seed}
-                      </span>
-                    )}
-                    {entry.withdrew && (
-                      <span className="text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5">
-                        Retirada
                       </span>
                     )}
                   </div>
