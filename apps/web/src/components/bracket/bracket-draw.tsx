@@ -84,11 +84,11 @@ function getMatchScore(match: Match, results: MatchResult[]): string {
 }
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
-  pending:     { label: 'Aguardando', dot: 'bg-gray-300' },
-  in_progress: { label: 'Ao vivo',    dot: 'bg-green-500 animate-pulse' },
+  pending:     { label: 'Aguardando', dot: 'bg-muted-foreground/40' },
+  in_progress: { label: 'Ao vivo',    dot: 'bg-success animate-pulse' },
   completed:   { label: 'Encerrada',  dot: 'bg-blue-400' },
-  walkover:    { label: 'W.O.',       dot: 'bg-yellow-400' },
-  retired:     { label: 'Ret.',       dot: 'bg-red-400' },
+  walkover:    { label: 'W.O.',       dot: 'bg-warning' },
+  retired:     { label: 'Ret.',       dot: 'bg-destructive' },
 }
 
 export function BracketDraw({ matches, registrations, results, activeCategory, drawId, readonly = false }: Props) {
@@ -190,7 +190,7 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
                             }`}>
                               {p1.name}
                             </span>
-                            {winner === 1 && <Trophy className="w-3 h-3 shrink-0 text-yellow-500" />}
+                            {winner === 1 && <Trophy className="w-3 h-3 shrink-0 text-warning" />}
                           </div>
 
                           {/* Slot 2 */}
@@ -207,7 +207,7 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
                             }`}>
                               {p2.name}
                             </span>
-                            {winner === 2 && <Trophy className="w-3 h-3 shrink-0 text-yellow-500" />}
+                            {winner === 2 && <Trophy className="w-3 h-3 shrink-0 text-warning" />}
                           </div>
 
                           {/* Status bar */}
@@ -258,7 +258,7 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
                     } ${
                       disciplineWinner[activeCategory?.discipline ?? '']
                     } shadow-md`}>
-                      <Trophy className="w-4 h-4 text-yellow-500 shrink-0" />
+                      <Trophy className="w-4 h-4 text-warning shrink-0" />
                       <span className="text-sm font-bold">{champ.name}</span>
                     </div>
                   </div>

@@ -56,9 +56,9 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   const entry = payload[0]
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{entry.payload.name}</p>
-      <p className="text-sm text-gray-600 dark:text-gray-300">
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
+      <p className="text-sm font-semibold text-popover-foreground">{entry.payload.name}</p>
+      <p className="text-sm text-muted-foreground">
         <span className="font-medium" style={{ color: entry.fill }}>{entry.value}</span>{' pts'}
       </p>
     </div>
@@ -119,7 +119,7 @@ export function RankingChart() {
                 onClick={() => setActive(cat)}
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   active === cat
-                    ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
+                    ? 'bg-card text-card-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

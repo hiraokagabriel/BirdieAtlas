@@ -20,12 +20,12 @@ type Tournament = {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Rascunho', className: 'bg-gray-100 text-gray-600' },
+  draft: { label: 'Rascunho', className: 'bg-muted text-muted-foreground' },
   registration_open: { label: 'Inscrições abertas', className: 'bg-blue-100 text-blue-700' },
-  registration_closed: { label: 'Inscrições encerradas', className: 'bg-yellow-100 text-yellow-700' },
-  in_progress: { label: 'Em andamento', className: 'bg-green-100 text-green-700' },
-  completed: { label: 'Encerrado', className: 'bg-gray-100 text-gray-500' },
-  cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-600' },
+  registration_closed: { label: 'Inscrições encerradas', className: 'bg-warning/10 text-warning' },
+  in_progress: { label: 'Em andamento', className: 'bg-success/10 text-success' },
+  completed: { label: 'Encerrado', className: 'bg-muted text-muted-foreground' },
+  cancelled: { label: 'Cancelado', className: 'bg-destructive/10 text-destructive' },
 }
 
 export default async function TournamentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
@@ -43,7 +43,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {tournaments.map((t) => {
-          const status = statusConfig[t.status] ?? { label: t.status, className: 'bg-gray-100 text-gray-600' }
+          const status = statusConfig[t.status] ?? { label: t.status, className: 'bg-muted text-muted-foreground' }
           return (
             <Link key={t.id} href={`/admin/tournaments/${t.id}`}>
               <Card className="hover:shadow-md hover:border-primary/30 transition-all cursor-pointer h-full">

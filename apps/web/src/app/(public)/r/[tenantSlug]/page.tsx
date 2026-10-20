@@ -39,9 +39,9 @@ const disciplineActiveColors: Record<string, string> = {
 }
 
 function PositionBadge({ pos }: { pos: number }) {
-  if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400 text-yellow-900 font-bold text-sm">🥇</span>
-  if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 text-gray-800 font-bold text-sm">🥈</span>
-  if (pos === 3) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-600/80 text-white font-bold text-sm">🥉</span>
+  if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
+  if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
+  if (pos === 3) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-bronze text-medal-bronze-foreground font-bold text-sm">🥉</span>
   return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
 }
 
@@ -81,7 +81,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
       {/* Hero */}
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8 space-y-2">
         <div className="flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-yellow-500" />
+          <Trophy className="w-6 h-6 text-warning" />
           <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
         </div>
         <p className="text-sm text-muted-foreground">Classificação oficial dos atletas filiados à federação</p>
@@ -94,7 +94,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
           const color = isActive ? disciplineActiveColors[r.discipline] : disciplineColors[r.discipline]
           return (
             <button key={r.id} onClick={() => selectRanking(r.id)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-muted text-muted-foreground border-border'}`}
             >
               {disciplineLabel[r.discipline] ?? r.discipline}
             </button>
@@ -134,7 +134,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
               return (
                 <div key={entry.id}
                   className={`grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 ${
-                    isTop3 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
+                    isTop3 ? 'bg-medal-gold/10' : ''
                   }`}
                 >
                   <div className="flex items-center">
@@ -169,7 +169,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
 
                   <div className="flex items-center justify-end">
                     <span className={`font-semibold tabular-nums ${
-                      isTop3 ? 'text-yellow-700 dark:text-yellow-400 text-base' : 'text-sm text-foreground'
+                      isTop3 ? 'text-warning text-base' : 'text-sm text-foreground'
                     }`}>
                       {entry.totalPoints.toLocaleString('pt-BR')}
                     </span>

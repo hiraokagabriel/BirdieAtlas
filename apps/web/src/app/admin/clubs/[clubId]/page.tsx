@@ -299,7 +299,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                       ))}
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          athlete.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                          athlete.active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
                         }`}>
                           {athlete.active ? 'Ativo' : 'Inativo'}
                         </span>

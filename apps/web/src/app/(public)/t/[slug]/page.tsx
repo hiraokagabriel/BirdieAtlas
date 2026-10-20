@@ -46,11 +46,11 @@ type MatchResult = { matchId: string; setNumber: number; score1: number; score2:
 // Constantes
 // ---------------------------------------------------------------------------
 const statusMap: Record<string, { label: string; color: string; dot: string }> = {
-  draft:                { label: 'Rascunho',              color: 'text-gray-500',   dot: 'bg-gray-300' },
-  registration_open:    { label: 'Inscrições abertas',    color: 'text-blue-600',   dot: 'bg-blue-400' },
-  registration_closed:  { label: 'Inscrições encerradas', color: 'text-yellow-600', dot: 'bg-yellow-400' },
-  in_progress:          { label: 'Em andamento',          color: 'text-green-600',  dot: 'bg-green-500 animate-pulse' },
-  completed:            { label: 'Encerrado',             color: 'text-gray-500',   dot: 'bg-gray-300' },
+  draft:                { label: 'Rascunho',              color: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
+  registration_open:    { label: 'Inscrições abertas',    color: 'text-info',             dot: 'bg-info' },
+  registration_closed:  { label: 'Inscrições encerradas', color: 'text-warning',          dot: 'bg-warning' },
+  in_progress:          { label: 'Em andamento',          color: 'text-success',          dot: 'bg-success animate-pulse' },
+  completed:            { label: 'Encerrado',             color: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
 }
 
 const disciplineLabel: Record<string, string> = {
@@ -165,13 +165,13 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
           : (r.athleteName ?? '—')}
       </span>
       {r.seed != null && (
-        <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+        <span className="text-xs font-semibold text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">
           #{r.seed}
         </span>
       )}
       {r.status === 'approved'
-        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" aria-label="Aprovada" />
-        : <Clock        className="w-4 h-4 text-yellow-500 shrink-0" aria-label="Pendente" />}
+        ? <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-label="Aprovada" />
+        : <Clock        className="w-4 h-4 text-warning shrink-0" aria-label="Pendente" />}
     </div>
   )
 
@@ -400,7 +400,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
               {activeCategory.athleteCount} atleta{activeCategory.athleteCount !== 1 ? 's' : ''}
             </span>
             {activeCategory.hasPublishedDraw && (
-              <span className="text-xs text-green-600 font-medium">✓ Chave publicada</span>
+              <span className="text-xs text-success font-medium">✓ Chave publicada</span>
             )}
           </div>
           <div className="rounded-xl border border-border bg-card p-4">

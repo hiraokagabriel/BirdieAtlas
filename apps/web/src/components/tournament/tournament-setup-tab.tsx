@@ -176,7 +176,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
               <input type="number" value={newCat.maxEntries} onChange={(e) => setNewCat({ ...newCat, maxEntries: e.target.value })} placeholder="ilimitado" className={inputCls} />
             </div>
           </div>
-          {catError && <p className="text-xs text-red-500">{catError}</p>}
+          {catError && <p className="text-xs text-destructive">{catError}</p>}
           <div className="flex justify-end">
             <button
               onClick={addCategory}
@@ -201,9 +201,9 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
           Quando todas as partidas terminarem, distribua os pontos na aba Chaveamento.
         </p>
         {tournament.pointsAwarded && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-            <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-xs text-yellow-700">Os pontos já foram distribuídos. Mudar as regras não recalcula: reabra o campeonato para tirar os pontos dos rankings e distribua de novo.</p>
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30">
+            <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-xs text-warning">Os pontos já foram distribuídos. Mudar as regras não recalcula: reabra o campeonato para tirar os pontos dos rankings e distribua de novo.</p>
           </div>
         )}
       </section>

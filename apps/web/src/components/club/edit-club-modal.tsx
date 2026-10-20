@@ -114,10 +114,10 @@ export function EditClubModal({ club, open, onClose, onSaved }: Props) {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.name ? 'border-red-400' : 'border-border'
+                errors.name ? 'border-destructive' : 'border-border'
               }`}
             />
-            {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
 
           <div className="space-y-1">
@@ -126,10 +126,10 @@ export function EditClubModal({ club, open, onClose, onSaved }: Props) {
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
               className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring font-mono ${
-                errors.slug ? 'border-red-400' : 'border-border'
+                errors.slug ? 'border-destructive' : 'border-border'
               }`}
             />
-            {errors.slug && <p className="text-xs text-red-500">{errors.slug}</p>}
+            {errors.slug && <p className="text-xs text-destructive">{errors.slug}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -188,10 +188,10 @@ export function EditClubModal({ club, open, onClose, onSaved }: Props) {
               onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
               placeholder="https://..."
               className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.logoUrl ? 'border-red-400' : 'border-border'
+                errors.logoUrl ? 'border-destructive' : 'border-border'
               }`}
             />
-            {errors.logoUrl && <p className="text-xs text-red-500">{errors.logoUrl}</p>}
+            {errors.logoUrl && <p className="text-xs text-destructive">{errors.logoUrl}</p>}
           </div>
 
           <div className="space-y-1">
@@ -201,14 +201,14 @@ export function EditClubModal({ club, open, onClose, onSaved }: Props) {
               onChange={(e) => setForm({ ...form, coverUrl: e.target.value })}
               placeholder="https://..."
               className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.coverUrl ? 'border-red-400' : 'border-border'
+                errors.coverUrl ? 'border-destructive' : 'border-border'
               }`}
             />
-            {errors.coverUrl && <p className="text-xs text-red-500">{errors.coverUrl}</p>}
+            {errors.coverUrl && <p className="text-xs text-destructive">{errors.coverUrl}</p>}
           </div>
 
           {mutation.isError && (
-            <p className="text-xs text-red-500">Erro ao salvar. Verifique os dados e tente novamente.</p>
+            <p className="text-xs text-destructive">Erro ao salvar. Verifique os dados e tente novamente.</p>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">

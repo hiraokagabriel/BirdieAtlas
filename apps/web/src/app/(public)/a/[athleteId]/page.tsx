@@ -392,7 +392,7 @@ export default function PublicAthletePage({ params }: { params: Promise<{ athlet
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold truncate">{entry.tournamentName}</p>
                     {entry.seed !== null && (
-                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      <span className="text-xs font-semibold text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">
                         #{entry.seed}
                       </span>
                     )}

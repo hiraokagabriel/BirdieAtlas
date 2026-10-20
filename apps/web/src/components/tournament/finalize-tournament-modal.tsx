@@ -81,7 +81,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-background z-10">
           <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-500" />
+            <Trophy className="w-5 h-5 text-warning" />
             <h3 className="text-base font-semibold">
               {result ? 'Relatório Final' : 'Encerrar Campeonato'}
             </h3>
@@ -96,19 +96,19 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
           {/* Estado: confirmação */}
           {!result && !apiError && (
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-50 border border-yellow-200">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-warning/10 border border-warning/30">
+                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-yellow-800">Ação irreversível</p>
-                  <p className="text-sm text-yellow-700">
+                  <p className="text-sm font-semibold text-warning">Ação irreversível</p>
+                  <p className="text-sm text-warning">
                     Encerrar <strong>{tournamentName}</strong> irá:
                   </p>
-                  <ul className="text-sm text-yellow-700 list-disc list-inside space-y-0.5">
+                  <ul className="text-sm text-warning list-disc list-inside space-y-0.5">
                     <li>Bloquear novas inscrições definitivamente</li>
                     <li>Alterar o status para <strong>Encerrado</strong></li>
                     <li>Gerar o relatório final com os primeiros lugares</li>
                   </ul>
-                  <p className="text-xs text-yellow-600 mt-2">Todas as chaves precisam estar completamente jogadas.</p>
+                  <p className="text-xs text-warning mt-2">Todas as chaves precisam estar completamente jogadas.</p>
                 </div>
               </div>
               <div className="flex items-center justify-end gap-3">
@@ -118,7 +118,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
                 <button
                   onClick={() => mutation.mutate()}
                   disabled={mutation.isPending}
-                  className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-destructive text-background text-sm font-semibold hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                 >
                   {mutation.isPending ? 'Encerrando...' : 'Confirmar encerramento'}
                 </button>
@@ -129,15 +129,15 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
           {/* Estado: erro (chaves incompletas ou outro) */}
           {apiError && (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200">
-                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30">
+                <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-red-800">{apiError.error}</p>
+                  <p className="text-sm font-semibold text-destructive">{apiError.error}</p>
                   {apiError.incomplete && apiError.incomplete.length > 0 && (
-                    <ul className="text-sm text-red-700 space-y-1">
+                    <ul className="text-sm text-destructive space-y-1">
                       {apiError.incomplete.map((item, i) => (
                         <li key={i} className="flex items-start gap-1.5">
-                          <span className="text-red-400 mt-0.5">•</span>
+                          <span className="text-destructive/70 mt-0.5">•</span>
                           {item}
                         </li>
                       ))}
@@ -156,7 +156,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
           {/* Estado: sucesso + relatório */}
           {result && (
             <div className="space-y-5">
-              <div className="flex items-center gap-2 text-green-700">
+              <div className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="w-5 h-5" />
                 <p className="text-sm font-semibold">Campeonato encerrado com sucesso!</p>
               </div>
@@ -165,7 +165,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
                 <div key={cat.categoryId} className="rounded-xl border border-border overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
                     <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <Trophy className="w-4 h-4 text-warning" />
                       <span className="font-semibold text-sm">{cat.categoryName}</span>
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">

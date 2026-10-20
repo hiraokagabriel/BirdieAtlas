@@ -167,21 +167,21 @@ export function CsvImportModal({ open, onClose }: Props) {
           {result && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-green-700">
+                <div className="flex items-center gap-1.5 text-success">
                   <CheckCircle2 className="w-4 h-4" />
                   <span className="text-sm font-semibold">{result.created} importado{result.created !== 1 ? 's' : ''}</span>
                 </div>
                 {result.failed > 0 && (
-                  <div className="flex items-center gap-1.5 text-red-600">
+                  <div className="flex items-center gap-1.5 text-destructive">
                     <AlertCircle className="w-4 h-4" />
                     <span className="text-sm font-semibold">{result.failed} com erro</span>
                   </div>
                 )}
               </div>
               {result.errors.length > 0 && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1 max-h-40 overflow-auto">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1 max-h-40 overflow-auto">
                   {result.errors.map((err) => (
-                    <p key={err.row} className="text-xs text-red-700">
+                    <p key={err.row} className="text-xs text-destructive">
                       <span className="font-semibold">Linha {err.row}:</span> {err.reason}
                     </p>
                   ))}
