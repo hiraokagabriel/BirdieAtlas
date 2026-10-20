@@ -12,7 +12,7 @@
 | 2. Contratos da API | ✅ PR #11 |
 | 3a. Baseline de migrations e schema | ✅ PR #13 |
 | 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | 🔄 Em PR |
-| 3c. Aposentadoria de `pointsTables` | ❌ Pendente |
+| 3c. Aposentadoria de `pointsTables` | 🔄 Em PR |
 | 4. Ciclo de vida do torneio | ✅ PR #12 |
 | 5. Documentação | ✅ PR #15 |
 
@@ -61,12 +61,12 @@ Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
 | Item | Situação | Observação |
 |---|---|---|
 | Rankings, regras de pontos, vínculos e entradas | ✅ | |
-| `award-points` uma única vez por torneio | ✅ | Cria o vínculo ranking ↔ torneio |
-| Recálculo com regras específicas e genéricas | ✅ | Cai na tabela legada sem regra, até o PR 3c |
+| `award-points` uma única vez por torneio | ✅ | Só com todas as chaves encerradas; vincula o torneio aos rankings com regra para o nível e recalcula |
+| Recálculo com regras específicas e genéricas | ✅ | Motor único (`services/ranking-engine.ts`), só `point_rules`; reabrir torneio recalcula pelo mesmo motor |
 | `countBestResults` e `minTournamentsRequired` | ✅ | |
 | Telas de ranking e regras de pontos | ✅ | `/admin/rankings` |
 | Página pública de rankings (`/r/[tenantSlug]`) | ✅ | |
-| Remoção de `pointsTables` | ❌ | PR 3c |
+| Remoção de `pointsTables` | ✅ | Linhas convertidas em regras genéricas pela migration; tabela, rotas e telas removidas |
 | Critérios de desempate | ❌ | |
 | Cache Redis (TTL 1h) | ❌ | |
 

@@ -68,7 +68,7 @@ Cada item é um PR para `main`, nesta ordem:
 3. **Migrations de schema**, dividido em três PRs:
    - **3a** — histórico de migrations novo (baseline), soft delete com índices únicos parciais, `tournaments.level` como enum, `rankings.slug` único por tenant.
    - **3b** — inscrições: `status`/`notes` no lugar de `confirmed`/`withdrew`, `athleteId` XOR `pairId` no lugar de `athlete2Id`, endpoints `/registrations`.
-   - **3c** — aposentadoria de `pointsTables`: `award-points` e o motor de ranking só com `pointRules`.
+   - **3c** — aposentadoria de `pointsTables`: `award-points`, reabertura e o motor de ranking só com `pointRules`.
 4. **Ciclo de vida do torneio** — endpoint de transição e UI ciente do status.
 5. **Documentação** — consolidação da especificação, reescrita do PROGRESS, remoção do CONTEXT, regras no `CLAUDE.md`.
 
@@ -83,7 +83,7 @@ Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-
 - **Guard**: hook global `onRequest` (`apps/api/src/middleware/admin-guard.ts`). Toda escrita exige modo admin; leituras com dados pessoais (`GET /athletes`, `GET /athletes/:id`) também. Preflight `OPTIONS` e `/dev/admin-mode` ficam fora. Em produção, sem Clerk, nenhuma escrita é possível.
 - **Dados pessoais**: respostas públicas usam `publicAthleteColumns` (`apps/api/src/db/public-columns.ts`). O web deixou de buscar `/athletes` para montar nomes; usa `athleteName`/`athlete2Name` das inscrições.
 - **Tenant**: `DEFAULT_TENANT_SLUG` (ou o único tenant). `tenantId` enviado pelo cliente é ignorado. Atletas continuam globais (identidade entre federações); o vínculo com o tenant é a afiliação.
-- **Paginação**: coleções de topo (`athletes`, `clubs`, `tournaments`, `pairs`, `rankings`, `tenants`, entradas de ranking). Listas filhas de um recurso (partidas de uma chave, inscrições de uma categoria, categorias de um torneio, regras de pontos, afiliações) seguem completas: paginar uma chave de 128 atletas a quebraria. `points-tables` não foi paginado porque será removido no PR 3.
+- **Paginação**: coleções de topo (`athletes`, `clubs`, `tournaments`, `pairs`, `rankings`, `tenants`, entradas de ranking). Listas filhas de um recurso (partidas de uma chave, inscrições de uma categoria, categorias de um torneio, regras de pontos, afiliações) seguem completas: paginar uma chave de 128 atletas a quebraria. `points-tables` não foi paginado porque seria removido (saiu no PR 3c).
 - **Erros**: um único handler; Zod vira 400 `VALIDATION_ERROR` com `details`, erros de cliente do Fastify mantêm o status, o resto vira 500 `INTERNAL_ERROR` sem vazar mensagem.
 
 ### PR 4 — Ciclo de vida do torneio
@@ -119,3 +119,11 @@ Considerados sensíveis: CPF, e-mail e telefone. O schema atual guarda apenas e-
 - A especificação foi reescrita a partir do código: stack real (Next.js 16, Fastify 5), rotas `/admin` e públicas, contratos, schema, regras de negócio e convenções. As regras do antigo `CONTEXT.md` entraram nela e no `CLAUDE.md` da raiz.
 - O `CONTEXT.md` só existia em `feat/dashboard-crud-pages` e nunca chegou à `main`; não há arquivo a remover.
 - `PROGRESS.md` reflete a `main` atual e lista as dívidas técnicas conhecidas. O README ficou curto, com setup e links.
+
+### PR 3c — Aposentadoria de `pointsTables`
+
+- Havia três calculadoras de pontos concorrentes: o motor de ranking (regras, com fallback para a tabela legada), `award-points` (só a tabela, incremental) e uma reconstrução dentro de `reopen` (só a tabela, ignorando as regras). A reabertura de um torneio apagava os pontos baseados em regras de todos os outros torneios do ranking. Agora há um motor só, `apps/api/src/services/ranking-engine.ts`, e `award-points` e `reopen` chamam `recalculateRanking`.
+- **Migration `0003`:** converte as linhas de `points_tables` em regras genéricas (`point_rules`: todas as disciplinas, multiplicador 1, sem bônus) para cada ranking do tenant que ainda não tenha regra naquele nível, e só então apaga `tournaments.points_table_id` e a tabela. Casos sem conversão fiel abortam a migração em vez de serem adivinhados: nível fora do enum, ou mais de uma tabela para o mesmo tenant e nível (uma regra por nível e ranking não representa tabelas por torneio). Níveis de tenants sem nenhum ranking não têm onde virar regra e são descartados com um `NOTICE`. Testado em banco populado e, para as duas guardas, num banco de teste com dados conflitantes.
+- Mudança de comportamento: `award-points` agora exige que todas as categorias tenham chave e todas as partidas tenham terminado (antes pontuava as categorias prontas, marcava o torneio como pontuado e as demais ficavam sem pontos para sempre) e responde `422 NO_POINT_RULES` com uma mensagem útil, em vez de depender de uma "tabela de pontos" configurada por torneio. Quando vários rankings ativos cobrem a mesma disciplina, todos recebem o torneio (antes ganhava um qualquer).
+- Web: saíram `/admin/points-tables` e o editor de tabela por torneio. A aba de configurações aponta para Rankings, aba Regras de pontos, e o botão de distribuir pontos deixou de depender de uma tabela vinculada.
+- O seed passou a criar regras para os cinco níveis (antes só `state`, `national` e `international`) e deixou de criar tabelas legadas.

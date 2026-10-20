@@ -70,7 +70,6 @@ Admin, sob `/admin`, identificando registros por `id`:
 | `/admin/clubs`, `/admin/clubs/[clubId]` | Clubes |
 | `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios; o detalhe tem as abas Inscrições, Chaveamento, Agenda e Configurações |
 | `/admin/rankings`, `/admin/rankings/[rankingId]` | Rankings e regras de pontos |
-| `/admin/points-tables` | Tabelas de pontos legadas (saem no PR 3c) |
 
 Público, identificando por slug:
 
@@ -132,7 +131,6 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
-| Tabelas de pontos (legado) | `GET/POST /points-tables`, `POST /points-tables/bulk`, `GET /points-tables/:id/rows`, `PUT/DELETE /points-tables/:id` |
 | Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
 | Dashboard | `GET /dashboard/stats`, `GET /dashboard/recent-matches`, `GET /dashboard/upcoming-matches` |
 
@@ -174,13 +172,8 @@ Tabelas:
 | `point_rules` | Pontos por colocação para um ranking, por nível (e opcionalmente disciplina), com multiplicador e bônus de participação |
 | `ranking_tournaments` | Torneios que pontuam num ranking |
 | `ranking_entries` | Posição calculada de um atleta ou dupla num ranking |
-| `points_tables` | Legado; removida no PR 3c |
 
 Soft delete (`deletedAt`) vale para atletas, clubes, torneios, categorias, inscrições, duplas, rankings, regras de pontos e vínculos ranking ↔ torneio. Registros de negócio nunca são apagados fisicamente, porque resultados e rankings dependem deles. Listas, buscas e a geração de chave ignoram excluídos; nomes em chaves e históricos continuam aparecendo. Colunas únicas usam índice único parcial `WHERE deleted_at IS NULL`. Restauração será só pela API; ainda não há rota para isso.
-
-Mudanças já decididas (ver [`REDESIGN.md`](REDESIGN.md)):
-
-- **PR 3c:** `points_tables` é aposentada; `award-points` e o motor de ranking usam só `point_rules`.
 
 ## Regras de negócio
 
@@ -228,8 +221,10 @@ draft → registration_open → registration_closed → in_progress → complete
 ### Pontos e ranking
 
 - A colocação é derivada da chave: o vencedor da final é 1º e o perdedor 2º; quem perde na rodada `r` fica em `2^(r-1) + 1` (3º nas semifinais, 5º nas quartas, 9º nas oitavas). `finalize` devolve o pódio, e `award-points` e o recálculo do ranking usam a mesma regra. A coluna `finalPlacement` existe, mas a API não a grava.
-- `award-points` atribui pontos a torneios encerrados uma única vez (`pointsAwarded`; repetir responde 409) e vincula o torneio aos rankings correspondentes.
-- O recálculo do ranking resolve os pontos pela regra mais específica (nível + disciplina), depois a genérica (só nível). Até o PR 3c, cai na tabela de pontos legada quando não há regra.
+- Há um único motor de ranking, `apps/api/src/services/ranking-engine.ts`, e toda pontuação sai de `point_rules` (uma regra por ranking, nível e, opcionalmente, disciplina: colocação → pontos base, multiplicador e bônus de participação). Distribuir pontos, reabrir um torneio e recalcular um ranking passam por ele.
+- `POST /tournaments/:id/award-points` só vale quando todas as categorias têm chave e todas as partidas terminaram (`409 TOURNAMENT_NOT_FINISHED`, com a lista do que falta). Ele vincula o torneio aos rankings ativos do tenant que têm categoria na disciplina e regra para o nível, marca `pointsAwarded` (repetir responde `409 POINTS_ALREADY_AWARDED`) e recalcula esses rankings. Sem ranking para as disciplinas, `422 NO_RANKING`; sem regra para o nível em nenhum ranking, `422 NO_POINT_RULES`, e nada é gravado.
+- `POST /tournaments/:id/reopen` desfaz os vínculos e recalcula todo ranking que contava o torneio (por vínculo ou `autoInclude`), então os pontos dos outros torneios permanecem.
+- O recálculo do ranking resolve os pontos pela regra mais específica (nível + disciplina), depois a genérica (só nível). Sem regra para o nível, a colocação vale 0 pontos.
 - `countBestResults` limita a soma aos melhores resultados; `minTournamentsRequired` exclui quem jogou menos torneios.
 
 ## Convenções
