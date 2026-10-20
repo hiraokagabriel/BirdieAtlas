@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
-import { draws, matches, matchResults, tournamentRegistrations, tournaments } from '../db/schema.js'
+import { draws, matches, matchResults, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
 import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -161,7 +161,17 @@ export async function drawsRoutes(app: FastifyInstance) {
     const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
     if (!match) return reply.status(404).send({ error: 'Match not found' })
 
-    const newWinner = getWinnerSlot(body.sets)
+    // Torneio encerrado: mudar resultado deixaria final_placement e pontos desatualizados.
+    const [owner] = await db.select({ status: tournaments.status })
+      .from(draws)
+      .innerJoin(tournamentCategories, eq(tournamentCategories.id, draws.categoryId))
+      .innerJoin(tournaments, eq(tournaments.id, tournamentCategories.tournamentId))
+      .where(and(eq(draws.id, match.drawId), isNull(tournaments.deletedAt)))
+    if (owner && (owner.status === 'completed' || owner.status === 'cancelled')) {
+      return reply.status(409).send({ error: 'O torneio está encerrado. Reabra-o para alterar resultados.', code: 'TOURNAMENT_LOCKED' })
+    }
+
+    const newWinner =getWinnerSlot(body.sets)
     if (!newWinner) return reply.status(400).send({ error: 'Cannot determine winner from sets' })
     const newWinnerRegId = newWinner === 1 ? match.registration1Id : match.registration2Id
 

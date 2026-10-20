@@ -17,6 +17,7 @@ import {
 } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
+import { computePlacements } from '../domain/placements.js'
 import { revokeTournamentPoints } from '../services/ranking-engine.js'
 import { getDefaultTenantId } from '../tenant.js'
 
@@ -41,33 +42,6 @@ const createCategorySchema = z.object({
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   maxEntries: z.number().int().optional(),
 })
-
-function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
-  if (!sets.length) return null
-  const wins1 = sets.filter((s) => s.score1 > s.score2).length
-  const wins2 = sets.filter((s) => s.score2 > s.score1).length
-  return wins1 > wins2 ? 1 : wins2 > wins1 ? 2 : null
-}
-
-function resolveWinnerLoser(
-  match: { registration1Id: string | null; registration2Id: string | null; status: string },
-  sets: { score1: number; score2: number }[],
-): { winnerRegId: string; loserRegId: string | null } | null {
-  const { registration1Id, registration2Id, status } = match
-  if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
-  if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
-  if (!registration1Id || !registration2Id) return null
-  if (status === 'walkover' || status === 'retired') {
-    if (!sets.length) return null
-    const winnerSlot = getWinnerSlot(sets)
-    if (!winnerSlot) return null
-    return {
-      winnerRegId: winnerSlot === 1 ? registration1Id : registration2Id,
-      loserRegId:  winnerSlot === 1 ? registration2Id : registration1Id,
-    }
-  }
-  return null
-}
 
 export async function tournamentsRoutes(app: FastifyInstance) {
   // Lista paginada do tenant padrão. `public=true` esconde rascunhos (portal público).
@@ -261,30 +235,17 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       categoryId: string; categoryName: string; discipline: string
       podium: { placement: number; medal: string; athleteId: string; athleteName: string; athlete2Id: string | null; athlete2Name: string | null }[]
     }[] = []
+    const allPlacements = new Map<string, number>()
     for (const cat of categories) {
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
-      const placementByReg = new Map<string, number>()
+      const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
       for (const match of allMatches) {
         if (match.registration1Id === null && match.registration2Id === null) continue
-        const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-        let winnerRegId: string | null = null
-        let loserRegId: string | null = null
-        if (sets.length > 0 && match.status === 'completed') {
-          const winner = getWinnerSlot(sets)
-          if (!winner) continue
-          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
-          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        } else {
-          const result = resolveWinnerLoser(match, sets)
-          if (!result) continue
-          winnerRegId = result.winnerRegId
-          loserRegId  = result.loserRegId
-        }
-        const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
-        if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
-        if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
+        setsByMatchId.set(match.id, await db.select().from(matchResults).where(eq(matchResults.matchId, match.id)))
       }
+      const placementByReg = computePlacements(allMatches, setsByMatchId)
+      for (const [regId, placement] of placementByReg) allPlacements.set(regId, placement)
       const top4 = [...placementByReg.entries()].sort((a, b) => a[1] - b[1]).slice(0, 4)
       if (!top4.length) continue
       const regIds = top4.map(([regId]) => regId)
@@ -305,7 +266,19 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       })
       report.push({ categoryId: cat.id, categoryName: cat.name, discipline: cat.discipline, podium })
     }
-    await db.update(tournaments).set({ status: 'completed', updatedAt: new Date() }).where(eq(tournaments.id, id))
+    // Colocação de todas as inscrições que têm uma, gravada junto com o status.
+    const regIdsByPlacement = new Map<number, string[]>()
+    for (const [regId, placement] of allPlacements) {
+      regIdsByPlacement.set(placement, [...(regIdsByPlacement.get(placement) ?? []), regId])
+    }
+    await db.transaction(async (tx) => {
+      for (const [placement, regIds] of regIdsByPlacement) {
+        await tx.update(tournamentRegistrations)
+          .set({ finalPlacement: placement })
+          .where(inArray(tournamentRegistrations.id, regIds))
+      }
+      await tx.update(tournaments).set({ status: 'completed', updatedAt: new Date() }).where(eq(tournaments.id, id))
+    })
     return { message: 'Torneio encerrado com sucesso.', report }
   })
 
@@ -317,10 +290,23 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: 'Only completed tournaments can be reopened', code: 'INVALID_TOURNAMENT_TRANSITION' })
     }
     // O status e `pointsAwarded` voltam primeiro: rankings `autoInclude` só contam torneios com pontos distribuídos.
-    const [t] = await db.update(tournaments)
-      .set({ status: 'in_progress', pointsAwarded: false, updatedAt: new Date() })
-      .where(eq(tournaments.id, id))
-      .returning()
+    // Os resultados podem mudar: a colocação gravada no encerramento é zerada. Sem filtro de deletedAt:
+    // a remoção de inscrição é soft delete e o update filtra só por categoryId, então inscrições
+    // e categorias removidas também são zeradas. A leitura das categorias fica na transação.
+    const t = await db.transaction(async (tx) => {
+      const categoryIds = (await tx.select({ id: tournamentCategories.id }).from(tournamentCategories)
+        .where(eq(tournamentCategories.tournamentId, id))).map((c) => c.id)
+      if (categoryIds.length) {
+        await tx.update(tournamentRegistrations)
+          .set({ finalPlacement: null })
+          .where(inArray(tournamentRegistrations.categoryId, categoryIds))
+      }
+      const [updated] = await tx.update(tournaments)
+        .set({ status: 'in_progress', pointsAwarded: false, updatedAt: new Date() })
+        .where(eq(tournaments.id, id))
+        .returning()
+      return updated
+    })
     // Os rankings que contavam o torneio são recalculados pelo motor único, com as regras de pontos de cada um.
     if (tournament.pointsAwarded) await revokeTournamentPoints(tournament)
     return t

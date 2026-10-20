@@ -7,6 +7,7 @@ import {
   tournamentCategories, tournamentRegistrations, tournaments,
 } from '../db/schema.js'
 import { isDoublesDiscipline, isGenderCompatible, normalizePair } from '../domain/eligibility.js'
+import { computePlacements } from '../domain/placements.js'
 import { findRule, resolvePoints } from '../domain/points.js'
 
 // ---------------------------------------------------------------------------
@@ -16,13 +17,6 @@ import { findRule, resolvePoints } from '../domain/points.js'
 
 const FINAL_MATCH_STATUSES = ['completed', 'walkover', 'retired']
 
-function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
-  if (!sets.length) return null
-  const w1 = sets.filter((s) => s.score1 > s.score2).length
-  const w2 = sets.filter((s) => s.score2 > s.score1).length
-  return w1 > w2 ? 1 : w2 > w1 ? 2 : null
-}
-
 function isByeMatch(match: { registration1Id: string | null; registration2Id: string | null }): boolean {
   return match.registration1Id === null || match.registration2Id === null
 }
@@ -30,36 +24,6 @@ function isByeMatch(match: { registration1Id: string | null; registration2Id: st
 /** Partida ainda sem desfecho: não terminou e não é bye. */
 export function isPendingMatch(match: { status: string; registration1Id: string | null; registration2Id: string | null }): boolean {
   return !FINAL_MATCH_STATUSES.includes(match.status) && !isByeMatch(match)
-}
-
-/**
- * Resolve vencedor e perdedor de uma partida.
- * Trata todos os status finais: completed, walkover, retired e W.O. por bye.
- * Retorna null se não for possível determinar o vencedor.
- */
-function resolveWinnerLoser(
-  match: { registration1Id: string | null; registration2Id: string | null },
-  sets: { score1: number; score2: number }[],
-): { winnerRegId: string; loserRegId: string | null } | null {
-  const { registration1Id, registration2Id } = match
-
-  // Bye: um lado é null — o lado presente avança automaticamente
-  if (registration2Id === null && registration1Id !== null) return { winnerRegId: registration1Id, loserRegId: null }
-  if (registration1Id === null && registration2Id !== null) return { winnerRegId: registration2Id, loserRegId: null }
-  if (!registration1Id || !registration2Id) return null
-
-  // Partida com sets registrados (completed, walkover ou retired com placar)
-  if (sets.length > 0) {
-    const winnerSlot = getWinnerSlot(sets)
-    if (!winnerSlot) return null
-    return {
-      winnerRegId: winnerSlot === 1 ? registration1Id : registration2Id,
-      loserRegId:  winnerSlot === 1 ? registration2Id : registration1Id,
-    }
-  }
-
-  // walkover/retired sem sets: não é possível determinar o vencedor
-  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -128,22 +92,12 @@ export async function recalculateRanking(rankingId: string) {
 
       if (allMatches.some(isPendingMatch)) continue
 
-      const placementByReg = new Map<string, number>()
-
+      const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
       for (const match of allMatches) {
         if (match.registration1Id === null && match.registration2Id === null) continue
-
-        const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-
-        const result = resolveWinnerLoser(match, sets)
-        if (!result) continue
-
-        const { winnerRegId, loserRegId } = result
-
-        const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
-        if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
-        if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
+        setsByMatchId.set(match.id, await db.select().from(matchResults).where(eq(matchResults.matchId, match.id)))
       }
+      const placementByReg = computePlacements(allMatches, setsByMatchId)
 
       const regIds = [...placementByReg.keys()]
       if (!regIds.length) continue
