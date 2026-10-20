@@ -277,7 +277,6 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
           player1Name={p1Selected.name}
           player2Name={p2Selected.name}
           drawId={drawId}
-          categoryId={activeCategory?.id ?? ''}
           existingResults={existingResults}
         />
       )}

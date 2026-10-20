@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { use, useCallback, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import { EditClubModal } from '@/components/club/edit-club-modal'
@@ -151,7 +152,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
           <div className="flex items-end gap-5 -mt-10 flex-wrap">
             <div className="w-20 h-20 rounded-2xl border-4 border-background shadow-lg flex items-center justify-center overflow-hidden shrink-0 bg-white">
               {club.logoUrl
-                ? <img src={club.logoUrl} alt={club.name} className="w-full h-full object-contain p-1" />
+                ? <Image unoptimized src={club.logoUrl} alt={club.name} width={80} height={80} className="w-full h-full object-contain p-1" />
                 : <span className="text-3xl font-black" style={{ color: primary }}>{club.name.charAt(0)}</span>}
             </div>
             <div className="pb-1 flex-1 min-w-0">

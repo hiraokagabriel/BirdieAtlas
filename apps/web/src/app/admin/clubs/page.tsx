@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Paginated } from '@birdie-atlas/types'
@@ -87,7 +88,7 @@ export default function ClubsPage() {
               >
                 <div className="absolute -bottom-5 left-4 w-12 h-12 rounded-full border-2 border-background bg-background flex items-center justify-center overflow-hidden shadow">
                   {club.logoUrl
-                    ? <img src={club.logoUrl} alt={club.name} className="w-full h-full object-contain" />
+                    ? <Image unoptimized src={club.logoUrl} alt={club.name} width={48} height={48} className="w-full h-full object-contain" />
                     : <span className="text-lg font-bold" style={{ color: primary }}>{club.name.charAt(0)}</span>}
                 </div>
               </div>

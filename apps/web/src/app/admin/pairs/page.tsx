@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import Image from 'next/image'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import type { Paginated, Pagination } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { Pager } from '@/components/shared/pager'
 import {
   Users, Search, Plus, Pencil, PowerOff, Power,
-  ChevronUp, ChevronDown, ArrowUpDown, Filter,
+  ChevronUp, ChevronDown, ArrowUpDown,
 } from 'lucide-react'
 import { PairFormModal } from '@/components/pairs/pair-form-modal'
 
@@ -55,7 +56,7 @@ function AthleteBadge({ athlete }: { athlete: AthleteInPair }) {
   return (
     <div className="flex items-center gap-2">
       {athlete.photoUrl ? (
-        <img src={athlete.photoUrl} alt={athlete.name}
+        <Image unoptimized src={athlete.photoUrl} alt={athlete.name} width={28} height={28}
           className="w-7 h-7 rounded-full object-cover shrink-0" />
       ) : (
         <div
@@ -102,15 +103,15 @@ export default function PairsPage() {
   const [sortField, setSortField]         = useState<SortField>('createdAt')
   const [sortDir, setSortDir]             = useState<SortDir>('desc')
 
-  function fetchPairs() {
+  const fetchPairs = useCallback(() => {
     setLoading(true)
     apiFetch<Paginated<Pair>>(`/pairs?page=${page}&pageSize=100`)
       .then((res) => { setPairs(res.data); setPagination(res.pagination) })
       .catch(() => { setPairs([]); setPagination(null) })
       .finally(() => setLoading(false))
-  }
+  }, [page])
 
-  useEffect(() => { fetchPairs() }, [page])
+  useEffect(() => { fetchPairs() }, [fetchPairs])
 
   async function toggleActive(pair: Pair) {
     // Desativar não exclui: DELETE agora é exclusão (soft delete) e tira a dupla das listas

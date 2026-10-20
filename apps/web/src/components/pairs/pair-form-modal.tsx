@@ -221,7 +221,7 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Disciplina</label>
             <div className="flex gap-2">
-              {DISCIPLINES.map(({ value, label }) => (
+              {DISCIPLINES.map(({ value }) => (
                 <button
                   key={value}
                   type="button"

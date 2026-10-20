@@ -129,7 +129,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
           </div>
         ) : (
           <div>
-            {data.data.map((entry, idx) => {
+            {data.data.map((entry) => {
               const isTop3 = entry.position <= 3
               return (
                 <div key={entry.id}

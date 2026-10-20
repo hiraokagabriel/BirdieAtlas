@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Trash2, Trophy, Loader2, AlertCircle } from 'lucide-react'
+import { Trophy, Loader2, AlertCircle } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -35,7 +35,6 @@ type Props = {
   player1Name: string
   player2Name: string
   drawId: string
-  categoryId: string
   existingResults?: MatchResult[]
 }
 
@@ -91,7 +90,7 @@ function validateGames(games: GameScore[], resultType: 'completed' | 'walkover' 
 }
 
 export function MatchResultDialog({
-  match, open, onClose, player1Name, player2Name, drawId, categoryId: _categoryId, existingResults,
+  match, open, onClose, player1Name, player2Name, drawId, existingResults,
 }: Props) {
   const queryClient = useQueryClient()
   const isEdit = !!existingResults?.length
@@ -103,14 +102,25 @@ export function MatchResultDialog({
   const [resultType, setResultType] = useState<'completed' | 'walkover' | 'retired'>('completed')
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
+  // Valores mais recentes lidos pelo efeito de reset sem torná-lo dependente deles:
+  // existingResults é um array novo a cada render do pai e re-disparar o efeito
+  // apagaria o que o usuário já digitou.
+  const latest = useRef({ existingResults, matchStatus: match?.status })
   useEffect(() => {
+    latest.current = { existingResults, matchStatus: match?.status }
+  })
+
+  // Reinicia o formulário só quando o diálogo abre/fecha ou quando os resultados
+  // existentes passam a existir (carregamento tardio); nunca durante a edição.
+  useEffect(() => {
+    const { existingResults, matchStatus } = latest.current
     if (open && isEdit && existingResults) {
       const sorted = [...existingResults].sort((a, b) => a.setNumber - b.setNumber)
       const loaded = sorted.map((s) => ({ score1: String(s.score1), score2: String(s.score2) }))
       // Garante mínimo 2 games
       while (loaded.length < 2) loaded.push({ score1: '', score2: '' })
       setGames(loaded)
-      if (match?.status) setResultType(match.status as 'completed' | 'walkover' | 'retired')
+      if (matchStatus) setResultType(matchStatus as 'completed' | 'walkover' | 'retired')
     } else if (open && !isEdit) {
       setGames([{ score1: '', score2: '' }, { score1: '', score2: '' }])
       setResultType('completed')
