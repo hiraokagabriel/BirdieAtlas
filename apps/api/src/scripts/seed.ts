@@ -40,6 +40,7 @@ import {
   rankingEntries,
 } from '../db/schema.js'
 import { buildMatchDefs, buildSlots, getSlotForPosition } from '../domain/bracket.js'
+import { computePlacements } from '../domain/placements.js'
 
 // ---------------------------------------------------------------------------
 // Configuração
@@ -416,7 +417,7 @@ async function seed() {
   const drawData: typeof draws.$inferInsert[] = []
   const matchData: typeof matches.$inferInsert[] = []
   const matchResultData: typeof matchResults.$inferInsert[] = []
-  const updatedRegistrations = [...registrationData]
+  const placementByRegId = new Map<string, number>()
 
   for (const cat of completedCategories) {
     const catRegs = registrationData.filter((r) => r.categoryId === cat.id && r.status === 'approved')
@@ -467,16 +468,31 @@ async function seed() {
       })
     }
 
-    const finalRegs = catRegs.slice(0, Math.min(catRegs.length, 4))
-    finalRegs.forEach((reg, i) => {
-      const found = updatedRegistrations.find((r) => r.id === reg.id)
-      if (found) found.finalPlacement = i + 1
-    })
+    // Colocação pela mesma regra do encerramento (domain/placements)
+    const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
+    for (const r of matchResultData) {
+      if (!matchDefs.some((md) => md.id === r.matchId)) continue
+      setsByMatchId.set(r.matchId, [...(setsByMatchId.get(r.matchId) ?? []), { score1: r.score1, score2: r.score2 }])
+    }
+    const placements = computePlacements(
+      matchDefs.map((md) => ({
+        id: md.id,
+        round: md.round,
+        registration1Id: md.registration1Id ?? null,
+        registration2Id: md.registration2Id ?? null,
+        status: matchData.find((x) => x.id === md.id)?.status ?? md.status,
+      })),
+      setsByMatchId,
+    )
+    for (const [regId, placement] of placements) placementByRegId.set(regId, placement)
   }
 
   if (drawData.length > 0) await db.insert(draws).values(drawData)
   if (matchData.length > 0) await db.insert(matches).values(matchData)
   if (matchResultData.length > 0) await db.insert(matchResults).values(matchResultData)
+  for (const [regId, placement] of placementByRegId) {
+    await db.update(tournamentRegistrations).set({ finalPlacement: placement }).where(eq(tournamentRegistrations.id, regId))
+  }
   console.log(`   ✓ ${drawData.length} chaves | ${matchData.length} partidas | ${matchResultData.length} sets`)
 
   // -------------------------------------------------------------------------
