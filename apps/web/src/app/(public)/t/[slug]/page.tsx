@@ -4,6 +4,8 @@ import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { LevelBadge } from '@/components/public/level-badge'
 import { BracketDraw } from '@/components/bracket/bracket-draw'
+import { BracketSkeleton } from '@/components/bracket/bracket-tree'
+import { ErrorNotice, EmptyNotice } from '@/components/public/notices'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import {
   Calendar, MapPin, Lock, Users, User,
@@ -204,6 +206,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
   // Estado do chaveamento
   const [draw, setDraw]                   = useState<Draw | null>(null)
   const [drawLoaded, setDrawLoaded]       = useState(false)
+  const [drawError, setDrawError]         = useState<string | null>(null)
   const [matchList, setMatchList]         = useState<Match[]>([])
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [results, setResults]             = useState<MatchResult[]>([])
@@ -226,24 +229,33 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
   useEffect(() => {
     if (!activeCategoryId) return
     setDrawLoaded(false)
+    setDrawError(null)
+    let cancelled = false
     Promise.all([
       apiFetch<Draw[]>(`/tournaments/categories/${activeCategoryId}/draws`),
       apiFetch<Registration[]>(`/tournaments/categories/${activeCategoryId}/registrations`),
     ]).then(async ([drawList, regs]) => {
+      if (cancelled) return
       setRegistrations(regs)
       if (!drawList.length || !drawList[0].published) {
         setDraw(null); setMatchList([]); setDrawLoaded(true); return
       }
       const d = drawList[0]
-      setDraw(d)
       const mList = await apiFetch<Match[]>(`/draws/${d.id}/matches`)
-      setMatchList(mList)
       const allResults = await Promise.all(
         mList.map((m) => apiFetch<MatchResult[]>(`/draws/matches/${m.id}/result`))
       )
+      if (cancelled) return
+      setDraw(d)
+      setMatchList(mList)
       setResults(allResults.flat())
       setDrawLoaded(true)
+    }).catch((err: unknown) => {
+      if (cancelled) return
+      setDrawError(err instanceof Error ? err.message : 'Erro inesperado.')
+      setDrawLoaded(true)
     })
+    return () => { cancelled = true }
   }, [activeCategoryId])
 
   // ---------------------------------------------------------------------------
@@ -353,17 +365,17 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
 
       {/* TAB: CHAVEAMENTO */}
       {tab === 'bracket' && (
-        <div className="rounded-xl border border-border bg-card overflow-auto">
+        <div className="min-w-0">
           {!drawLoaded ? (
-            <div className="p-12 text-center animate-pulse">
-              <div className="h-4 w-32 bg-muted rounded mx-auto" />
-            </div>
+            <div className="rounded-xl border border-border bg-card"><BracketSkeleton /></div>
+          ) : drawError ? (
+            <ErrorNotice>Não foi possível carregar a chave: {drawError}</ErrorNotice>
           ) : !draw ? (
-            <div className="p-12 text-center text-muted-foreground space-y-2">
-              <Lock className="w-8 h-8 mx-auto opacity-30" />
-              <p className="font-medium">Chaveamento não disponível</p>
-              <p className="text-sm">O chaveamento desta categoria ainda não foi publicado.</p>
-            </div>
+            <EmptyNotice>
+              <Lock className="mx-auto mb-2 size-6 opacity-40" aria-hidden="true" />
+              <span className="block font-medium text-foreground">Chave ainda não sorteada</span>
+              O chaveamento desta categoria ainda não foi publicado.
+            </EmptyNotice>
           ) : (
             <BracketDraw
               matches={matchList}
