@@ -258,7 +258,6 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
   const { tournament, categories, stats } = summary
   const status         = statusMap[tournament.status] ?? statusMap.draft
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
-  const isDoubles      = ['MD', 'WD', 'XD'].includes(activeCategory?.discipline ?? '')
   const progressPct    = stats.totalMatches > 0
     ? Math.round((stats.completedMatches / stats.totalMatches) * 100)
     : 0

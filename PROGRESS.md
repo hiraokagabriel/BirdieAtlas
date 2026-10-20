@@ -120,6 +120,4 @@ Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
-| `finalPlacement` nunca é gravado | 🟡 Média | A API deriva a colocação da chave toda vez; o seed atribui o campo depois de inserir as inscrições. Decidir entre gravar no encerramento ou remover a coluna |
-| Warnings de lint no web | 🟢 Baixa | 21 warnings, sem erros |
-| Branches antigas no remoto | 🟢 Baixa | `feat/dashboard-crud-pages` (abandonada), `feat/phase-2-registration-operations` (portada), `chore/fix-dependency-versions`, `main-v2` e as branches de PRs já mergeados |
+| Branches antigas no remoto | 🟢 Baixa | Restam quatro branches não mergeadas, à espera de decisão de descarte: `feat/dashboard-crud-pages` (abandonada), `feat/phase-2-registration-operations` (portada), `chore/fix-dependency-versions` e `main-v2` |

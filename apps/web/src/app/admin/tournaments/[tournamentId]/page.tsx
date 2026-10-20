@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { canTransitionTournament, type TournamentLevel, type TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { BracketView } from '@/components/bracket/bracket-view'
@@ -38,7 +38,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
   const [finalizeOpen, setFinalizeOpen] = useState(false)
   const [reopening, setReopening] = useState(false)
 
-  function fetchTournament() {
+  const fetchTournament = useCallback(() => {
     apiFetch<Tournament>(`/tournaments/${tournamentId}`)
       .then((t) => {
         setTournament(t)
@@ -46,9 +46,9 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
       })
       .then(setCategories)
       .catch(() => router.push('/admin/tournaments'))
-  }
+  }, [tournamentId, router])
 
-  useEffect(() => { fetchTournament() }, [tournamentId])
+  useEffect(() => { fetchTournament() }, [fetchTournament])
 
   async function handleReopen() {
     if (!tournament) return

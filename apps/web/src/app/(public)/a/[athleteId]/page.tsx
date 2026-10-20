@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import {
@@ -208,7 +209,8 @@ export default function PublicAthletePage({ params }: { params: Promise<{ athlet
 
           {/* Avatar */}
           {athlete.photoUrl ? (
-            <img
+            <Image
+              unoptimized
               src={athlete.photoUrl}
               alt={athlete.name}
               width={80}

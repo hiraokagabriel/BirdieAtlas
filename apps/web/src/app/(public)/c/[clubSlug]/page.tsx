@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { use, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import {
@@ -232,7 +233,8 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
               className="w-20 h-20 rounded-2xl border-4 border-background shadow-lg flex items-center justify-center overflow-hidden shrink-0 bg-white"
             >
               {club.logoUrl ? (
-                <img
+                <Image
+                  unoptimized
                   src={club.logoUrl}
                   alt={club.name}
                   width={80}
@@ -391,7 +393,8 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           {athlete.photoUrl ? (
-                            <img
+                            <Image
+                              unoptimized
                               src={athlete.photoUrl}
                               alt={athlete.name}
                               width={32}
