@@ -4,19 +4,18 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from './bracket-draw'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorNotice } from '@/components/public/notices'
+import { BracketSkeleton } from './bracket-tree'
+import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
 import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type Category    = { id: string; name: string; discipline: string }
-type Match       = { id: string; round: number; position: number; status: string; registration1Id: string | null; registration2Id: string | null; nextMatchId: string | null }
-type Registration = {
-  id: string; athleteId: string; athlete2Id: string | null; seed: number | null; rankingPointsAtEntry: number | null
-  athleteName: string | null; athlete2Name: string | null
-}
+type Match       = BracketMatch
+type Registration = BracketEntry
 type Draw        = { id: string; published: boolean }
-type MatchResult = { id: string; matchId: string; setNumber: number; score1: number; score2: number }
+type MatchResult = SetScore
 type DrawMode    = 'random' | 'seeded'
 
 const disciplineColors: Record<string, string> = {
@@ -85,7 +84,7 @@ export function BracketView({
   const [redrawMode,     setRedrawMode]      = useState<DrawMode>('seeded')
   const [redrawError,    setRedrawError]     = useState<string | null>(null)
 
-  const { data: draws, isLoading: loadingDraw } = useQuery({
+  const { data: draws, isLoading: loadingDraw, error: drawsError } = useQuery({
     queryKey: ['draws', activeCategoryId],
     queryFn:  () => apiFetch<Draw[]>(`/tournaments/categories/${activeCategoryId}/draws`),
     enabled:  !!activeCategoryId,
@@ -93,19 +92,19 @@ export function BracketView({
 
   const draw = draws?.[0]
 
-  const { data: matches, isLoading: loadingMatches } = useQuery({
+  const { data: matches, isLoading: loadingMatches, error: matchesError } = useQuery({
     queryKey: ['matches', draw?.id],
     queryFn:  () => apiFetch<Match[]>(`/draws/${draw!.id}/matches`),
     enabled:  !!draw?.id,
   })
 
-  const { data: registrations } = useQuery({
+  const { data: registrations, error: registrationsError } = useQuery({
     queryKey: ['registrations', activeCategoryId],
     queryFn:  () => apiFetch<Registration[]>(`/tournaments/categories/${activeCategoryId}/registrations`),
     enabled:  !!activeCategoryId,
   })
 
-  const { data: allResults } = useQuery({
+  const { data: allResults, error: resultsError } = useQuery({
     queryKey: ['results', draw?.id],
     queryFn:  async () => {
       if (!matches) return []
@@ -192,6 +191,7 @@ export function BracketView({
   })
 
   const isLoading = loadingDraw || loadingMatches
+  const loadError = drawsError ?? matchesError ?? registrationsError ?? resultsError
 
   return (
     <div className="space-y-4">
@@ -356,16 +356,16 @@ export function BracketView({
       )}
 
       {/* Bracket area */}
-      <div className="rounded-xl border border-border bg-card overflow-auto">
-        {isLoading ? (
-          <div className="p-8 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-          </div>
+      <div className="min-w-0">
+        {loadError ? (
+          <ErrorNotice>Não foi possível carregar a chave: {loadError.message}</ErrorNotice>
+        ) : isLoading ? (
+          <div className="rounded-xl border border-border bg-card"><BracketSkeleton /></div>
         ) : !draw ? (
-          // ── Empty state: generate draw ──────────────────────────────────────
+          <div className="rounded-xl border border-border bg-card">
           <div className="p-10 flex flex-col items-center gap-6 max-w-lg mx-auto">
             <div className="text-center">
-              <p className="text-lg font-semibold">Gerar Chaveamento</p>
+              <p className="text-lg font-semibold">Chave ainda não sorteada</p>
               <p className="text-sm text-muted-foreground mt-1">
                 Escolha o modo de sorteio para a categoria <span className="font-medium">{activeCategory?.name}</span>
               </p>
@@ -389,6 +389,7 @@ export function BracketView({
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
                 : <><Shuffle className="w-4 h-4" /> Sortear chave</>}
             </button>
+          </div>
           </div>
         ) : (
           <BracketDraw

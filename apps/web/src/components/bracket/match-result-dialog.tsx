@@ -5,11 +5,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Trophy, Loader2, AlertCircle } from 'lucide-react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type GameScore = { score1: string; score2: string }
 
@@ -36,6 +35,7 @@ type Props = {
   player2Name: string
   drawId: string
   existingResults?: MatchResult[]
+  roundLabel: string
 }
 
 function getGameWinner(game: GameScore): 1 | 2 | null {
@@ -90,7 +90,7 @@ function validateGames(games: GameScore[], resultType: 'completed' | 'walkover' 
 }
 
 export function MatchResultDialog({
-  match, open, onClose, player1Name, player2Name, drawId, existingResults,
+  match, open, onClose, player1Name, player2Name, drawId, existingResults, roundLabel,
 }: Props) {
   const queryClient = useQueryClient()
   const isEdit = !!existingResults?.length
@@ -101,6 +101,7 @@ export function MatchResultDialog({
   ])
   const [resultType, setResultType] = useState<'completed' | 'walkover' | 'retired'>('completed')
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Valores mais recentes lidos pelo efeito de reset sem torná-lo dependente deles:
   // existingResults é um array novo a cada render do pai e re-disparar o efeito
@@ -126,6 +127,7 @@ export function MatchResultDialog({
       setResultType('completed')
     }
     setSubmitAttempted(false)
+    setSubmitError(null)
   }, [open, isEdit])
 
   function handleResultTypeChange(type: 'completed' | 'walkover' | 'retired') {
@@ -150,14 +152,14 @@ export function MatchResultDialog({
 
       if (!validGames.length) throw new Error('Nenhum game válido para enviar')
 
-      const res = await fetch(`${API_URL}/draws/matches/${match!.id}/result`, {
+      // A mensagem da API (ex.: TOURNAMENT_LOCKED, 409) é exibida no diálogo
+      return apiFetch(`/draws/matches/${match!.id}/result`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sets: validGames, status: resultType }),
+        json: { sets: validGames, status: resultType },
       })
-      if (!res.ok) throw new Error('Erro ao salvar resultado')
-      return res.json()
     },
+    onMutate: () => setSubmitError(null),
+    onError: (err: Error) => setSubmitError(err.message),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches', drawId] })
       queryClient.invalidateQueries({ queryKey: ['results', drawId] })
@@ -169,6 +171,7 @@ export function MatchResultDialog({
     setGames([{ score1: '', score2: '' }, { score1: '', score2: '' }])
     setResultType('completed')
     setSubmitAttempted(false)
+    setSubmitError(null)
     onClose()
   }
 
@@ -207,11 +210,6 @@ export function MatchResultDialog({
     games[1] ?? { score1: '', score2: '' },
     games[2] ?? { score1: '', score2: '' },
   ]
-
-  const roundLabel = match?.round === 1 ? 'Final'
-    : match?.round === 2 ? 'Semifinal'
-    : match?.round === 3 ? 'Quartas de Final'
-    : `Fase ${match?.round}`
 
   const showValidationError = submitAttempted && !isSpecialModeValid
 
@@ -374,6 +372,13 @@ export function MatchResultDialog({
           <p className="flex items-center gap-1.5 text-xs text-destructive font-medium">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             {gameValidationError}
+          </p>
+        )}
+
+        {submitError && (
+          <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {submitError}
           </p>
         )}
 
