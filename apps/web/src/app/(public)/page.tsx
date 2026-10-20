@@ -1,128 +1,92 @@
-import Link from 'next/link'
-import { Calendar, MapPin, TrendingUp } from 'lucide-react'
-import { unstable_rethrow } from 'next/navigation'
-import type { Paginated } from '@birdie-atlas/types'
-import { apiFetch } from '@/lib/api'
+import { Suspense } from 'react'
+import type { Metadata } from 'next'
+import { Search } from 'lucide-react'
+import {
+  RankingsSkeleton,
+  RecentTournaments,
+  SearchResults,
+  SearchSkeleton,
+  Section,
+  TopRankings,
+  TournamentsSkeleton,
+  UpcomingTournaments,
+} from '@/components/public/home-sections'
 
 // Dados mudam a cada torneio; renderiza por requisição em vez de prerender no build.
 export const dynamic = 'force-dynamic'
 
-interface PublicTournament {
-  id: string
-  name: string
-  slug: string
-  status: string
-  startDate: string
-  endDate: string
-  city: string | null
-  state: string | null
+export const metadata: Metadata = {
+  title: 'BirdieAtlas · Torneios e rankings de badminton',
+  description: 'Acompanhe torneios, resultados, rankings, atletas e clubes de badminton das federações.',
 }
 
-interface PublicTenant {
-  id: string
-  name: string
-  slug: string
+function firstValue(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value)?.trim().slice(0, 80) ?? ''
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  registration_open: 'Inscrições abertas',
-  registration_closed: 'Inscrições encerradas',
-  in_progress: 'Em andamento',
-  completed: 'Encerrado',
-  cancelled: 'Cancelado',
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value))
-}
-
-async function loadHome(): Promise<{ tournaments: PublicTournament[]; tenants: PublicTenant[] } | null> {
-  try {
-    const [tournaments, tenants] = await Promise.all([
-      // public=true: a API já esconde rascunhos
-      apiFetch<Paginated<PublicTournament>>('/tournaments?public=true&pageSize=20'),
-      apiFetch<Paginated<PublicTenant>>('/tenants?pageSize=100'),
-    ])
-    return { tournaments: tournaments.data, tenants: tenants.data }
-  } catch (err) {
-    unstable_rethrow(err)
-    return null
-  }
-}
-
-export default async function HomePage() {
-  const home = await loadHome()
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const query = firstValue((await searchParams).q)
 
   return (
-    <div className="space-y-10">
-      <section>
-        <h1 className="text-3xl font-bold tracking-tight">Torneios e rankings de badminton</h1>
-        <p className="mt-2 text-muted-foreground">
-          Acompanhe chaves, resultados e rankings das federações.
+    <div className="space-y-12">
+      <section aria-labelledby="hero-title" className="rounded-2xl bg-primary px-5 py-8 text-primary-foreground md:px-10 md:py-12">
+        <p className="text-sm font-semibold uppercase tracking-widest text-primary-foreground/80">BirdieAtlas</p>
+        <h1 id="hero-title" className="mt-2 max-w-3xl text-4xl leading-none md:text-6xl">
+          Todo o badminton das federações num só lugar
+        </h1>
+        <p className="mt-4 max-w-xl text-base text-primary-foreground/90 md:text-lg">
+          Torneios, chaves, resultados e rankings atualizados, com o perfil de cada atleta e clube.
         </p>
+
+        <form action="/" method="get" role="search" className="mt-6 flex max-w-xl flex-col gap-2 sm:flex-row">
+          <label htmlFor="home-search" className="sr-only">
+            Buscar atletas e clubes
+          </label>
+          <input
+            id="home-search"
+            name="q"
+            type="search"
+            defaultValue={query}
+            maxLength={80}
+            placeholder="Buscar atleta ou clube"
+            autoComplete="off"
+            className="h-11 min-w-0 flex-1 rounded-lg border border-transparent bg-background px-4 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          />
+          <button
+            type="submit"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-accent px-5 text-base font-semibold text-accent-foreground transition-colors hover:bg-accent/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+          >
+            <Search className="size-4" aria-hidden="true" />
+            Buscar
+          </button>
+        </form>
       </section>
 
-      {home === null ? (
-        <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          Não foi possível carregar os dados agora. Tente novamente em instantes.
-        </p>
-      ) : (
-        <>
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">Torneios</h2>
-            {home.tournaments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum torneio publicado ainda.</p>
-            ) : (
-              <ul className="grid gap-3 md:grid-cols-2">
-                {home.tournaments.map((t) => (
-                  <li key={t.id}>
-                    <Link
-                      href={`/t/${t.slug}`}
-                      className="block rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent"
-                    >
-                      <p className="font-medium">{t.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{STATUS_LABELS[t.status] ?? t.status}</p>
-                      <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4" aria-hidden="true" />
-                          {formatDate(t.startDate)} – {formatDate(t.endDate)}
-                        </span>
-                        {(t.city || t.state) && (
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="h-4 w-4" aria-hidden="true" />
-                            {[t.city, t.state].filter(Boolean).join(' / ')}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">Rankings</h2>
-            {home.tenants.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma federação cadastrada.</p>
-            ) : (
-              <ul className="flex flex-wrap gap-3">
-                {home.tenants.map((tenant) => (
-                  <li key={tenant.id}>
-                    <Link
-                      href={`/r/${tenant.slug}`}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    >
-                      <TrendingUp className="h-4 w-4" aria-hidden="true" />
-                      {tenant.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </>
+      {query && (
+        <Section id="search-title" title={`Resultados para “${query}”`}>
+          <Suspense fallback={<SearchSkeleton />}>
+            <SearchResults query={query} />
+          </Suspense>
+        </Section>
       )}
+
+      <Section id="upcoming-title" title="Próximos torneios">
+        <Suspense fallback={<TournamentsSkeleton />}>
+          <UpcomingTournaments />
+        </Suspense>
+      </Section>
+
+      <Section id="recent-title" title="Resultados recentes">
+        <Suspense fallback={<TournamentsSkeleton />}>
+          <RecentTournaments />
+        </Suspense>
+      </Section>
+
+      <Section id="rankings-title" title="Top 10 dos rankings">
+        <Suspense fallback={<RankingsSkeleton />}>
+          <TopRankings />
+        </Suspense>
+      </Section>
     </div>
   )
 }

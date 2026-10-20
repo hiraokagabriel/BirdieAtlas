@@ -1,16 +1,23 @@
-'use client'
+import { cache } from 'react'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
+import { Award, Calendar, Globe, MapPin, Trophy, Users } from 'lucide-react'
+import { ApiError, apiFetch } from '@/lib/api'
+import { summarizeAthlete } from '@/lib/athlete-stats'
+import { countryName, formatDate, formatPoints } from '@/lib/format'
+import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
+import { AthleteAvatar } from '@/components/public/athlete-avatar'
+import { LevelBadge } from '@/components/public/level-badge'
+import { EmptyNotice } from '@/components/public/notices'
+import { PlacementBadge } from '@/components/public/placement-badge'
+import { StatTile } from '@/components/public/stat-tile'
+import { StatusBadge } from '@/components/public/status-badge'
 
-import Image from 'next/image'
-import { use, useEffect, useState } from 'react'
-import { apiFetch } from '@/lib/api'
-import {
-  User, MapPin, Trophy, Calendar, Users, Award, Shield,
-} from 'lucide-react'
+// O perfil muda a cada torneio finalizado; renderiza por requisição.
+export const dynamic = 'force-dynamic'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-type Athlete = {
+interface Athlete {
   id: string
   name: string
   gender: 'M' | 'F'
@@ -19,16 +26,15 @@ type Athlete = {
   active: boolean
 }
 
-type CurrentClub = {
+interface CurrentClub {
   clubId: string
   clubName: string | null
   clubSlug: string | null
   city: string | null
   state: string | null
-  startedAt: string | null
-} | null
+}
 
-type RankingPosition = {
+interface RankingPosition {
   rankingId: string
   rankingName: string
   discipline: string
@@ -39,11 +45,10 @@ type RankingPosition = {
   partnerName: string | null
 }
 
-type TournamentEntry = {
+interface TournamentEntry {
   registrationId: string
   seed: number | null
   finalPlacement: number | null
-  categoryId: string
   categoryName: string
   discipline: string
   tournamentId: string
@@ -57,382 +62,215 @@ type TournamentEntry = {
   state: string
 }
 
-type ProfileData = {
+interface ProfileData {
   athlete: Athlete
-  currentClub: CurrentClub
+  currentClub: CurrentClub | null
   rankingPositions: RankingPosition[]
   tournamentHistory: TournamentEntry[]
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-const disciplineLabel: Record<string, string> = {
-  MS: 'Simples Masc.', WS: 'Simples Fem.',
-  MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+type PageProps = { params: Promise<{ athleteId: string }> }
+
+/** 404 vira página de "não encontrado"; qualquer outra falha sobe para o error boundary da rota. */
+const loadProfile = cache(async (athleteId: string): Promise<ProfileData> => {
+  if (!UUID_PATTERN.test(athleteId)) notFound()
+  try {
+    return await apiFetch<ProfileData>(`/athletes/${encodeURIComponent(athleteId)}/profile`)
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) notFound()
+    throw err
+  }
+})
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { athleteId } = await params
+  const { athlete } = await loadProfile(athleteId)
+  return {
+    title: `${athlete.name} · BirdieAtlas`,
+    description: `Perfil de ${athlete.name}: títulos, pódios, histórico de torneios e posição nos rankings.`,
+  }
 }
 
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-50 text-blue-700 border-blue-200',
-  WS: 'bg-purple-50 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-50 text-pink-700 border-pink-200',
-  XD: 'bg-orange-50 text-orange-700 border-orange-200',
-}
+export default async function PublicAthletePage({ params }: PageProps) {
+  const { athleteId } = await params
+  const { athlete, currentClub, rankingPositions, tournamentHistory } = await loadProfile(athleteId)
 
-const levelLabel: Record<string, string> = {
-  local: 'Local', estadual: 'Estadual', regional: 'Regional',
-  nacional: 'Nacional', internacional: 'Internacional',
-}
-
-const statusLabel: Record<string, string> = {
-  draft: 'Rascunho',
-  registration_open: 'Inscrições abertas',
-  registration_closed: 'Inscrições encerradas',
-  in_progress: 'Em andamento',
-  completed: 'Encerrado',
-}
-
-function placementBadge(placement: number | null): string {
-  if (placement === 1) return '🥇'
-  if (placement === 2) return '🥈'
-  if (placement === 3) return '🥉'
-  if (placement !== null) return `${placement}º`
-  return '—'
-}
-
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('')
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton
-// ---------------------------------------------------------------------------
-function PageSkeleton() {
-  return (
-    <div className="space-y-8 animate-pulse">
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
-        <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-full bg-muted shrink-0" />
-          <div className="space-y-2 flex-1">
-            <div className="h-7 w-56 bg-muted rounded" />
-            <div className="h-4 w-36 bg-muted rounded" />
-            <div className="h-4 w-44 bg-muted rounded" />
-          </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <div className="h-3 w-16 bg-muted rounded" />
-            <div className="h-7 w-10 bg-muted rounded" />
-          </div>
-        ))}
-      </div>
-      <div className="h-10 w-64 bg-muted rounded" />
-      <div className="rounded-xl border border-border bg-card h-48" />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 404
-// ---------------------------------------------------------------------------
-function NotFound() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-      <User className="w-12 h-12 text-muted-foreground/30" />
-      <h2 className="text-xl font-semibold">Atleta não encontrado</h2>
-      <p className="text-sm text-muted-foreground max-w-xs">
-        O link que você acessou não corresponde a nenhum atleta. Verifique se o endereço está correto.
-      </p>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// StatCard
-// ---------------------------------------------------------------------------
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-0.5">
-      <p className="text-xs text-muted-foreground font-medium">{label}</p>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Página principal
-// ---------------------------------------------------------------------------
-export default function PublicAthletePage({ params }: { params: Promise<{ athleteId: string }> }) {
-  const { athleteId } = use(params)
-
-  const [profile, setProfile]   = useState<ProfileData | null>(null)
-  const [notFound, setNotFound] = useState(false)
-  const [tab, setTab]           = useState<'rankings' | 'history'>('rankings')
-
-  useEffect(() => {
-    apiFetch<ProfileData>(`/athletes/${athleteId}/profile`)
-      .then(setProfile)
-      .catch(() => setNotFound(true))
-  }, [athleteId])
-
-  if (notFound)  return <NotFound />
-  if (!profile)  return <PageSkeleton />
-
-  const { athlete, currentClub, rankingPositions, tournamentHistory } = profile
-
-  // Stats de resumo
-  const totalTournaments = new Set(tournamentHistory.map((t) => t.tournamentId)).size
-  const bestRanking = rankingPositions.reduce<number | null>((best, r) => {
-    if (r.position === null) return best
-    if (best === null) return r.position
-    return r.position < best ? r.position : best
-  }, null)
-  const podiums = tournamentHistory.filter(
-    (t) => t.finalPlacement !== null && t.finalPlacement <= 3
-  ).length
+  const summary = summarizeAthlete(tournamentHistory, rankingPositions)
+  const rankings = [...rankingPositions].sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity))
+  const disciplines = [...new Set(tournamentHistory.map((h) => h.discipline).filter(Boolean))]
+  const place = currentClub ? [currentClub.city, currentClub.state].filter(Boolean).join(' / ') : ''
 
   return (
-    <div className="space-y-8">
-
-      {/* HERO */}
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
-        <div className="flex items-start gap-5 flex-wrap">
-
-          {/* Avatar */}
-          {athlete.photoUrl ? (
-            <Image
-              unoptimized
-              src={athlete.photoUrl}
-              alt={athlete.name}
-              width={80}
-              height={80}
-              className="w-20 h-20 rounded-full object-cover border border-border shrink-0"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center shrink-0 border border-border">
-              <span className="text-2xl font-bold text-muted-foreground select-none">
-                {initials(athlete.name)}
-              </span>
-            </div>
-          )}
-
-          {/* Info principal */}
-          <div className="flex-1 space-y-1.5 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold tracking-tight">{athlete.name}</h1>
+    <div className="space-y-10">
+      <header className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div aria-hidden="true" className="h-3 bg-primary" />
+        <div className="flex flex-col items-center gap-5 p-6 text-center sm:flex-row sm:items-center sm:text-left md:gap-8 md:p-8">
+          <AthleteAvatar name={athlete.name} photoUrl={athlete.photoUrl} size={112} />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
+              <h1 className="text-4xl leading-none md:text-5xl">{athlete.name}</h1>
               {!athlete.active && (
-                <span className="text-xs font-medium text-muted-foreground border border-border rounded-full px-2 py-0.5">
-                  Inativo
-                </span>
+                <span className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Inativo</span>
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5" />
+            <ul className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground sm:justify-start">
+              {currentClub?.clubName ? (
+                <li className="flex items-center gap-1.5">
+                  <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                  {currentClub.clubSlug ? (
+                    <Link
+                      href={`/c/${currentClub.clubSlug}`}
+                      className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {currentClub.clubName}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-foreground">{currentClub.clubName}</span>
+                  )}
+                  {place && <span>· {place}</span>}
+                </li>
+              ) : (
+                <li>Sem clube ativo</li>
+              )}
+              <li className="flex items-center gap-1.5">
+                <Users className="size-4 shrink-0" aria-hidden="true" />
                 {athlete.gender === 'M' ? 'Masculino' : 'Feminino'}
-              </span>
+              </li>
               {athlete.nationality && (
-                <span className="flex items-center gap-1.5">
-                  <span className="text-base leading-none">
-                    {athlete.nationality === 'BR' ? '🇧🇷' : athlete.nationality}
-                  </span>
-                  {athlete.nationality}
-                </span>
+                <li className="flex items-center gap-1.5">
+                  <Globe className="size-4 shrink-0" aria-hidden="true" />
+                  {countryName(athlete.nationality)}
+                </li>
               )}
-            </div>
+            </ul>
 
-            {currentClub ? (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin className="w-3.5 h-3.5 shrink-0" />
-                <span className="font-medium text-foreground">{currentClub.clubName}</span>
-                {currentClub.city && (
-                  <span>· {currentClub.city}{currentClub.state ? `, ${currentClub.state}` : ''}</span>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Sem clube ativo</p>
+            {disciplines.length > 0 && (
+              <ul aria-label="Modalidades disputadas" className="flex flex-wrap justify-center gap-2 sm:justify-start">
+                {disciplines.map((d) => (
+                  <li key={d} className="rounded-full bg-secondary px-3 py-0.5 text-xs font-semibold text-secondary-foreground">
+                    {disciplineLabel(d)}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* STATS */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard
-          label="Torneios"
-          value={totalTournaments}
-          sub={totalTournaments !== 1 ? 'participações' : 'participação'}
-        />
-        <StatCard
-          label="Melhor ranking"
-          value={bestRanking !== null ? `${bestRanking}º` : '—'}
-          sub={bestRanking !== null ? 'posição' : 'sem dados'}
-        />
-        <StatCard
-          label="Pódios"
-          value={podiums}
-          sub={podiums !== 1 ? 'top 3' : 'top 3'}
-        />
-      </div>
+      <section aria-labelledby="stats-title">
+        <h2 id="stats-title" className="sr-only">
+          Resumo
+        </h2>
+        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatTile label="Torneios disputados" value={summary.tournaments} />
+          <StatTile label="Títulos" value={summary.titles} highlight={summary.titles > 0} />
+          <StatTile label="Pódios" value={summary.podiums} hint="1º ao 3º lugar" />
+          <StatTile
+            label="Melhor posição"
+            value={summary.bestRankingPosition !== null ? `${summary.bestRankingPosition}º` : '—'}
+            hint={summary.bestRankingPosition !== null ? 'em ranking' : 'fora dos rankings'}
+          />
+        </dl>
+      </section>
 
-      {/* TABS */}
-      <div className="flex border-b border-border gap-1">
-        {(['rankings', 'history'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t === 'rankings' && '🏅 Rankings'}
-            {t === 'history'  && '📋 Histórico'}
-          </button>
-        ))}
-      </div>
-
-      {/* TAB: RANKINGS */}
-      {tab === 'rankings' && (
-        <div className="rounded-xl border border-border bg-card divide-y divide-border">
-          {rankingPositions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <Award className="w-8 h-8 text-muted-foreground/30" />
-              <p className="font-medium text-muted-foreground">Sem posição em rankings</p>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Este atleta ainda não aparece em nenhum ranking calculado.
-              </p>
-            </div>
-          ) : (
-            rankingPositions
-              .sort((a, b) => (a.position ?? 999) - (b.position ?? 999))
-              .map((r) => (
-                <div key={r.rankingId} className="flex items-center gap-4 px-4 py-3 flex-wrap">
-                  {/* Posição */}
-                  <div className="w-10 text-center">
-                    <span className="text-lg font-bold tabular-nums">
-                      {r.position !== null ? `${r.position}º` : '—'}
-                    </span>
-                  </div>
-
-                  {/* Ranking info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{r.rankingName}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${
-                        disciplineColors[r.discipline] ?? 'bg-muted text-muted-foreground border-border'
-                      }`}>
-                        {['MD','WD','XD'].includes(r.discipline)
-                          ? <Users className="w-2.5 h-2.5" />
-                          : <User  className="w-2.5 h-2.5" />}
-                        {disciplineLabel[r.discipline] ?? r.discipline}
+      <section aria-labelledby="rankings-title" className="space-y-4">
+        <h2 id="rankings-title" className="text-2xl">
+          Rankings
+        </h2>
+        {rankings.length === 0 ? (
+          <EmptyNotice>Este atleta ainda não aparece em nenhum ranking.</EmptyNotice>
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            {rankings.map((r) => (
+              <li key={`${r.rankingId}-${r.partnerId ?? 'solo'}`} className="flex items-center gap-3 px-4 py-3">
+                <PlacementBadge placement={r.position} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{r.rankingName}</p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                    <span>{disciplineLabel(r.discipline)}</span>
+                    {r.year > 0 && <span>{r.year}</span>}
+                    {isDoublesDiscipline(r.discipline) && r.partnerName && r.partnerId && (
+                      <span>
+                        com{' '}
+                        <Link
+                          href={`/a/${r.partnerId}`}
+                          className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {r.partnerName}
+                        </Link>
                       </span>
-                      {r.year > 0 && (
-                        <span className="text-xs text-muted-foreground">{r.year}</span>
-                      )}
-                      {r.partnerName && (
-                        <span className="text-xs text-muted-foreground">
-                          c/ {r.partnerName}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Pontos */}
-                  {r.totalPoints !== null && (
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold tabular-nums">
-                        {r.totalPoints.toLocaleString('pt-BR')} pts
-                      </p>
-                    </div>
-                  )}
+                    )}
+                  </p>
                 </div>
-              ))
-          )}
-        </div>
-      )}
+                {r.totalPoints !== null && (
+                  <p className="shrink-0 font-heading text-xl font-semibold tabular-nums">
+                    {formatPoints(r.totalPoints)}
+                    <span className="ml-1 font-sans text-xs font-normal text-muted-foreground">pts</span>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      {/* TAB: HISTÓRICO */}
-      {tab === 'history' && (
-        <div className="space-y-3">
-          {tournamentHistory.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <Calendar className="w-8 h-8 text-muted-foreground/30" />
-              <p className="font-medium text-muted-foreground">Sem histórico de torneios</p>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Nenhum torneio confirmado encontrado para este atleta.
-              </p>
-            </div>
-          ) : (
-            tournamentHistory.map((entry) => (
-              <div
+      <section aria-labelledby="history-title" className="space-y-4">
+        <h2 id="history-title" className="text-2xl">
+          Histórico de torneios
+        </h2>
+        {tournamentHistory.length === 0 ? (
+          <EmptyNotice>Nenhum torneio confirmado encontrado para este atleta.</EmptyNotice>
+        ) : (
+          <ul className="space-y-2">
+            {tournamentHistory.map((entry) => (
+              <li
                 key={entry.registrationId}
-                className="rounded-xl border border-border bg-card px-4 py-3 flex items-center gap-4 flex-wrap"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
               >
-                {/* Placement badge */}
-                <div className="w-8 text-center text-xl leading-none shrink-0">
-                  {entry.finalPlacement !== null
-                    ? placementBadge(entry.finalPlacement)
-                    : <Trophy className="w-4 h-4 text-muted-foreground/40 mx-auto" />}
-                </div>
-
-                {/* Tournament info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold truncate">{entry.tournamentName}</p>
-                    {entry.seed !== null && (
-                      <span className="text-xs font-semibold text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">
-                        #{entry.seed}
+                <PlacementBadge placement={entry.finalPlacement} />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-semibold">
+                    {entry.tournamentSlug ? (
+                      <Link
+                        href={`/t/${entry.tournamentSlug}`}
+                        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {entry.tournamentName}
+                      </Link>
+                    ) : (
+                      entry.tournamentName
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {entry.categoryName || disciplineLabel(entry.discipline)}
+                    {entry.seed !== null && ` · cabeça de chave ${entry.seed}`}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <LevelBadge level={entry.level} />
+                    {entry.startDate && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Calendar className="size-3" aria-hidden="true" />
+                        {formatDate(entry.startDate, 'medium')}
                       </span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium ${
-                      disciplineColors[entry.discipline] ?? 'bg-muted text-muted-foreground border-border'
-                    }`}>
-                      {disciplineLabel[entry.discipline] ?? entry.discipline}
-                    </span>
-                    {entry.level && (
-                      <span>{levelLabel[entry.level] ?? entry.level}</span>
-                    )}
-                    {entry.city && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {entry.city}{entry.state ? `, ${entry.state}` : ''}
-                      </span>
-                    )}
+                    {entry.tournamentStatus !== 'completed' && <StatusBadge status={entry.tournamentStatus} />}
                   </div>
                 </div>
-
-                {/* Data + status */}
-                <div className="text-right text-xs text-muted-foreground shrink-0 space-y-0.5">
-                  {entry.startDate && (
-                    <p className="flex items-center gap-1 justify-end">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(entry.startDate).toLocaleDateString('pt-BR', {
-                        day: '2-digit', month: 'short', year: 'numeric',
-                      })}
-                    </p>
-                  )}
-                  <p>{statusLabel[entry.tournamentStatus] ?? entry.tournamentStatus}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
+                {entry.finalPlacement !== null && entry.finalPlacement <= 3 && (
+                  <Trophy className="hidden size-5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Award className="size-3.5" aria-hidden="true" />
+          A colocação aparece quando o torneio é encerrado.
+        </p>
+      </section>
     </div>
   )
 }

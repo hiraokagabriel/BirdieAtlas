@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { LevelBadge } from '@/components/public/level-badge'
 import { BracketDraw } from '@/components/bracket/bracket-draw'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import {
@@ -65,10 +66,6 @@ const disciplineColors: Record<string, string> = {
   XD: 'bg-orange-50 text-orange-700 border-orange-200',
 }
 
-const levelLabel: Record<string, string> = {
-  local: 'Local', estadual: 'Estadual', regional: 'Regional',
-  nacional: 'Nacional', internacional: 'Internacional',
-}
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -269,9 +266,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {levelLabel[tournament.level] ?? tournament.level}
-            </p>
+            <LevelBadge level={tournament.level} />
             <h1 className="text-3xl font-bold tracking-tight">{tournament.name}</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
