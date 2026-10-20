@@ -17,7 +17,6 @@ type Registration = {
 }
 type Draw        = { id: string; published: boolean }
 type MatchResult = { id: string; matchId: string; setNumber: number; score1: number; score2: number }
-type Tournament  = { id: string; pointsTableId: string | null }
 type DrawMode    = 'random' | 'seeded'
 
 const disciplineColors: Record<string, string> = {
@@ -86,12 +85,6 @@ export function BracketView({
   const [redrawMode,     setRedrawMode]      = useState<DrawMode>('seeded')
   const [redrawError,    setRedrawError]     = useState<string | null>(null)
 
-  const { data: tournamentData } = useQuery({
-    queryKey: ['tournament', tournamentId],
-    queryFn:  () => apiFetch<Tournament>(`/tournaments/${tournamentId}`),
-    enabled:  !!tournamentId,
-  })
-
   const { data: draws, isLoading: loadingDraw } = useQuery({
     queryKey: ['draws', activeCategoryId],
     queryFn:  () => apiFetch<Draw[]>(`/tournaments/categories/${activeCategoryId}/draws`),
@@ -139,7 +132,6 @@ export function BracketView({
   })
 
   const allTournamentDone = allDrawsData?.every((d) => d.allDone) ?? false
-  const hasRankingConfig  = !!tournamentData?.pointsTableId
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ['draws', activeCategoryId] })
@@ -158,15 +150,17 @@ export function BracketView({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['draws', activeCategoryId] }),
   })
 
+  const [awardError, setAwardError] = useState<string | null>(null)
   const { mutate: awardPoints, isPending: isAwarding, data: awardResult } = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${API_URL}/tournaments/${tournamentId}/award-points`, { method: 'POST' })
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao distribuir pontos') }
-      return res.json() as Promise<{ awarded: { athleteId: string; placement: number; points: number }[] }>
-    },
+    mutationFn: () =>
+      apiFetch<{ awarded: { athleteId: string; placement: number; points: number }[] }>(
+        `/tournaments/${tournamentId}/award-points`, { method: 'POST' },
+      ),
+    onMutate: () => setAwardError(null),
     onSuccess: () => setAlreadyAwarded(true),
+    // A mensagem da API diz o que falta (ex.: nenhum ranking tem regra para o nível do torneio)
+    onError: (err: Error) => setAwardError(err.message),
   })
-
   const { mutate: generateDraw, isPending: isGenerating } = useMutation({
     mutationFn: async () => {
       setGenerateError(null)
@@ -335,9 +329,7 @@ export function BracketView({
               </p>
               {!alreadyAwarded && !awardResult && (
                 <p className="text-xs text-blue-600 mt-0.5">
-                  {hasRankingConfig
-                    ? 'Pronto para distribuir pontos de ranking'
-                    : 'Configure uma Tabela de pontos no torneio para habilitar'}
+                  Pronto para distribuir os pontos nos rankings
                 </p>
               )}
             </div>
@@ -345,7 +337,7 @@ export function BracketView({
           {!alreadyAwarded && !awardResult && (
             <button
               onClick={() => awardPoints()}
-              disabled={isAwarding || !hasRankingConfig}
+              disabled={isAwarding}
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isAwarding
@@ -356,10 +348,10 @@ export function BracketView({
         </div>
       )}
 
-      {allTournamentDone && !hasRankingConfig && !alreadyAwarded && !awardResult && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-sm">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          Para distribuir pontos, vincule uma <strong>Tabela de pontos</strong> ao torneio nas configurações.
+      {awardError && (
+        <div role="alert" className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {awardError}
         </div>
       )}
 

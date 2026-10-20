@@ -3,7 +3,6 @@ import { db } from '../db/index.js'
 import {
   tournaments, tournamentCategories, tournamentRegistrations,
   draws, matches, matchResults, athletes,
-  rankings, rankingEntries, rankingTournaments,
 } from '../db/schema.js'
 import { eq, ne, and, inArray, isNull, asc, desc, count } from 'drizzle-orm'
 import { z } from 'zod'
@@ -18,6 +17,7 @@ import {
 } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
+import { revokeTournamentPoints } from '../services/ranking-engine.js'
 import { getDefaultTenantId } from '../tenant.js'
 
 const listTournamentsQuerySchema = paginationQuerySchema.extend({
@@ -34,7 +34,6 @@ const createTournamentSchema = z.object({
   startDate: z.string().date(),
   endDate: z.string().date(),
   registrationDeadline: z.string().optional(),
-  pointsTableId: z.string().optional(),
 })
 
 const createCategorySchema = z.object({
@@ -68,107 +67,6 @@ function resolveWinnerLoser(
     }
   }
   return null
-}
-
-async function removePointsFromRanking(rankingId: string, tournamentId: string) {
-  const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
-  if (!ranking) return
-
-  let tournamentIds: string[] = []
-  if (ranking.autoInclude) {
-    const all = await db.select().from(tournaments)
-      .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true), isNull(tournaments.deletedAt)))
-    tournamentIds = all.map((t) => t.id).filter((id) => id !== tournamentId)
-  } else {
-    const links = await db.select().from(rankingTournaments)
-      .where(eq(rankingTournaments.rankingId, rankingId))
-    tournamentIds = links.map((l) => l.tournamentId).filter((id) => id !== tournamentId)
-  }
-
-  await db.delete(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
-  if (!tournamentIds.length) return
-
-  const { pointsTables } = await import('../db/schema.js')
-  const DOUBLES = new Set(['MD', 'WD', 'XD'])
-  const isDoubles = DOUBLES.has(ranking.discipline)
-  const pointsAcc = new Map<string, { athleteId: string; athlete2Id: string | null; points: number }>()
-
-  for (const tId of tournamentIds) {
-    const [t] = await db.select().from(tournaments).where(eq(tournaments.id, tId))
-    if (!t?.pointsTableId) continue
-    const [refTable] = await db.select().from(pointsTables).where(eq(pointsTables.id, t.pointsTableId))
-    if (!refTable) continue
-    const allPointsRows = await db.select().from(pointsTables)
-      .where(and(eq(pointsTables.name, refTable.name), eq(pointsTables.tournamentLevel, t.level)))
-    const pointsMap = new Map(allPointsRows.map((p) => [p.placement, p.points]))
-    const cats = await db.select().from(tournamentCategories)
-      .where(and(
-        eq(tournamentCategories.tournamentId, tId),
-        eq(tournamentCategories.discipline, ranking.discipline as 'MS' | 'WS' | 'MD' | 'WD' | 'XD'),
-      ))
-    for (const cat of cats) {
-      const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
-      if (!drawList.length) continue
-      const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
-      const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
-      if (pending.length) continue
-      const placementByReg = new Map<string, number>()
-      for (const match of allMatches) {
-        if (match.registration1Id === null && match.registration2Id === null) continue
-        const sets = await db.select().from(matchResults).where(eq(matchResults.matchId, match.id))
-        let winnerRegId: string | null = null
-        let loserRegId: string | null = null
-        if (sets.length > 0 && match.status === 'completed') {
-          const winner = getWinnerSlot(sets)
-          if (!winner) continue
-          winnerRegId = winner === 1 ? match.registration1Id : match.registration2Id
-          loserRegId  = winner === 1 ? match.registration2Id : match.registration1Id
-        } else {
-          const result = resolveWinnerLoser(match, sets)
-          if (!result) continue
-          winnerRegId = result.winnerRegId
-          loserRegId  = result.loserRegId
-        }
-        const loserPlacement = match.round === 1 ? 2 : Math.pow(2, match.round - 1) + 1
-        if (loserRegId) placementByReg.set(loserRegId, loserPlacement)
-        if (match.round === 1 && winnerRegId) placementByReg.set(winnerRegId, 1)
-      }
-      const regIds = [...placementByReg.keys()]
-      if (!regIds.length) continue
-      const regs = await selectRegistrations(inArray(tournamentRegistrations.id, regIds), { includeDeleted: true })
-      const aIds = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
-      const athleteRows = aIds.length ? await db.select().from(athletes).where(inArray(athletes.id, aIds)) : []
-      const athleteMap = new Map(athleteRows.map((a) => [a.id, a]))
-      for (const [regId, placement] of placementByReg.entries()) {
-        const reg = regs.find((r) => r.id === regId)
-        if (!reg) continue
-        const pts = pointsMap.get(placement) ?? 0
-        if (pts === 0) continue
-        if (isDoubles) {
-          if (!reg.athlete2Id) continue
-          const [a, b] = reg.athleteId < reg.athlete2Id ? [reg.athleteId, reg.athlete2Id] : [reg.athlete2Id, reg.athleteId]
-          const key = `${a}::${b}`
-          const cur = pointsAcc.get(key) ?? { athleteId: a, athlete2Id: b, points: 0 }
-          cur.points += pts; pointsAcc.set(key, cur)
-        } else {
-          const key = reg.athleteId
-          const cur = pointsAcc.get(key) ?? { athleteId: reg.athleteId, athlete2Id: null, points: 0 }
-          cur.points += pts; pointsAcc.set(key, cur)
-        }
-      }
-    }
-  }
-
-  const sorted = [...pointsAcc.values()].sort((a, b) => b.points - a.points)
-  if (sorted.length) {
-    await db.insert(rankingEntries).values(
-      sorted.map((e, i) => ({
-        id: randomUUID(), rankingId,
-        athleteId: e.athleteId, athlete2Id: e.athlete2Id,
-        totalPoints: e.points, position: i + 1,
-      }))
-    )
-  }
 }
 
 export async function tournamentsRoutes(app: FastifyInstance) {
@@ -418,30 +316,13 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     if (tournament.status !== 'completed') {
       return reply.status(409).send({ error: 'Only completed tournaments can be reopened', code: 'INVALID_TOURNAMENT_TRANSITION' })
     }
-    if (tournament.pointsAwarded) {
-      const autoRankings = await db.select().from(rankings)
-        .where(and(eq(rankings.tenantId, tournament.tenantId), eq(rankings.autoInclude, true)))
-      const linkedLinks = await db.select().from(rankingTournaments)
-        .where(eq(rankingTournaments.tournamentId, id))
-      const linkedRankingIds = linkedLinks.map((l) => l.rankingId)
-      const linkedRankings = linkedRankingIds.length
-        ? await db.select().from(rankings).where(inArray(rankings.id, linkedRankingIds))
-        : []
-      const allRankingIds = [...new Set([
-        ...autoRankings.map((r) => r.id),
-        ...linkedRankings.map((r) => r.id),
-      ])]
-      for (const rankingId of allRankingIds) {
-        await removePointsFromRanking(rankingId, id)
-      }
-      if (linkedRankingIds.length) {
-        await db.delete(rankingTournaments).where(eq(rankingTournaments.tournamentId, id))
-      }
-    }
+    // O status e `pointsAwarded` voltam primeiro: rankings `autoInclude` só contam torneios com pontos distribuídos.
     const [t] = await db.update(tournaments)
       .set({ status: 'in_progress', pointsAwarded: false, updatedAt: new Date() })
       .where(eq(tournaments.id, id))
       .returning()
+    // Os rankings que contavam o torneio são recalculados pelo motor único, com as regras de pontos de cada um.
+    if (tournament.pointsAwarded) await revokeTournamentPoints(tournament)
     return t
   })
 
