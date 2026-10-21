@@ -1,13 +1,15 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { athletes, athleteAffiliations, clubs, pairs, rankingEntries, rankings, tournamentRegistrations, tournamentCategories, tournaments } from '../db/schema.js'
-import { eq, isNull, and, ilike, or, inArray, asc, count } from 'drizzle-orm'
+import { eq, isNull, and, ilike, or, inArray, asc, count, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { paginationQuerySchema } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
 import { getDefaultTenantId } from '../tenant.js'
+import { publicAthleteColumns } from '../db/public-columns.js'
+import { ACCENTED_CHARS, PLAIN_CHARS, athleteSearchQuerySchema, toSearchPatterns } from '../domain/athlete-search.js'
 
 const createAthleteSchema = z.object({
   name: z.string().min(1),
@@ -64,6 +66,44 @@ export async function athletesRoutes(app: FastifyInstance) {
             clubSlug: clubs.slug,
             affiliationStart: athleteAffiliations.startedAt,
           })
+          .from(athletes)
+          .leftJoin(
+            athleteAffiliations,
+            and(
+              eq(athleteAffiliations.athleteId, athletes.id),
+              eq(athleteAffiliations.tenantId, tenantId),
+              isNull(athleteAffiliations.endedAt),
+            ),
+          )
+          .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
+          .where(where)
+          .orderBy(asc(athletes.name), asc(athletes.id))
+          .limit(limit)
+          .offset(offset),
+      async () => {
+        const [row] = await db.select({ total: count() }).from(athletes).where(where)
+        return row?.total ?? 0
+      },
+    )
+  })
+
+  // Público: busca por nome (sem e-mail, CPF, telefone ou data de nascimento) com o clube atual no tenant padrão.
+  // Ignora caixa e acentos com translate/lower do Postgres, sem extensão. Registrada como rota estática,
+  // que o Fastify prioriza sobre `/athletes/:id`.
+  app.get('/athletes/search', async (request) => {
+    const query = athleteSearchQuerySchema.parse(request.query)
+    const tenantId = await getDefaultTenantId()
+    const folded = sql`translate(lower(${athletes.name}), ${ACCENTED_CHARS}, ${PLAIN_CHARS})`
+    const where = and(
+      isNull(athletes.deletedAt),
+      ...toSearchPatterns(query.q).map((pattern) => sql`${folded} like ${pattern}`),
+    )
+
+    return paginate(
+      query,
+      (limit, offset) =>
+        db
+          .select({ ...publicAthleteColumns, clubName: clubs.name, clubSlug: clubs.slug })
           .from(athletes)
           .leftJoin(
             athleteAffiliations,

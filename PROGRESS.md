@@ -106,6 +106,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação |
 |---|---|
 | Landing, torneio, rankings, atleta e clube | ✅ |
+| Busca pública de atletas (`GET /athletes/search`) | ✅ |
 | Estatísticas e histórico de atletas | ❌ |
 | Head-to-head | ❌ |
 
