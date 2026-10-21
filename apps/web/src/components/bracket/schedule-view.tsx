@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { ScheduleDialog } from './schedule-dialog'
-import { CalendarClock, Pencil } from 'lucide-react'
+import { AutoScheduleDialog } from './auto-schedule-dialog'
+import { Button } from '@/components/ui/button'
+import { CalendarClock, Pencil, Wand2 } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
@@ -30,6 +32,8 @@ type Props = {
   tournamentId: string
   categories: Category[]
   readonly?: boolean
+  /** "YYYY-MM-DD": dia sugerido para o início da agenda automática. */
+  defaultStartDate?: string
 }
 
 function getAthleteLabel(regId: string | null, regs: Registration[]): string {
@@ -43,12 +47,13 @@ function getRoundLabel(round: number): string {
   return round === 1 ? 'Final' : round === 2 ? 'Semifinal' : round === 3 ? 'Quartas' : `Fase ${round}`
 }
 
-export function ScheduleView({ tournamentId, categories, readonly = false }: Props) {
+export function ScheduleView({ tournamentId, categories, readonly = false, defaultStartDate }: Props) {
   const [filterCategoryId, setFilterCategoryId] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selectedMatch, setSelectedMatch] = useState<(Match & { drawId: string; categoryId: string }) | null>(null)
   const [selectedP1, setSelectedP1] = useState('')
   const [selectedP2, setSelectedP2] = useState('')
+  const [autoOpen, setAutoOpen] = useState(false)
 
   const { data: allData } = useQuery({
     queryKey: ['schedule-all', tournamentId],
@@ -113,6 +118,13 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
           <option value="in_progress">Ao vivo</option>
           <option value="completed">Encerradas</option>
         </select>
+
+        {!readonly && (
+          <Button variant="outline" className="ml-auto" onClick={() => setAutoOpen(true)}>
+            <Wand2 className="w-4 h-4 mr-2" aria-hidden="true" />
+            Gerar agenda automática
+          </Button>
+        )}
       </div>
 
       {Object.entries(grouped).length === 0 ? (
@@ -186,6 +198,15 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
             </div>
           </div>
         ))
+      )}
+
+      {!readonly && (
+        <AutoScheduleDialog
+          tournamentId={tournamentId}
+          defaultStartDate={defaultStartDate}
+          open={autoOpen}
+          onClose={() => setAutoOpen(false)}
+        />
       )}
 
       {!readonly && selectedMatch && (

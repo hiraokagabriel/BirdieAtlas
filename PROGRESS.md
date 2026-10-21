@@ -98,6 +98,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Lançamento de resultado por sets | ✅ | Inclui W.O. e desistência |
 | Avanço automático do vencedor | ✅ | Troca de vencedor desfaz as partidas seguintes |
 | Agenda: quadra e horário por partida | ✅ | Aba Agenda do torneio |
+| Agenda automática por quadra e horário | ✅ | `POST /tournaments/:id/schedule/auto` com pré-visualização; sem mudança de schema; a janela diária (`dayStartsAt`, `dayEndsAt`) só existe na API, não na tela |
 | Auditoria de resultados (quem e quando) | ❌ | |
 | Resultados ao vivo | ❌ | |
 
