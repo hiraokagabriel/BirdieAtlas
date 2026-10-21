@@ -6,6 +6,7 @@ import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { AthletesTable, type GenderFilter } from '@/components/athlete/athletes-table'
 import { Pager } from '@/components/shared/pager'
+import { ErrorNotice } from '@/components/public/notices'
 import { CsvImportModal } from '@/components/athlete/csv-import-modal'
 import { CreateAthleteModal } from '@/components/athlete/create-athlete-modal'
 import { Upload, UserPlus } from 'lucide-react'
@@ -40,7 +41,7 @@ export default function AthletesPage() {
   // Filtro novo sempre volta para a primeira página
   useEffect(() => { setPage(1) }, [debouncedSearch, genderFilter])
 
-  const { data, isLoading } = useQuery<Paginated<AthleteRow>>({
+  const { data, isLoading, error } = useQuery<Paginated<AthleteRow>>({
     queryKey: ['athletes', 'admin', page, debouncedSearch, genderFilter],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), pageSize: '25' })
@@ -76,7 +77,9 @@ export default function AthletesPage() {
         </div>
       </div>
 
-      {isLoading || !data ? (
+      {error && !data ? (
+        <ErrorNotice>Não foi possível carregar os atletas: {error.message}</ErrorNotice>
+      ) : isLoading || !data ? (
         <div className="text-sm text-muted-foreground p-8">Carregando...</div>
       ) : (
         <>

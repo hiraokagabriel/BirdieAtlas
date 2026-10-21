@@ -163,6 +163,8 @@ export function MatchResultDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches', drawId] })
       queryClient.invalidateQueries({ queryKey: ['results', drawId] })
+      // O aviso "Todas as partidas encerradas" da aba Chaveamento depende deste status.
+      queryClient.invalidateQueries({ queryKey: ['all-draws-status'] })
       handleClose()
     },
   })

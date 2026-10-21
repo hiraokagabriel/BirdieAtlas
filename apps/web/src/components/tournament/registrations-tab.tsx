@@ -9,6 +9,7 @@ import { ATHLETE_SEARCH_LIMIT, useAthleteSearch, type AthleteOption } from '@/ho
 import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
+import { ErrorNotice } from '@/components/public/notices'
 
 type Category = {
   id: string
@@ -73,7 +74,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
   const discipline = activeCategory?.discipline ?? ''
 
   // Chave própria: a lista pública usa ['registrations', categoryId] com outro formato de resposta
-  const { data, isLoading } = useQuery<Paginated<Registration>>({
+  const { data, isLoading, error: loadError } = useQuery<Paginated<Registration>>({
     queryKey: ['registrations', 'admin', tournamentId, activeCategoryId],
     queryFn: () => apiFetch(`/registrations/tournament/${tournamentId}?categoryId=${activeCategoryId}&pageSize=100`),
     enabled: !!activeCategoryId,
@@ -330,6 +331,10 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
         {/* Lista */}
         {isLoading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
+        ) : loadError && !data ? (
+          <div className="p-4">
+            <ErrorNotice>Não foi possível carregar as inscrições: {loadError.message}</ErrorNotice>
+          </div>
         ) : registrations.length === 0 ? (
           <div className="p-10 text-center text-sm text-muted-foreground">
             Nenhum inscrito nesta categoria ainda.

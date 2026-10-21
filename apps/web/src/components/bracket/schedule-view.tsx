@@ -56,7 +56,8 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
   const [autoOpen, setAutoOpen] = useState(false)
 
   const { data: allData } = useQuery({
-    queryKey: ['schedule-all', tournamentId],
+    // As categorias chegam depois do torneio: sem elas na chave, abrir a aba cedo demais deixava a lista vazia para sempre.
+    queryKey: ['schedule-all', tournamentId, categories.map((c) => c.id)],
     queryFn: async () => {
       const results: { category: Category; matches: Match[]; registrations: Registration[] }[] = []
       for (const cat of categories) {
