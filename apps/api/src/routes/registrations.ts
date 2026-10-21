@@ -9,10 +9,14 @@ import {
   tournamentRegistrationsQuerySchema,
   updateRegistrationBodySchema,
   type RegistrationResponse,
+  type RegistrationStatus,
 } from '@birdie-atlas/validators'
 import { db } from '../db/index.js'
 import { countRegistrations, selectRegistrations, type ResolvedRegistration } from '../db/registrations.js'
-import { athletes, matches, pairs, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
+import {
+  athleteAffiliations, athletes, clubs, matches, pairs, tournamentCategories, tournamentRegistrations, tournaments,
+} from '../db/schema.js'
+import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
 import { checkRegistrationEligibility } from '../domain/eligibility.js'
 import { paginate } from '../domain/pagination.js'
 import { canEditRegistration, validateRegistrationStatusChange } from '../domain/registration-rules.js'
@@ -21,6 +25,24 @@ async function athleteNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()
   const rows = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, ids))
   return new Map(rows.map((a) => [a.id, a.name]))
+}
+
+/** Clube atual (afiliação sem data de término) de cada atleta. */
+async function currentClubNames(ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const rows = await db
+    .select({ athleteId: athleteAffiliations.athleteId, clubName: clubs.name })
+    .from(athleteAffiliations)
+    .innerJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
+    .where(and(inArray(athleteAffiliations.athleteId, ids), isNull(athleteAffiliations.endedAt)))
+    .orderBy(asc(athleteAffiliations.startedAt))
+  return new Map(rows.map((r) => [r.athleteId, r.clubName]))
+}
+
+const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovada',
+  rejected: 'Recusada',
 }
 
 async function namesFor(regs: ResolvedRegistration[]): Promise<Map<string, string>> {
@@ -78,7 +100,48 @@ export async function registrationsRoutes(app: FastifyInstance) {
       seed: r.seed,
       status: r.status,
       rankingPointsAtEntry: r.rankingPointsAtEntry,
+      // Colocação final (só preenchida quando o torneio é encerrado): alimenta o pódio público.
+      finalPlacement: r.finalPlacement,
     }))
+  })
+
+  // Admin (ADMIN_ONLY_READS): inscritos por categoria em CSV. Só nome, clube, categoria e status:
+  // sem e-mail, data de nascimento nem o motivo interno (`notes`).
+  app.get('/tournaments/:id/registrations/export.csv', async (request, reply) => {
+    const { tournamentId: id } = tournamentRegistrationsParamsSchema.parse({ tournamentId: (request.params as { id: string }).id })
+    const tournament = await loadTournament(id)
+    if (!tournament) return reply.status(404).send({ error: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' })
+
+    const categories = await db.select().from(tournamentCategories)
+      .where(and(eq(tournamentCategories.tournamentId, id), isNull(tournamentCategories.deletedAt)))
+      .orderBy(asc(tournamentCategories.name), asc(tournamentCategories.id))
+    const regs = await selectRegistrations(eq(tournamentCategories.tournamentId, id))
+    const names = await namesFor(regs)
+    const clubNames = await currentClubNames([...names.keys()])
+
+    const rows = categories.flatMap((category) =>
+      regs
+        .filter((r) => r.categoryId === category.id)
+        .map((r) => {
+          const athleteIds = [r.athleteId, r.athlete2Id].filter((v): v is string => v !== null)
+          const clubList = [...new Set(athleteIds.map((athleteId) => clubNames.get(athleteId)).filter((v): v is string => !!v))]
+          return [
+            category.name,
+            names.get(r.athleteId) ?? '',
+            r.athlete2Id ? (names.get(r.athlete2Id) ?? '') : '',
+            clubList.join(' / '),
+            r.seed,
+            REGISTRATION_STATUS_LABELS[r.status],
+          ]
+        }),
+    )
+
+    const csv = buildCsv(['Categoria', 'Atleta', 'Parceiro(a)', 'Clube', 'Cabeça de chave', 'Status'], rows)
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', csvAttachmentHeader(`${tournament.slug}-inscritos`))
+      .header('Cache-Control', 'no-store')
+      .send(csv)
   })
 
   // Admin: todas as inscrições do torneio (inclusive recusadas e com motivo), paginadas.

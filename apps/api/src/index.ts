@@ -21,7 +21,12 @@ import { registrationsRoutes } from './routes/registrations.js'
 const app = Fastify({ logger: true })
 
 // O padrão do @fastify/cors só libera GET/HEAD/POST: sem a lista, o navegador bloqueia todo PUT, PATCH e DELETE.
-await app.register(cors, { origin: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] })
+// `exposedHeaders`: sem ele o navegador esconde o nome do arquivo dos downloads CSV (Content-Disposition) do JavaScript.
+await app.register(cors, {
+  origin: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['Content-Disposition'],
+})
 
 // Precisam vir antes das rotas: hooks e handlers da raiz valem para os plugins registrados depois.
 registerErrorHandling(app)

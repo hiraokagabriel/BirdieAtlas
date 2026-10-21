@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto'
 import { paginationQuerySchema } from '@birdie-atlas/validators'
 import { publicAthleteColumns } from '../db/public-columns.js'
 import { isGenderCompatible } from '../domain/eligibility.js'
+import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
 import { paginate } from '../domain/pagination.js'
 import { recalculateRanking } from '../services/ranking-engine.js'
 import { getDefaultTenantId } from '../tenant.js'
@@ -29,6 +30,12 @@ const createRankingSchema = z.object({
   minTournamentsRequired: z.number().int().default(0),
   isPublic: z.boolean().default(true),
 })
+
+/** Nome-base do CSV: evita "ranking-ranking-..." e repetir o ano que o nome já traz. */
+function rankingFileBase(name: string, year: number): string {
+  const withKind = /ranking/i.test(name) ? name : `ranking ${name}`
+  return withKind.includes(String(year)) ? withKind : `${withKind} ${year}`
+}
 
 export async function rankingsRoutes(app: FastifyInstance) {
 
@@ -168,6 +175,37 @@ export async function rankingsRoutes(app: FastifyInstance) {
     )
 
     return { ...page, ranking }
+  })
+
+  // Público, como a lista de entradas: só posição, nomes e pontos (nada de e-mail ou data de nascimento).
+  app.get('/rankings/:rankingId/entries/export.csv', async (request, reply) => {
+    const { rankingId } = z.object({ rankingId: z.string().min(1) }).parse(request.params)
+
+    const [ranking] = await db.select().from(rankings).where(eq(rankings.id, rankingId))
+    if (!ranking) return reply.status(404).send({ error: 'Ranking not found' })
+
+    const entries = await db.select().from(rankingEntries).where(eq(rankingEntries.rankingId, rankingId))
+      .orderBy(asc(rankingEntries.position), asc(rankingEntries.id))
+    const athleteIds = [...new Set(entries.flatMap((e) => [e.athleteId, e.athlete2Id].filter(Boolean) as string[]))]
+    const athleteList = athleteIds.length
+      ? await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, athleteIds))
+      : []
+    const nameById = new Map(athleteList.map((a) => [a.id, a.name]))
+
+    const csv = buildCsv(
+      ['Posição', 'Atleta', 'Parceiro(a)', 'Pontos', 'Torneios'],
+      entries.map((e) => [
+        e.position,
+        nameById.get(e.athleteId) ?? '',
+        e.athlete2Id ? (nameById.get(e.athlete2Id) ?? '') : '',
+        e.totalPoints,
+        e.tournamentsCount,
+      ]),
+    )
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', csvAttachmentHeader(rankingFileBase(ranking.name, ranking.year)))
+      .send(csv)
   })
 
   app.post('/rankings/audit-gender', async (_request, _reply) => {

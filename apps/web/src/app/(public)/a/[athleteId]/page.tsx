@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { Award, Calendar, Globe, MapPin, Trophy, Users } from 'lucide-react'
-import { ApiError, apiFetch } from '@/lib/api'
+import { fetchAthleteProfile } from '@/lib/public-athlete'
 import { summarizeAthlete } from '@/lib/athlete-stats'
 import { countryName, formatDate, formatPoints } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
@@ -13,84 +13,33 @@ import { EmptyNotice } from '@/components/public/notices'
 import { PlacementBadge } from '@/components/public/placement-badge'
 import { StatTile } from '@/components/public/stat-tile'
 import { StatusBadge } from '@/components/public/status-badge'
+import { ShareControl } from '@/components/shared/share-control'
+import { buildShareText, shareImageFilename, shareImagePath } from '@/lib/share'
+import { buildAthleteCard } from '@/lib/share-cards'
+import { shareMetadata } from '@/lib/share-metadata'
 
 // O perfil muda a cada torneio finalizado; renderiza por requisição.
 export const dynamic = 'force-dynamic'
 
-interface Athlete {
-  id: string
-  name: string
-  gender: 'M' | 'F'
-  nationality: string
-  photoUrl: string | null
-  active: boolean
-}
-
-interface CurrentClub {
-  clubId: string
-  clubName: string | null
-  clubSlug: string | null
-  city: string | null
-  state: string | null
-}
-
-interface RankingPosition {
-  rankingId: string
-  rankingName: string
-  discipline: string
-  year: number
-  position: number | null
-  totalPoints: number | null
-  partnerId: string | null
-  partnerName: string | null
-}
-
-interface TournamentEntry {
-  registrationId: string
-  seed: number | null
-  finalPlacement: number | null
-  categoryName: string
-  discipline: string
-  tournamentId: string
-  tournamentName: string
-  tournamentSlug: string
-  tournamentStatus: string
-  startDate: string
-  endDate: string
-  level: string
-  city: string
-  state: string
-}
-
-interface ProfileData {
-  athlete: Athlete
-  currentClub: CurrentClub | null
-  rankingPositions: RankingPosition[]
-  tournamentHistory: TournamentEntry[]
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 type PageProps = { params: Promise<{ athleteId: string }> }
 
 /** 404 vira página de "não encontrado"; qualquer outra falha sobe para o error boundary da rota. */
-const loadProfile = cache(async (athleteId: string): Promise<ProfileData> => {
-  if (!UUID_PATTERN.test(athleteId)) notFound()
-  try {
-    return await apiFetch<ProfileData>(`/athletes/${encodeURIComponent(athleteId)}/profile`)
-  } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) notFound()
-    throw err
-  }
+const loadProfile = cache(async (athleteId: string) => {
+  const profile = await fetchAthleteProfile(athleteId)
+  if (!profile) notFound()
+  return profile
 })
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { athleteId } = await params
-  const { athlete } = await loadProfile(athleteId)
-  return {
-    title: `${athlete.name} · BirdieAtlas`,
-    description: `Perfil de ${athlete.name}: títulos, pódios, histórico de torneios e posição nos rankings.`,
-  }
+  const card = buildAthleteCard(await loadProfile(athleteId))
+  return shareMetadata({
+    title: `${card.name} · BirdieAtlas`,
+    description: buildShareText({ kind: 'athlete', name: card.name }),
+    path: `/a/${athleteId}`,
+    imagePath: shareImagePath(`/a/${athleteId}`),
+    imageAlt: `Cartão de ${card.name}`,
+  })
 }
 
 export default async function PublicAthletePage({ params }: PageProps) {
@@ -146,6 +95,19 @@ export default async function PublicAthletePage({ params }: PageProps) {
                 </li>
               )}
             </ul>
+
+            <ShareControl
+              className="flex flex-col items-center sm:items-start"
+              title={`${athlete.name} · BirdieAtlas`}
+              text={buildShareText({ kind: 'athlete', name: athlete.name })}
+              images={[
+                {
+                  label: 'Baixar imagem',
+                  href: shareImagePath(`/a/${athleteId}`, { download: '1' }),
+                  filename: shareImageFilename(athlete.name),
+                },
+              ]}
+            />
 
             {disciplines.length > 0 && (
               <ul aria-label="Modalidades disputadas" className="flex flex-wrap justify-center gap-2 sm:justify-start">
