@@ -18,7 +18,7 @@ Requisitos: Node.js 20+, pnpm 9 e Docker.
 pnpm install
 docker compose up -d
 cp apps/api/.env.example apps/api/.env
-echo NEXT_PUBLIC_API_URL=http://localhost:3001 > apps/web/.env.local
+cp apps/web/.env.example apps/web/.env.local
 pnpm --filter @birdie-atlas/api db:migrate
 pnpm --filter @birdie-atlas/api db:seed
 pnpm dev

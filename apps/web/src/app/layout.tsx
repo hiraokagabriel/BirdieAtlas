@@ -5,6 +5,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryProvider } from '@/providers/query-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
+import { getSiteUrl } from '@/lib/share'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'], display: 'swap' })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'], display: 'swap' })
@@ -16,6 +17,8 @@ const barlowCondensed = Barlow_Condensed({
 })
 
 export const metadata: Metadata = {
+  // Base dos links absolutos de og:image e twitter:image. Configure NEXT_PUBLIC_SITE_URL em produção.
+  metadataBase: new URL(getSiteUrl()),
   title: 'BirdieAtlas',
   description: 'Sistema de gestão de federações de badminton',
 }

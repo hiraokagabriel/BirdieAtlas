@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
 import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 
 type Category = {
   id: string
@@ -211,8 +212,10 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
               {isLoading ? '...' : `${total} ${total === 1 ? 'inscrição' : 'inscrições'}`}
             </span>
           </p>
+          <div className="flex items-start gap-3">
+          <ExportCsvButton path={`/tournaments/${tournamentId}/registrations/export.csv`} fallbackName="inscritos.csv" />
           {locked ? (
-            <span className="text-xs text-muted-foreground">Torneio encerrado: inscrições bloqueadas</span>
+            <span className="self-center text-xs text-muted-foreground">Torneio encerrado: inscrições bloqueadas</span>
           ) : (
             <button
               onClick={() => { setShowForm((v) => !v); setError(null) }}
@@ -222,6 +225,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
               Inscrever
             </button>
           )}
+          </div>
         </div>
 
         {/* Formulário inline */}

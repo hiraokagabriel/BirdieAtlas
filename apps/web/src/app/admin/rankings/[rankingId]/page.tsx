@@ -11,6 +11,7 @@ import {
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PointRulesManager } from '@/components/ranking/point-rules-manager'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 type Ranking = {
@@ -511,7 +512,8 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
           {ranking.description && <p className="text-sm text-muted-foreground">{ranking.description}</p>}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2 flex-wrap">
+          <ExportCsvButton path={`/rankings/${ranking.id}/entries/export.csv`} fallbackName="ranking.csv" />
           <button
             onClick={() => setShowEdit(true)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"

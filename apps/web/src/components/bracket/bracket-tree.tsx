@@ -143,7 +143,7 @@ export function BracketTree({
           'scroll-pl-4 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring',
         )}
       >
-        <div className="flex w-max min-w-full px-4 pb-4">
+        <div data-print-fit="" className="flex w-max min-w-full px-4 pb-4">
           {rounds.map(({ round, title, matches: roundMatches }) => (
             <section
               key={round}

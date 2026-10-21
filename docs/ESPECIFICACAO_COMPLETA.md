@@ -78,8 +78,11 @@ Público, identificando por slug:
 |---|---|
 | `/` | Landing |
 | `/t/[slug]` | Torneio; em andamento, mostra "Ao vivo agora" e o placar corrente nos cartões da chave |
+| `/t/[slug]/share-image` | PNG de compartilhamento do torneio (ver "Compartilhamento e exportações") |
 | `/r/[tenantSlug]` | Rankings da federação |
+| `/r/[tenantSlug]/share-image` | PNG do top 10 de um ranking |
 | `/a/[athleteId]` | Perfil do atleta |
+| `/a/[athleteId]/share-image` | PNG do cartão do atleta |
 | `/c/[clubSlug]` | Clube |
 
 A navegação existe só para admin e público e vem de `apps/web/src/lib/navigation.ts`. Um teste garante que todo `href` da navegação tem uma rota. Papéis de atleta, juiz e super-admin ganham navegação quando suas páginas existirem.
@@ -108,12 +111,12 @@ Listas filhas de um recurso (partidas de uma chave, inscrições de uma categori
 ### Autorização
 
 - Toda escrita (POST, PUT, PATCH, DELETE) exige modo admin, verificado por um hook global `onRequest` (`apps/api/src/middleware/admin-guard.ts`). Autorização nunca é checada dentro do handler.
-- Leituras que devolvem dados pessoais (`GET /athletes`, `GET /athletes/:id`) também exigem modo admin.
+- Leituras que devolvem dados pessoais ou notas internas também exigem modo admin: `GET /athletes`, `GET /athletes/:id`, `GET /registrations/tournament/:tournamentId` e `GET /tournaments/:id/registrations/export.csv`. A lista fica em `ADMIN_ONLY_READS` (`admin-guard.ts`) e é coberta por `admin-guard.test.ts`.
 - Enquanto o Clerk não está integrado, o modo admin vem de `DEV_ADMIN_MODE=true` ou de `PATCH /dev/admin-mode`. Essa rota só existe fora de produção; em produção nenhuma escrita é possível.
 
 ### Dados pessoais
 
-CPF, e-mail, telefone e data de nascimento são dados pessoais. Endpoints públicos nunca os devolvem: usam `publicAthleteColumns` (`apps/api/src/db/public-columns.ts`). Logs não registram dados pessoais.
+CPF, e-mail, telefone e data de nascimento são dados pessoais. Endpoints públicos nunca os devolvem: usam `publicAthleteColumns` (`apps/api/src/db/public-columns.ts`). Logs não registram dados pessoais. As imagens de compartilhamento e as exportações seguem a mesma regra: só nome, clube, colocação e pontos (ver "Compartilhamento e exportações").
 
 ### Busca pública de atletas
 
@@ -135,11 +138,11 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Duplas | `GET/POST /pairs`, `GET/PUT/DELETE /pairs/:id` (desativar é `PUT { active: false }`) |
 | Torneios | `GET/POST /tournaments`, `GET/PUT/DELETE /tournaments/:id`, `GET /tournaments/by-slug/:slug`, `GET /tournaments/:id/public-summary`, `POST /tournaments/:id/transition`, `POST /tournaments/:id/finalize`, `POST /tournaments/:id/reopen` |
 | Categorias | `GET/POST /tournaments/:id/categories` |
-| Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
+| Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público; inclui `finalPlacement`, preenchida só com o torneio encerrado), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `GET /tournaments/:id/registrations/export.csv` (admin, CSV), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Agenda automática | `POST /tournaments/:id/schedule/auto` |
 | Placar ao vivo | `GET /tournaments/:id/live` (SSE, público), `GET /tournaments/:id/live/matches` (público), `GET /tournaments/:id/live/queue` (público), `POST /draws/matches/:matchId/live/start`, `.../live/point`, `.../live/undo`, `.../live/finish`, `.../live/cancel` |
-| Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
+| Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `GET /rankings/:rankingId/entries/export.csv` (público, CSV), `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
 | Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
 | Dashboard | `GET /dashboard/stats`, `GET /dashboard/recent-matches`, `GET /dashboard/upcoming-matches` |
 
@@ -342,6 +345,53 @@ Um comentário `: heartbeat` sai a cada 15 s. Ao desconectar (`close` da requisi
 - O recálculo do ranking resolve os pontos pela regra mais específica (nível + disciplina), depois a genérica (só nível). Sem regra para o nível, a colocação vale 0 pontos.
 - `countBestResults` limita a soma aos melhores resultados; `minTournamentsRequired` exclui quem jogou menos torneios.
 
+## Compartilhamento e exportações
+
+Nada depende de serviço externo nem de biblioteca nova: imagens vêm de `next/og` (`ImageResponse`), o PDF vem do "Salvar como PDF" do navegador e o CSV é montado pela API.
+
+### Imagens de compartilhamento
+
+Rotas públicas (Route Handlers), que leem a API no servidor com os mesmos endpoints públicos das páginas e devolvem `image/png`:
+
+| Rota | Imagem |
+|---|---|
+| `/t/[slug]/share-image` | 1200x630: nome, nível, datas, cidade e, com o torneio encerrado, pódio por categoria (campeão, vice e os terceiros). Antes do encerramento mostra categorias, atletas e partidas. `?format=portrait` gera a versão 1080x1350 ("story"), com os três lugares |
+| `/a/[athleteId]/share-image` | 1200x630: nome, clube, títulos, pódios, torneios e melhor posição em ranking |
+| `/r/[tenantSlug]/share-image` | 1200x630: top 10 do ranking. `?ranking=<id>` escolhe o ranking; sem ele, o primeiro da federação |
+
+- `?download=1` devolve o PNG como anexo (`Content-Disposition`), com nome em slug.
+- Rascunho de torneio é tratado como inexistente. Todo texto passa por `cleanText`/`truncateText` (`lib/share.ts`): sem caracteres de controle, de largura zero ou de direção, com limite de tamanho e reticências. O pódio mostra até 3 categorias (e "+ N categorias"); o resto vai só na página.
+- A rota nunca devolve 500. Dado inexistente: imagem de fallback da marca com status `404`. API fora do ar: fallback com `200` e `Cache-Control: no-store`. Falha de renderização: tenta de novo sem a fonte da marca e depois com o fallback; só se nem o fallback renderizar responde `503`.
+- Cache: `public, max-age=60, s-maxage=300, stale-while-revalidate=600` nas imagens completas.
+- Identidade: gradiente verde, amarelo de destaque e medalhas ouro, prata e bronze, em hexadecimal (`lib/share-image/brand.ts`), porque o Satori não lê `oklch`. A fonte é a Barlow Condensed (500 e 700): o `ImageResponse` só aceita ttf/otf/woff e o `next/font` entrega woff2, então `lib/share-image/fonts.ts` baixa o ttf do Google Fonts na primeira imagem e o guarda em memória. Sem internet (ou em timeout de 4 s) a imagem sai com a fonte padrão do `ImageResponse`, sem erro, e uma nova tentativa só acontece depois de 5 minutos. Emoji não é usado nas imagens (o `ImageResponse` buscaria o emoji numa CDN).
+- Cada página pública correspondente declara `openGraph` e `twitter` (`summary_large_image`) com a imagem, via `shareMetadata` (`lib/share-metadata.ts`). Os links são absolutos a partir de `metadataBase`, definido no layout raiz por `NEXT_PUBLIC_SITE_URL` (padrão `http://localhost:3000`; ver `apps/web/.env.example`). Em produção, configure o domínio real, senão o WhatsApp, o Instagram e o X recebem links `localhost`.
+- Nas três páginas há "Compartilhar" (`ShareControl`): usa `navigator.share` quando existe; senão copia o link e confirma com toast e com uma região `aria-live`. "Baixar imagem" baixa o PNG (no torneio encerrado, também a versão "story"). A página de ranking usa o ranking selecionado.
+
+### Impressão e PDF
+
+Botão "Imprimir / Salvar PDF" (`PrintButton`) na chave do torneio público e no ranking público. Chama `window.print()`; não há biblioteca de PDF. As regras ficam em `apps/web/src/app/print.css` (importado por `globals.css`) e valem só em `@media print`, atuando em classes `print-*` e atributos `data-print-*`; a tela não muda.
+
+- Somem no papel: cabeçalho, menu, seletor de tema, abas, seletores de categoria, estatísticas, botões e controles de compartilhar (variante `print:hidden` do Tailwind).
+- Tema claro forçado: em `beforeprint` o botão tira a classe `dark` de `<html>` e a devolve em `afterprint` (vale também para Ctrl+P).
+- Chave: página A4 paisagem (`@page bracket`), desenrolada (sem rolagem) e reduzida com `zoom` para caber (`computePrintScale`, `lib/print.ts`). Cartões de partida não são cortados entre páginas e os conectores saem (`print-color-adjust: exact`).
+- Limite: a escala mínima é 0,4. Uma chave de 32 vagas já pede ~0,49; acima disso (64 vagas ou mais) a chave deixa de caber numa página sem ficar ilegível e continua na página seguinte, podendo cortar conectores na quebra. A largura sempre cabe. O `zoom` exige navegador recente (Chrome, Edge, Safari e Firefox 126 ou superior); sem ele a chave sai sem redução.
+- Ranking: página A4 retrato (`@page ranking`); imprime a página atual da tabela (25 linhas), sem cortar uma linha ao meio.
+
+### CSV
+
+- `GET /tournaments/:id/registrations/export.csv` (admin): uma linha por inscrição, ordenadas por categoria. Colunas: `Categoria; Atleta; Parceiro(a); Clube; Cabeça de chave; Status` (`Pendente`, `Aprovada`, `Recusada`; recusadas incluídas). Dados pessoais: só nomes e o clube atual, nunca e-mail, data de nascimento nem `notes`. É leitura só de admin (`ADMIN_ONLY_READS`): sem modo admin, `403 ADMIN_MODE_DISABLED`.
+- `GET /rankings/:rankingId/entries/export.csv` (público, como a lista de entradas): `Posição; Atleta; Parceiro(a); Pontos; Torneios`, ordenado pela posição. `404` para ranking inexistente.
+- Formato (`apps/api/src/domain/csv.ts`): UTF-8 com BOM, separador `;` (convenção do Excel em português do Brasil, onde a vírgula é separador decimal), quebra de linha CRLF e CRLF no fim. Campo com `;`, aspas ou quebra de linha vai entre aspas, com aspas dobradas. Texto que começa com `=`, `+`, `-`, `@`, TAB ou CR ganha um apóstrofo na frente (injeção de fórmula); números não são alterados.
+- Cabeçalhos: `Content-Type: text/csv; charset=utf-8` e `Content-Disposition: attachment; filename="<slug>.csv"; filename*=UTF-8''<slug>.csv`. O nome é um slug ASCII (`slugifyFilename`), então não há injeção de cabeçalho. O CORS expõe `Content-Disposition` para o navegador ler o nome.
+- Web: botão "Exportar CSV" na aba Inscrições do torneio e na página do ranking no admin (`ExportCsvButton`). Baixa por `fetch` e mostra o erro (`403`, rede) abaixo do botão.
+
+Exemplo (`export.csv` de inscritos):
+
+```
+Categoria;Atleta;Parceiro(a);Clube;Cabeça de chave;Status
+Simples Masculino;"'=HYPERLINK(""http://x"";""y"") Ana";;Clube Alfa;1;Aprovada
+```
+
 ## Convenções
 
 ### TypeScript
@@ -404,6 +454,6 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora), critérios de desempate.
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.
-- **Admin:** relatórios exportáveis, notificações, gestão de usuários e papéis.
+- **Admin:** relatórios exportáveis além dos dois CSVs atuais, notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
 - **Qualidade:** testes E2E com Playwright, PWA, acessibilidade WCAG 2.1 AA.

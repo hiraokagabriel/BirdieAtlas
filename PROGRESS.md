@@ -108,6 +108,9 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 |---|---|
 | Landing, torneio, rankings, atleta e clube | ✅ |
 | Busca pública de atletas (`GET /athletes/search`) | ✅ |
+| Imagens de compartilhamento (Open Graph 1200x630 e "story" 1080x1350 do pódio) | ✅ |
+| Compartilhar e baixar imagem (torneio, atleta e ranking) | ✅ |
+| Impressão / PDF da chave e do ranking (`@media print`) | ✅ |
 | Estatísticas e histórico de atletas | ❌ |
 | Head-to-head | ❌ |
 
@@ -116,8 +119,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | Dashboard com dados reais | ✅ | |
-| Relatórios exportáveis | ❌ | |
-| Notificações | ❌ | |
+| Relatórios exportáveis | 🟡 | CSV de inscritos por categoria (admin) e de entradas do ranking; falta o resto dos relatórios |
+| Notificações | ❌ | Dependem de provedor de e-mail/WhatsApp e de login |
 | Gestão de usuários e papéis | ❌ | Depende do Clerk |
 
 ## Phase 8 — Qualidade e mobile

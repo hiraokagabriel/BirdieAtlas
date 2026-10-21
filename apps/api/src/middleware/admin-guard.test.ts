@@ -21,6 +21,12 @@ describe('requiresAdmin', () => {
     expect(requiresAdmin('GET', '/tournaments/categories/:categoryId/registrations')).toBe(false)
   })
 
+  it('protects the registrations CSV export but leaves the public ranking CSV open', () => {
+    expect(requiresAdmin('GET', '/tournaments/:id/registrations/export.csv')).toBe(true)
+    expect(requiresAdmin('HEAD', '/tournaments/:id/registrations/export.csv')).toBe(true)
+    expect(requiresAdmin('GET', '/rankings/:rankingId/entries/export.csv')).toBe(false)
+  })
+
   it('never guards the admin-mode toggle or unmatched routes', () => {
     expect(requiresAdmin('PATCH', '/dev/admin-mode')).toBe(false)
     expect(requiresAdmin('POST', undefined)).toBe(false)

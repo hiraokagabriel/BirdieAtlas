@@ -1,0 +1,80 @@
+/*
+ * Impressão / PDF (sem biblioteca: o navegador gera o PDF em "Salvar como PDF").
+ *
+ * Escopo estreito: nada aqui afeta a tela. As regras de `@media print` só agem em classes
+ * `print-*` e nos atributos `data-print-*`, que as páginas públicas do torneio e do ranking
+ * aplicam. O que some no papel (menu, cabeçalho, abas, botões, seletor de tema) usa a variante
+ * `print:hidden` do Tailwind direto no componente.
+ *
+ * - `.print-bracket-page`: página A4 paisagem (chave).
+ * - `.print-ranking-page`: página A4 retrato (ranking).
+ * - `data-print-fit`: o PrintButton reduz o elemento (`zoom`) para caber na página em `beforeprint`.
+ * - Tema claro: o PrintButton tira a classe `dark` de <html> em `beforeprint` e a devolve em `afterprint`.
+ */
+
+@page {
+  margin: 10mm;
+}
+
+@page bracket {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@page ranking {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@media print {
+  html {
+    color-scheme: light;
+  }
+
+  /* Cores (medalhas, conectores, cabeçalhos) precisam sair no papel e no PDF. */
+  .print-bracket-page,
+  .print-bracket-page *,
+  .print-ranking-page,
+  .print-ranking-page * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-bracket-page {
+    page: bracket;
+  }
+
+  .print-ranking-page {
+    page: ranking;
+  }
+
+  /* A chave rola na tela; no papel ela é desenrolada e escalada por `data-print-fit`. */
+  .print-bracket-page [role='region'] {
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .print-bracket-page [role='region'] h3 {
+    position: static !important;
+  }
+
+  /* Cartão de partida nunca é cortado entre duas páginas. */
+  .print-bracket-page li,
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* O ranking imprime a tabela inteira da página atual, linha por linha, sem cortar a linha ao meio. */
+  .print-ranking-page [data-print-row] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-ranking-page [data-print-table] {
+    overflow: visible !important;
+    border-radius: 0 !important;
+  }
+}
