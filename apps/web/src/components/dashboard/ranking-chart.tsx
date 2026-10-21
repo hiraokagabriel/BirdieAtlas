@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
+import { disciplineChartColor } from '@/lib/discipline'
 
 type Category = 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
 
@@ -29,12 +30,12 @@ type RankingEntry = {
 
 type EntriesResponse = Paginated<RankingEntry> & { ranking: RankingMeta }
 
-const categoryConfig: Record<Category, { color: string; label: string }> = {
-  MS: { color: '#3b82f6', label: 'Simples Masculino' },
-  WS: { color: '#a855f7', label: 'Simples Feminino' },
-  MD: { color: '#06b6d4', label: 'Duplas Masculino' },
-  WD: { color: '#ec4899', label: 'Duplas Feminino' },
-  XD: { color: '#f97316', label: 'Duplas Misto' },
+const categoryLabels: Record<Category, string> = {
+  MS: 'Simples Masculino',
+  WS: 'Simples Feminino',
+  MD: 'Duplas Masculino',
+  WD: 'Duplas Feminino',
+  XD: 'Duplas Misto',
 }
 
 const CATEGORIES: Category[] = ['MS', 'WS', 'MD', 'WD', 'XD']
@@ -49,17 +50,18 @@ function shortName(entry: RankingEntry): string {
 
 interface CustomTooltipProps {
   active?: boolean
-  payload?: { payload: { name: string }; value: number; fill: string }[]
+  payload?: { payload: { name: string }; value: number }[]
+  color: string
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, color }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   const entry = payload[0]
   return (
     <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
       <p className="text-sm font-semibold text-popover-foreground">{entry.payload.name}</p>
       <p className="text-sm text-muted-foreground">
-        <span className="font-medium" style={{ color: entry.fill }}>{entry.value}</span>{' pts'}
+        <span className="font-medium" style={{ color }}>{entry.value}</span>{' pts'}
       </p>
     </div>
   )
@@ -101,7 +103,8 @@ export function RankingChart() {
       .finally(() => setLoading(false))
   }, [active, rankingMap])
 
-  const { color, label } = categoryConfig[active]
+  const label = categoryLabels[active]
+  const color = disciplineChartColor(active)
   const chartHeight = Math.max((data.length || 4) * 52, 160)
 
   return (
@@ -139,10 +142,10 @@ export function RankingChart() {
         ) : (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-border" />
-              <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="text-muted-foreground" />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={110} className="text-muted-foreground" />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} width={110} />
+              <Tooltip content={<CustomTooltip color={color} />} cursor={{ fill: 'var(--muted)', fillOpacity: 0.5 }} />
               <Bar dataKey="points" radius={[0, 6, 6, 0]} maxBarSize={32}>
                 {data.map((_, index) => (
                   <Cell key={index} fill={color} fillOpacity={1 - index * 0.1} />

@@ -5,19 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { ScheduleDialog } from './schedule-dialog'
 import { CalendarClock, Pencil } from 'lucide-react'
-
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-100 text-blue-700',
-  WS: 'bg-purple-100 text-purple-700',
-  MD: 'bg-cyan-100 text-cyan-700',
-  WD: 'bg-pink-100 text-pink-700',
-  XD: 'bg-orange-100 text-orange-700',
-}
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
   pending: { label: 'Aguardando', dot: 'bg-muted-foreground/40' },
   in_progress: { label: 'Ao vivo', dot: 'bg-success animate-pulse' },
-  completed: { label: 'Encerrada', dot: 'bg-blue-400' },
+  completed: { label: 'Encerrada', dot: 'bg-info' },
   walkover: { label: 'W.O.', dot: 'bg-warning' },
   retired: { label: 'Ret.', dot: 'bg-destructive' },
 }
@@ -138,7 +131,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false }: Pro
                 const p1 = getAthleteLabel(match.registration1Id, match.registrations)
                 const p2 = getAthleteLabel(match.registration2Id, match.registrations)
                 const status = statusLabel[match.status] ?? statusLabel.pending
-                const disciplineColor = disciplineColors[match.category.discipline] ?? 'bg-muted text-muted-foreground'
+                const disciplineColor = DISCIPLINE_PILL[match.category.discipline] ?? 'bg-muted text-muted-foreground'
 
                 return (
                   <div key={match.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">

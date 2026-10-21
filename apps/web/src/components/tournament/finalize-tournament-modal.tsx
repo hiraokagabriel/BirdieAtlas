@@ -75,7 +75,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/50 dark:bg-black/65" onClick={handleClose} />
       <div className="relative z-10 w-full max-w-2xl bg-background rounded-2xl border border-border shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
@@ -118,7 +118,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
                 <button
                   onClick={() => mutation.mutate()}
                   disabled={mutation.isPending}
-                  className="px-4 py-2 rounded-lg bg-destructive text-background text-sm font-semibold hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                 >
                   {mutation.isPending ? 'Encerrando...' : 'Confirmar encerramento'}
                 </button>

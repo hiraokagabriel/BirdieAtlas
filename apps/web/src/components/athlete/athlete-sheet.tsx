@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Building2, Calendar, Mail, MapPin, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { GENDER_PILL } from '@/lib/discipline'
 
 type Affiliation = {
   id: string
@@ -35,7 +36,6 @@ function getAge(birthDate: string | null): string {
 }
 
 const genderLabel = { M: 'Masculino', F: 'Feminino' }
-const genderColor = { M: 'bg-blue-100 text-blue-700', F: 'bg-pink-100 text-pink-700' }
 
 export function AthleteSheet({
   athlete,
@@ -90,7 +90,7 @@ export function AthleteSheet({
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações</h3>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Badge variant="secondary" className={genderColor[athlete.gender]}>
+                  <Badge variant="secondary" className={GENDER_PILL[athlete.gender]}>
                     {genderLabel[athlete.gender]}
                   </Badge>
                   <Badge

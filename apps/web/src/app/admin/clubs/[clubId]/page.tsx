@@ -7,6 +7,8 @@ import { EditClubModal } from '@/components/club/edit-club-modal'
 import { MapPin, Trophy, TrendingUp, Users, Search, ArrowUpDown, ChevronUp, ChevronDown, ExternalLink, ChevronLeft, Pencil, Globe } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { DISCIPLINE_PILL, genderAvatarClass } from '@/lib/discipline'
+import { clubInkColor } from '@/lib/club-color'
 
 type RosterAthlete = {
   id: string; name: string; gender: 'M' | 'F'
@@ -32,14 +34,6 @@ const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
   MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
 }
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-500/10 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
-  XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
-}
-
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 type SortField = 'name' | 'totalPoints' | 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
 type SortDir  = 'asc' | 'desc'
@@ -53,7 +47,7 @@ function StatCard({ label, value, sub, icon: Icon, primary }: {
   return (
     <div className="rounded-xl border border-border bg-card/80 backdrop-blur p-4 space-y-1">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" style={{ color: primary }} />
+        <Icon className="w-3.5 h-3.5" style={{ color: clubInkColor(primary) }} />
         {label}
       </div>
       <p className="text-2xl font-bold tabular-nums">{value}</p>
@@ -204,7 +198,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
       {/* TABELA */}
       <div className="space-y-4">
         <h2 className="text-base font-semibold flex items-center gap-2">
-          <Users className="w-4 h-4" style={{ color: primary }} />
+          <Users className="w-4 h-4" style={{ color: clubInkColor(primary) }} />
           Plantel
         </h2>
         <div className="flex flex-wrap gap-3">
@@ -272,8 +266,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                       <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                            style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(athlete.gender)}`}>
                             {athlete.name.charAt(0)}
                           </div>
                           <div>
@@ -285,16 +278,16 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-bold tabular-nums" style={{ color: primary }}>
+                      <td className="px-4 py-3 font-bold tabular-nums" style={{ color: clubInkColor(primary) }}>
                         {athlete.totalPoints.toLocaleString('pt-BR')}
                       </td>
                       {DISCIPLINES.map((d) => (
                         <td key={d} className="px-4 py-3 text-center tabular-nums">
                           {athlete.byDiscipline[d] ? (
-                            <span className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${disciplineColors[d]}`}>
+                            <span className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${DISCIPLINE_PILL[d]}`}>
                               {athlete.byDiscipline[d].toLocaleString('pt-BR')}
                             </span>
-                          ) : <span className="text-border">—</span>}
+                          ) : <span className="text-muted-foreground">—</span>}
                         </td>
                       ))}
                       <td className="px-4 py-3">

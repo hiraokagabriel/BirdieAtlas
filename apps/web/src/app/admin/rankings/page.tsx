@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api'
 import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
 import { Plus, ChevronRight, Users, User, Zap, Trophy, Shield } from 'lucide-react'
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 type Ranking = {
   id: string; name: string; description: string | null
@@ -19,14 +20,6 @@ const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
   MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
 }
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-500/10 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
-  XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
-}
-
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 
 /** Gera slug a partir de uma string: lowercase, sem acentos, hífens no lugar de espaços/especiais */
@@ -245,7 +238,7 @@ export default function RankingsPage() {
 
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
-                  disciplineColors[r.discipline] ?? 'bg-muted text-muted-foreground border-border'
+                  DISCIPLINE_PILL[r.discipline] ?? 'bg-muted text-muted-foreground border-border'
                 }`}>
                   {['MD','WD','XD'].includes(r.discipline)
                     ? <Users className="w-3 h-3" />

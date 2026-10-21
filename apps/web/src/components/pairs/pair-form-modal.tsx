@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, useAthleteSearch } from '@/hooks/use-athlete-search'
 import { X, Search, Users } from 'lucide-react'
+import { genderAvatarClass } from '@/lib/discipline'
 
 type Athlete = {
   id: string
@@ -65,8 +66,7 @@ function AthleteSelector({
           {selected ? (
             <>
               <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                style={{ background: selected.gender === 'M' ? '#3b82f6' : '#ec4899' }}
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(selected.gender)}`}
               >
                 {initials(selected.name)}
               </div>
@@ -104,8 +104,7 @@ function AthleteSelector({
                     onClick={() => { onChange(a); setOpen(false); setSearch('') }}
                   >
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                      style={{ background: a.gender === 'M' ? '#3b82f6' : '#ec4899' }}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(a.gender)}`}
                     >
                       {initials(a.name)}
                     </div>
@@ -186,7 +185,7 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">

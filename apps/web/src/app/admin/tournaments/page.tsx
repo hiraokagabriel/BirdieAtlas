@@ -21,7 +21,7 @@ type Tournament = {
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   draft: { label: 'Rascunho', className: 'bg-muted text-muted-foreground' },
-  registration_open: { label: 'Inscrições abertas', className: 'bg-blue-100 text-blue-700' },
+  registration_open: { label: 'Inscrições abertas', className: 'bg-info/10 text-info' },
   registration_closed: { label: 'Inscrições encerradas', className: 'bg-warning/10 text-warning' },
   in_progress: { label: 'Em andamento', className: 'bg-success/10 text-success' },
   completed: { label: 'Encerrado', className: 'bg-muted text-muted-foreground' },

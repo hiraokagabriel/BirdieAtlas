@@ -27,6 +27,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Tokens e tipografia (verde-quadra, amarelo-peteca, Barlow Condensed) | ✅ PR #20 |
 | Home pública e perfil do atleta | ✅ PR #21 |
 | Chave visual (admin e pública) | ✅ PR #22 |
+| Dark mode (toggle claro/escuro/sistema) | ✅ PR #24 |
 
 ## Phase 0 — Fundação
 
@@ -130,4 +131,3 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
-| Dark mode sem toggle | 🟢 Baixa | Os tokens escuros existem em `globals.css`, mas nada aplica a classe `.dark` |

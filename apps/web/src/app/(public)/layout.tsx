@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { PUBLIC_NAV } from '@/lib/navigation'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 {label}
               </Link>
             ))}
+            <ThemeToggle />
           </nav>
         </div>
       </header>

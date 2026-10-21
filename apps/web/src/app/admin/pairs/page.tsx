@@ -10,6 +10,7 @@ import {
   ChevronUp, ChevronDown, ArrowUpDown,
 } from 'lucide-react'
 import { PairFormModal } from '@/components/pairs/pair-form-modal'
+import { DISCIPLINE_PILL, genderAvatarClass } from '@/lib/discipline'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,12 +43,6 @@ type Pair = {
 const disciplineLabel: Record<string, string> = {
   MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Misto',
 }
-const disciplineColors: Record<string, string> = {
-  MD: 'bg-blue-50 text-blue-700 border-blue-200',
-  WD: 'bg-pink-50 text-pink-700 border-pink-200',
-  XD: 'bg-orange-50 text-orange-700 border-orange-200',
-}
-
 function initials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('')
 }
@@ -60,8 +55,7 @@ function AthleteBadge({ athlete }: { athlete: AthleteInPair }) {
           className="w-7 h-7 rounded-full object-cover shrink-0" />
       ) : (
         <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-          style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}
+          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(athlete.gender)}`}
         >
           {initials(athlete.name)}
         </div>
@@ -283,7 +277,7 @@ export default function PairsPage() {
                     {/* Disciplina */}
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-xs font-medium ${
-                        disciplineColors[pair.discipline]
+                        DISCIPLINE_PILL[pair.discipline]
                       }`}>
                         {disciplineLabel[pair.discipline]}
                       </span>

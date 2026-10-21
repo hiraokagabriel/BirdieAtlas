@@ -8,6 +8,7 @@ import { ErrorNotice } from '@/components/public/notices'
 import { BracketSkeleton } from './bracket-tree'
 import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
 import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
+import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -17,21 +18,6 @@ type Registration = BracketEntry
 type Draw        = { id: string; published: boolean }
 type MatchResult = SetScore
 type DrawMode    = 'random' | 'seeded'
-
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-500/10 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
-  XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
-}
-const disciplineActiveColors: Record<string, string> = {
-  MS: 'bg-blue-500 text-white border-blue-500',
-  WS: 'bg-purple-500 text-white border-purple-500',
-  MD: 'bg-cyan-500 text-white border-cyan-500',
-  WD: 'bg-pink-500 text-white border-pink-500',
-  XD: 'bg-orange-500 text-white border-orange-500',
-}
 
 // ─── Draw Mode Card ──────────────────────────────────────────────────────────
 
@@ -200,7 +186,7 @@ export function BracketView({
       <div className="flex items-center gap-2 flex-wrap">
         {categories.map((cat) => {
           const isActive = cat.id === activeCategoryId
-          const color    = isActive ? disciplineActiveColors[cat.discipline] : disciplineColors[cat.discipline]
+          const color    = isActive ? DISCIPLINE_PILL_ACTIVE[cat.discipline] : DISCIPLINE_PILL[cat.discipline]
           return (
             <button
               key={cat.id}
@@ -265,15 +251,15 @@ export function BracketView({
 
       {/* Redraw confirmation panel — only shown when not published */}
       {showRedraw && draw && !draw.published && (
-        <div className="rounded-xl border-2 border-orange-200 bg-orange-50 p-5 space-y-4">
+        <div className="rounded-xl border-2 border-warning/30 bg-warning/10 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-orange-900">Ressortear chaveamento</p>
-              <p className="text-xs text-orange-700 mt-0.5">
+              <p className="font-semibold text-foreground">Ressortear chaveamento</p>
+              <p className="text-xs text-warning mt-0.5">
                 Todos os resultados desta categoria serão <strong>apagados</strong> e a chave será gerada novamente.
               </p>
             </div>
-            <button onClick={() => setShowRedraw(false)} className="p-1 rounded hover:bg-orange-100 text-orange-600">
+            <button onClick={() => setShowRedraw(false)} className="p-1 rounded hover:bg-warning/15 text-warning">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -318,7 +304,7 @@ export function BracketView({
           <div className="flex items-center gap-2">
             {alreadyAwarded || awardResult
               ? <CheckCircle2 className="w-4 h-4 text-success" />
-              : <Trophy className="w-4 h-4 text-blue-600" />}
+              : <Trophy className="w-4 h-4 text-info" />}
             <div>
               <p className={`text-sm font-medium ${alreadyAwarded || awardResult ? 'text-success' : 'text-info'}`}>
                 {alreadyAwarded
@@ -328,7 +314,7 @@ export function BracketView({
                     : 'Todas as partidas encerradas'}
               </p>
               {!alreadyAwarded && !awardResult && (
-                <p className="text-xs text-blue-600 mt-0.5">
+                <p className="text-xs text-info mt-0.5">
                   Pronto para distribuir os pontos nos rankings
                 </p>
               )}
@@ -349,7 +335,7 @@ export function BracketView({
       )}
 
       {awardError && (
-        <div role="alert" className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-sm">
+        <div role="alert" className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-warning/30 bg-warning/10 text-warning text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
           {awardError}
         </div>

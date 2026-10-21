@@ -5,6 +5,7 @@ import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { Trophy, ChevronLeft, ChevronRight, Users, User } from 'lucide-react'
 import Link from 'next/link'
+import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
 
 type Ranking = {
   id: string; name: string
@@ -23,21 +24,6 @@ const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
   MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Duplas Misto',
 }
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-500/10 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
-  XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
-}
-const disciplineActiveColors: Record<string, string> = {
-  MS: 'bg-blue-500 text-white border-blue-500',
-  WS: 'bg-purple-500 text-white border-purple-500',
-  MD: 'bg-cyan-500 text-white border-cyan-500',
-  WD: 'bg-pink-500 text-white border-pink-500',
-  XD: 'bg-orange-500 text-white border-orange-500',
-}
-
 function PositionBadge({ pos }: { pos: number }) {
   if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
   if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
@@ -91,7 +77,7 @@ export default function RankingPage({ params }: { params: Promise<{ tenantSlug: 
       <div className="flex items-center gap-2 flex-wrap">
         {rankings.map((r) => {
           const isActive = r.id === activeRankingId
-          const color = isActive ? disciplineActiveColors[r.discipline] : disciplineColors[r.discipline]
+          const color = isActive ? DISCIPLINE_PILL_ACTIVE[r.discipline] : DISCIPLINE_PILL[r.discipline]
           return (
             <button key={r.id} onClick={() => selectRanking(r.id)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-muted text-muted-foreground border-border'}`}

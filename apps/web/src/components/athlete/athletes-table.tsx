@@ -10,9 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { AthleteSheet } from './athlete-sheet'
 import { Search, Users } from 'lucide-react'
+import { GENDER_PILL } from '@/lib/discipline'
 
 const genderLabel = { M: 'Masculino', F: 'Feminino' }
-const genderColor = { M: 'bg-blue-100 text-blue-700', F: 'bg-pink-100 text-pink-700' }
 
 function getAge(birthDate: string | null): string {
   if (!birthDate) return '—'
@@ -116,7 +116,7 @@ export function AthletesTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className={genderColor[athlete.gender]}>
+                    <Badge variant="secondary" className={GENDER_PILL[athlete.gender]}>
                       {genderLabel[athlete.gender]}
                     </Badge>
                   </TableCell>

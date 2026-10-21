@@ -11,6 +11,7 @@ import {
   Calendar, MapPin, Lock, Users, User,
   Trophy, CheckCircle2, Clock,
 } from 'lucide-react'
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,14 +61,6 @@ const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
   MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
 }
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-50 text-blue-700 border-blue-200',
-  WS: 'bg-purple-50 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-50 text-pink-700 border-pink-200',
-  XD: 'bg-orange-50 text-orange-700 border-orange-200',
-}
-
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -394,7 +387,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
         <div className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium ${
-              disciplineColors[activeCategory.discipline] ?? ''
+              DISCIPLINE_PILL[activeCategory.discipline] ?? ''
             }`}>
               {['MD','WD','XD'].includes(activeCategory.discipline)
                 ? <Users className="w-3 h-3" />
