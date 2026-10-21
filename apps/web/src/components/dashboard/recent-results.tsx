@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api'
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 type RecentMatch = {
   matchId: string
@@ -16,14 +17,6 @@ type RecentMatch = {
   loserName: string
   score: string
   completedAt: string
-}
-
-const categoryColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/10',
-  WS: 'bg-purple-500/10 text-purple-600 hover:bg-purple-500/10',
-  MD: 'bg-cyan-500/10 text-cyan-600 hover:bg-cyan-500/10',
-  WD: 'bg-pink-500/10 text-pink-600 hover:bg-pink-500/10',
-  XD: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/10',
 }
 
 function roundLabel(round: number): string {
@@ -68,7 +61,7 @@ export function RecentResults() {
               {results.map((r) => (
                 <TableRow key={r.matchId} className="hover:bg-accent/50">
                   <TableCell>
-                    <Badge variant="secondary" className={categoryColors[r.discipline]}>
+                    <Badge variant="secondary" className={DISCIPLINE_PILL[r.discipline]}>
                       {r.discipline}
                     </Badge>
                   </TableCell>

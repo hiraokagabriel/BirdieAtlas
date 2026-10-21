@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Feather, ChevronRight, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { AdminModeToggle } from '@/components/dashboard/admin-mode-toggle'
 import { ADMIN_NAV, isNavItemActive } from '@/lib/navigation'
 
@@ -64,8 +65,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center px-8 py-4 border-b border-border shrink-0">
+        <header className="flex items-center justify-between gap-4 px-8 py-4 border-b border-border shrink-0">
           <h1 className="text-xl font-semibold">{current?.label ?? 'Administração'}</h1>
+          <ThemeToggle />
         </header>
 
         <main className="flex-1 overflow-auto p-8">

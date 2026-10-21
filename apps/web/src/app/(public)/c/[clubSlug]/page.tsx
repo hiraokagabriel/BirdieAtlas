@@ -9,6 +9,8 @@ import {
   ExternalLink, User,
 } from 'lucide-react'
 import Link from 'next/link'
+import { DISCIPLINE_PILL, genderAvatarClass } from '@/lib/discipline'
+import { clubInkColor } from '@/lib/club-color'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,14 +53,6 @@ type ClubProfile = {
 const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
   MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
-}
-
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-50 text-blue-700 border-blue-200',
-  WS: 'bg-purple-50 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-50 text-pink-700 border-pink-200',
-  XD: 'bg-orange-50 text-orange-700 border-orange-200',
 }
 
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
@@ -130,7 +124,7 @@ function StatCard({
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-1">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-        <Icon className="w-3.5 h-3.5" style={{ color: accentColor }} />
+        <Icon className="w-3.5 h-3.5" style={{ color: clubInkColor(accentColor) }} />
         {label}
       </div>
       <p className="text-2xl font-bold tabular-nums">{value}</p>
@@ -303,7 +297,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
       {/* PLANTEL */}
       <div className="space-y-4">
         <h2 className="text-base font-semibold flex items-center gap-2">
-          <Users className="w-4 h-4" style={{ color: primary }} />
+          <Users className="w-4 h-4" style={{ color: clubInkColor(primary) }} />
           Plantel
         </h2>
 
@@ -403,8 +397,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                             />
                           ) : (
                             <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                              style={{ background: athlete.gender === 'M' ? '#3b82f6' : '#ec4899' }}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(athlete.gender)}`}
                             >
                               {initials(athlete.name)}
                             </div>
@@ -419,7 +412,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                       </td>
 
                       {/* Total de pontos */}
-                      <td className="px-4 py-3 font-bold tabular-nums" style={{ color: primary }}>
+                      <td className="px-4 py-3 font-bold tabular-nums" style={{ color: clubInkColor(primary) }}>
                         {athlete.totalPoints.toLocaleString('pt-BR')}
                       </td>
 
@@ -428,12 +421,12 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                         <td key={d} className="px-4 py-3 text-center tabular-nums">
                           {athlete.byDiscipline[d] ? (
                             <span className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${
-                              disciplineColors[d]
+                              DISCIPLINE_PILL[d]
                             }`}>
                               {athlete.byDiscipline[d].toLocaleString('pt-BR')}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground/30">—</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                       ))}

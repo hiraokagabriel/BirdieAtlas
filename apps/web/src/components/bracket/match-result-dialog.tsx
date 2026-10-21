@@ -325,7 +325,7 @@ export function MatchResultDialog({
           <div className="space-y-3">
             <div className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 border ${
               resultType === 'walkover'
-                ? 'bg-orange-50 border-orange-200 text-orange-700'
+                ? 'bg-warning/10 border-warning/30 text-warning'
                 : 'bg-info/10 border-info/30 text-info'
             }`}>
               <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />

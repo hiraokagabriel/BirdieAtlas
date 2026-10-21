@@ -9,6 +9,7 @@ import { Pager } from '@/components/shared/pager'
 import { CreateClubModal } from '@/components/club/create-club-modal'
 import Link from 'next/link'
 import { MapPin, Search, Plus } from 'lucide-react'
+import { clubInkColor } from '@/lib/club-color'
 
 type Club = {
   id: string; name: string; slug: string
@@ -89,7 +90,7 @@ export default function ClubsPage() {
                 <div className="absolute -bottom-5 left-4 w-12 h-12 rounded-full border-2 border-background bg-background flex items-center justify-center overflow-hidden shadow">
                   {club.logoUrl
                     ? <Image unoptimized src={club.logoUrl} alt={club.name} width={48} height={48} className="w-full h-full object-contain" />
-                    : <span className="text-lg font-bold" style={{ color: primary }}>{club.name.charAt(0)}</span>}
+                    : <span className="text-lg font-bold" style={{ color: clubInkColor(primary) }}>{club.name.charAt(0)}</span>}
                 </div>
               </div>
               <div className="pt-7 px-4 pb-4">

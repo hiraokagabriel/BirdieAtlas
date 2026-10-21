@@ -255,7 +255,7 @@ function RuleRow({ rule, onEdit, onDelete, isDeleting }: RuleRowProps) {
             <span className="text-xs text-warning font-medium">×{rule.multiplier}</span>
           )}
           {rule.participationBonus > 0 && (
-            <span className="text-xs text-blue-600 font-medium">+{rule.participationBonus} participação</span>
+            <span className="text-xs text-info font-medium">+{rule.participationBonus} participação</span>
           )}
           {!rule.discipline && !rule.category && (
             <span className="text-xs text-muted-foreground italic">Aplica a todos</span>

@@ -22,7 +22,7 @@ type Category = { id: string; name: string; discipline: string; drawType: string
 
 const statusMap: Record<string, { label: string; color: string }> = {
   draft:                { label: 'Rascunho',             color: 'bg-muted text-muted-foreground' },
-  registration_open:   { label: 'Inscrições abertas',    color: 'bg-blue-100 text-blue-700' },
+  registration_open:   { label: 'Inscrições abertas',    color: 'bg-info/10 text-info' },
   registration_closed: { label: 'Inscrições encerradas', color: 'bg-warning/10 text-warning' },
   in_progress:         { label: 'Em andamento',          color: 'bg-success/10 text-success' },
   completed:           { label: 'Encerrado',             color: 'bg-muted text-muted-foreground' },
@@ -122,7 +122,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           {canTransitionTournament(tournament.status, 'completed') && (
             <button
               onClick={() => setFinalizeOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive text-background text-sm font-semibold hover:bg-destructive/90 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 transition-colors"
             >
               <Flag className="w-4 h-4" />
               Encerrar campeonato

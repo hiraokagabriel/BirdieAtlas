@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, MapPin } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api'
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 type UpcomingMatch = {
   matchId: string
@@ -22,14 +23,6 @@ type UpcomingMatch = {
 const statusConfig = {
   in_progress: { label: 'Ao vivo', className: 'bg-success hover:bg-success text-background animate-pulse' },
   pending:     { label: 'Aguardando', className: 'bg-muted text-muted-foreground' },
-}
-
-const categoryColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-600',
-  WS: 'bg-purple-500/10 text-purple-600',
-  MD: 'bg-cyan-500/10 text-cyan-600',
-  WD: 'bg-pink-500/10 text-pink-600',
-  XD: 'bg-orange-500/10 text-orange-600',
 }
 
 function roundLabel(round: number): string {
@@ -69,7 +62,7 @@ export function UpcomingMatches() {
               <div key={match.matchId} className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${categoryColors[match.discipline]}`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${DISCIPLINE_PILL[match.discipline]}`}>
                       {match.discipline}
                     </span>
                     <span className="text-xs text-muted-foreground">{roundLabel(match.round)}</span>

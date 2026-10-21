@@ -11,6 +11,7 @@ import {
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PointRulesManager } from '@/components/ranking/point-rules-manager'
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 type Ranking = {
   id: string; name: string; description: string | null
@@ -49,14 +50,6 @@ const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
   MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
 }
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-500/10 text-blue-700 border-blue-200',
-  WS: 'bg-purple-500/10 text-purple-700 border-purple-200',
-  MD: 'bg-cyan-500/10 text-cyan-700 border-cyan-200',
-  WD: 'bg-pink-500/10 text-pink-700 border-pink-200',
-  XD: 'bg-orange-500/10 text-orange-700 border-orange-200',
-}
-
 const statusLabel: Record<string, string> = {
   draft: 'Rascunho', registration_open: 'Inscrições abertas',
   registration_closed: 'Inscrições encerradas',
@@ -382,7 +375,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
 
       {/* MODAL DE EDIÇÃO */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/65 p-4">
           <form
             onSubmit={handleSaveEdit}
             className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl p-6 space-y-5"
@@ -491,7 +484,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight">{ranking.name}</h2>
             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
-              disciplineColors[ranking.discipline] ?? ''
+              DISCIPLINE_PILL[ranking.discipline] ?? ''
             }`}>
               {isDoubles ? <Users className="w-3 h-3" /> : <User className="w-3 h-3" />}
               {disciplineLabel[ranking.discipline] ?? ranking.discipline}

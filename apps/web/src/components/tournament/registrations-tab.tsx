@@ -7,6 +7,7 @@ import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from 
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
 import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'lucide-react'
+import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 type Category = {
   id: string
@@ -20,14 +21,6 @@ const STATUS_BADGE: Record<RegistrationStatus, { label: string; className: strin
   pending: { label: 'Pendente', className: 'bg-warning/10 text-warning' },
   approved: { label: 'Aprovada', className: 'bg-success/10 text-success' },
   rejected: { label: 'Recusada', className: 'bg-destructive/10 text-destructive' },
-}
-
-const disciplineColors: Record<string, string> = {
-  MS: 'bg-blue-100 text-blue-700',
-  WS: 'bg-purple-100 text-purple-700',
-  MD: 'bg-cyan-100 text-cyan-700',
-  WD: 'bg-pink-100 text-pink-700',
-  XD: 'bg-orange-100 text-orange-700',
 }
 
 const isDoubles = (discipline: string) => ['MD', 'WD', 'XD'].includes(discipline)
@@ -198,7 +191,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
             onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               activeCategoryId === cat.id
-                ? (disciplineColors[cat.discipline] ?? 'bg-muted text-muted-foreground') + ' border-transparent'
+                ? (DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground')
                 : 'border-border text-muted-foreground hover:text-foreground bg-background'
             }`}
           >
@@ -440,7 +433,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                       <button
                         type="submit"
                         disabled={busy || !rejectReason.trim()}
-                        className="h-8 px-3 rounded-lg bg-destructive text-background text-xs font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                        className="h-8 px-3 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                       >
                         Recusar
                       </button>
