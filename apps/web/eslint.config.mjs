@@ -1,3 +1,3 @@
 import { nextJsConfig } from "@repo/eslint-config/next-js";
 
-export default nextJsConfig;
+export default [...nextJsConfig, { ignores: [".next-e2e/**"] }];

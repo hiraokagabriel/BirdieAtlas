@@ -165,7 +165,7 @@ export default function PairsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Duplas</h1>
+          <h2 className="text-2xl font-bold tracking-tight">Duplas</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {activeCount} ativa{activeCount !== 1 ? 's' : ''}
             {inactiveCount > 0 && ` · ${inactiveCount} inativa${inactiveCount !== 1 ? 's' : ''}`}
@@ -192,13 +192,13 @@ export default function PairsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select value={disciplineFilter} onChange={(e) => setDiscipline(e.target.value)} className={selectCls}>
+        <select aria-label="Filtrar por disciplina" value={disciplineFilter} onChange={(e) => setDiscipline(e.target.value)} className={selectCls}>
           <option value="all">Disciplina: Todas</option>
           <option value="MD">Duplas Masc. (MD)</option>
           <option value="WD">Duplas Fem. (WD)</option>
           <option value="XD">Misto (XD)</option>
         </select>
-        <select value={activeFilter} onChange={(e) => setActive(e.target.value as 'all' | 'true' | 'false')} className={selectCls}>
+        <select aria-label="Filtrar por situação" value={activeFilter} onChange={(e) => setActive(e.target.value as 'all' | 'true' | 'false')} className={selectCls}>
           <option value="all">Status: Todos</option>
           <option value="true">Ativas</option>
           <option value="false">Inativas</option>

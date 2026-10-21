@@ -38,3 +38,61 @@ jobs:
 
       - name: Build
         run: pnpm turbo run build
+
+
+  # Testes de ponta a ponta (Playwright). Job separado do `verify`: mais lento e com Postgres próprio.
+  # O E2E sobe a API (3201) e o web de produção (3200) sozinho e recria o banco `birdieatlas_e2e`.
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      E2E_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/birdieatlas_e2e
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @birdie-atlas/e2e exec playwright install --with-deps chromium
+
+      - name: Run E2E
+        run: pnpm e2e
+
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/e2e/playwright-report
+            apps/e2e/test-results
+          retention-days: 7
+          if-no-files-found: ignore

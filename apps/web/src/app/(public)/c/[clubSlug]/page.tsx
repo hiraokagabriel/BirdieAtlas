@@ -313,16 +313,16 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select value={genderFilter} onChange={(e) => setGender(e.target.value as 'all' | 'M' | 'F')} className={selectCls}>
+          <select aria-label="Filtrar por gênero" value={genderFilter} onChange={(e) => setGender(e.target.value as 'all' | 'M' | 'F')} className={selectCls}>
             <option value="all">Gênero: Todos</option>
             <option value="M">Masculino</option>
             <option value="F">Feminino</option>
           </select>
-          <select value={disciplineFilter} onChange={(e) => setDiscipline(e.target.value)} className={selectCls}>
+          <select aria-label="Filtrar por disciplina" value={disciplineFilter} onChange={(e) => setDiscipline(e.target.value)} className={selectCls}>
             <option value="all">Disciplina: Todas</option>
             {DISCIPLINES.map((d) => <option key={d} value={d}>{disciplineLabel[d]}</option>)}
           </select>
-          <select value={activeFilter} onChange={(e) => setActive(e.target.value as 'all' | 'true' | 'false')} className={selectCls}>
+          <select aria-label="Filtrar por situação" value={activeFilter} onChange={(e) => setActive(e.target.value as 'all' | 'true' | 'false')} className={selectCls}>
             <option value="all">Status: Todos</option>
             <option value="true">Ativos</option>
             <option value="false">Inativos</option>

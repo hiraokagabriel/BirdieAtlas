@@ -125,14 +125,19 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 
 ## Phase 8 — Qualidade e mobile
 
-| Item | Situação |
-|---|---|
-| Testes unitários de domínio (Vitest) | ✅ |
-| Testes E2E com Playwright | ❌ |
-| PWA e push notifications | ❌ |
-| Acessibilidade WCAG 2.1 AA | ❌ |
+| Item | Situação | Observação |
+|---|---|---|
+| Testes unitários de domínio (Vitest) | ✅ | |
+| Testes E2E com Playwright | 🟡 | `apps/e2e`, `pnpm e2e`, job `e2e` no CI (primeira execução no GitHub ainda não verificada). Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin e fumaça de acessibilidade. Falta: cadastros (atletas, clubes, duplas), importação de CSV, rankings e regras de pontos no admin, inscrições pela interface |
+| PWA e push notifications | ❌ | |
+| Acessibilidade WCAG 2.1 AA | ❌ | Só há a fumaça do E2E (um h1, landmarks, alt, nome acessível e foco visível nas páginas principais); sem auditoria completa |
 
 ## Dívidas técnicas
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
+| Tela do operador troca de quadra ao cancelar o início | Baixa | Em `/admin/live`, cancelar a partida da quadra 2 volta para a quadra 1: a partida some das "ao vivo" antes de a fila recarregar e a quadra deixa de existir por um instante. `test.fixme` em `apps/e2e/tests/live.spec.ts` |
+| Página pública do ranking sem link para o CSV | Baixa | O CSV só existe na API e no botão do admin. `test.fixme` em `apps/e2e/tests/public.spec.ts` |
+| "Torneio não encontrado" sem `<h1>` | Baixa | `components/public/tournament-view.tsx` usa `<h2>`. `test.fixme` em `apps/e2e/tests/a11y.spec.ts` |
+| `finalize` fora do contrato de erro | Baixa | `POST /tournaments/:id/finalize` devolve `{ error, incomplete }` sem `code` nem `details`; o modal só mostra `error` e perde a lista `incomplete` |
+| Campos sem rótulo associado | Baixa | Diálogo de resultado (placar sem rótulo, só `placeholder`) e modais de cadastro (`<label>` sem `htmlFor`). A fumaça de acessibilidade do E2E não cobre os diálogos |

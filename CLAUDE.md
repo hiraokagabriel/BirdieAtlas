@@ -32,6 +32,13 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 - Navegação só em `apps/web/src/lib/navigation.ts`. Nunca crie outra sidebar, shell ou layout administrativo.
 - Toda tela trata carregamento, erro, vazio e sucesso, só com dados reais da API.
 
+## Testes E2E
+
+- `pnpm e2e` roda o Playwright de `apps/e2e` (precisa do Postgres: `docker compose up -d`). Primeira vez: `pnpm e2e:install` (só o Chromium). Não faz parte de `pnpm turbo run check-types lint test build`; só o `check-types` e o `lint` do pacote entram lá.
+- O E2E usa banco e portas próprios, para não tocar no ambiente de desenvolvimento: banco `birdieatlas_e2e` (apagado e recriado pelo `global-setup`), API na 3201 e web na 3200 (build de produção em `.next-e2e`). Nunca aponte `E2E_DATABASE_URL` para `birdie_atlas`: o setup recusa nomes sem "e2e".
+- Cada spec cria os próprios dados pela API (`apps/e2e/support/factories.ts`) e usa locators por papel e rótulo. Teste instável é falha: corrija a causa. Comportamento ainda não implementado vira `test.fixme` com o motivo, nunca asserção enfraquecida.
+- Depurar: `pnpm --filter @birdie-atlas/e2e e2e:report` abre o relatório HTML; o trace da primeira repetição fica em `apps/e2e/test-results` (`pnpm --filter @birdie-atlas/e2e exec playwright show-trace <trace.zip>`). `E2E_SKIP_BUILD=1` reaproveita o build do web (rode sem ele quando o código do web mudar).
+
 ## Ambiente local
 
 - `apps/api/.env` precisa de `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true` (ver `.env.example`).

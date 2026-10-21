@@ -42,3 +42,5 @@ next-env.d.ts
 
 # o exemplo de variáveis é versionado
 !.env.example
+
+/.next-e2e/

@@ -50,13 +50,9 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
       setApiError(null)
       onFinalized()
     },
-    onError: async (err: unknown) => {
-      try {
-        const data = err as FinalizeError
-        setApiError(data)
-      } catch {
-        setApiError({ error: 'Erro desconhecido ao encerrar campeonato.' })
-      }
+    // `apiFetch` lança `ApiError`, que guarda o texto da API em `message` (não em `error`).
+    onError: (err: unknown) => {
+      setApiError({ error: err instanceof Error ? err.message : 'Erro desconhecido ao encerrar campeonato.' })
     },
   })
 
