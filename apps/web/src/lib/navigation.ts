@@ -1,5 +1,5 @@
 import {
-  Building2, Home, LayoutDashboard, Swords, TrendingUp, Trophy, Users,
+  Building2, Home, LayoutDashboard, Radio, Swords, TrendingUp, Trophy, Users,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -17,6 +17,7 @@ export const ADMIN_NAV: readonly NavItem[] = [
   { label: 'Duplas', href: '/admin/pairs', icon: Swords },
   { label: 'Clubes', href: '/admin/clubs', icon: Building2 },
   { label: 'Torneios', href: '/admin/tournaments', icon: Trophy },
+  { label: 'Ao vivo', href: '/admin/live', icon: Radio },
   { label: 'Rankings', href: '/admin/rankings', icon: TrendingUp },
 ]
 

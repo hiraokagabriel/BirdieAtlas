@@ -14,6 +14,7 @@ import {
   type SlotView,
   type StatusChip,
 } from '@/lib/bracket'
+import { formatLiveScore, type LiveMatch } from '@/lib/live'
 
 const CHIP_STYLES: Record<StatusChip['key'], string> = {
   scheduled: 'text-info',
@@ -45,6 +46,8 @@ export type MatchCardProps = {
   onSelect?: (match: BracketMatch) => void
   /** Público: nomes de atletas viram links para o perfil. */
   linkAthletes?: boolean
+  /** Placar ao vivo da partida (provisório): mostra o set em andamento no lugar dos sets salvos. */
+  live?: LiveMatch
 }
 
 function ParticipantName({ slot, link }: { slot: SlotView; link: boolean }) {
@@ -80,7 +83,7 @@ function SlotRow({
 }: {
   slot: SlotView
   state: 'winner' | 'loser' | 'open'
-  scores: { own: number; other: number }[]
+  scores: { own: number; other: number; current?: boolean }[]
   isFinal: boolean
   link: boolean
 }) {
@@ -108,7 +111,11 @@ function SlotRow({
             key={index}
             className={cn(
               'w-5 text-center text-sm tabular-nums',
-              score.own > score.other ? 'font-bold' : 'font-normal text-muted-foreground',
+              score.current
+                ? 'w-7 rounded bg-success/10 font-bold text-success'
+                : score.own > score.other
+                  ? 'font-bold'
+                  : 'font-normal text-muted-foreground',
             )}
           >
             {score.own}
@@ -128,7 +135,7 @@ function SlotRow({
   )
 }
 
-export function MatchCard({ match, title, maxRound, entries, sets, onSelect, linkAthletes = false }: MatchCardProps) {
+export function MatchCard({ match, title, maxRound, entries, sets, onSelect, linkAthletes = false, live }: MatchCardProps) {
   const bye = isByeMatch(match, maxRound)
   const slot1 = describeSlot(match.registration1Id, entries, bye)
   const slot2 = describeSlot(match.registration2Id, entries, bye)
@@ -137,11 +144,19 @@ export function MatchCard({ match, title, maxRound, entries, sets, onSelect, lin
   const when = formatMatchTime(match.scheduledAt)
   const court = match.courtNumber != null ? `Quadra ${match.courtNumber}` : null
   const info = [court, when].filter(Boolean).join(' · ')
-  const label = matchAriaLabel(title, match.position, slot1, slot2, winner, bye)
+  const baseLabel = matchAriaLabel(title, match.position, slot1, slot2, winner, bye)
+  const liveScore = live ? formatLiveScore(live) : ''
+  const label = live ? `${baseLabel}, ao vivo${liveScore ? `, placar ${liveScore}` : ''}` : baseLabel
   const actionable = !!onSelect && !bye && slot1.kind === 'athlete' && slot2.kind === 'athlete'
   const isFinal = match.round === 1
 
-  const rows = sets.map((s) => ({ s1: s.score1, s2: s.score2 }))
+  // Ao vivo: sets encerrados do placar provisório e, por último, o set em disputa.
+  const rows = live
+    ? [
+        ...live.sets.map((s) => ({ s1: s.score1, s2: s.score2, current: false })),
+        ...(live.currentSet ? [{ s1: live.currentSet.score1, s2: live.currentSet.score2, current: true }] : []),
+      ]
+    : sets.map((s) => ({ s1: s.score1, s2: s.score2, current: false }))
   const stateOf = (side: 1 | 2): 'winner' | 'loser' | 'open' =>
     winner === null ? 'open' : winner === side ? 'winner' : 'loser'
 
@@ -150,7 +165,7 @@ export function MatchCard({ match, title, maxRound, entries, sets, onSelect, lin
       <SlotRow
         slot={slot1}
         state={stateOf(1)}
-        scores={rows.map((r) => ({ own: r.s1, other: r.s2 }))}
+        scores={rows.map((r) => ({ own: r.s1, other: r.s2, current: r.current }))}
         isFinal={isFinal}
         link={linkAthletes}
       />
@@ -158,7 +173,7 @@ export function MatchCard({ match, title, maxRound, entries, sets, onSelect, lin
       <SlotRow
         slot={slot2}
         state={stateOf(2)}
-        scores={rows.map((r) => ({ own: r.s2, other: r.s1 }))}
+        scores={rows.map((r) => ({ own: r.s2, other: r.s1, current: r.current }))}
         isFinal={isFinal}
         link={linkAthletes}
       />

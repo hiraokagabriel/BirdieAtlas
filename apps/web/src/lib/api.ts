@@ -1,7 +1,7 @@
 import { unstable_rethrow } from 'next/navigation'
 import type { ApiErrorBody } from '@birdie-atlas/types'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   /** Automatically serializes the value as JSON and sets Content-Type header. */

@@ -14,6 +14,7 @@ import {
   type SetScore,
   type SlotView,
 } from '@/lib/bracket'
+import type { LiveMatch } from '@/lib/live'
 import { MatchCard } from './match-card'
 
 export type BracketTreeProps = {
@@ -26,6 +27,8 @@ export type BracketTreeProps = {
   onSelectMatch?: (match: BracketMatch) => void
   /** Público: nomes viram links para /a/<id>. */
   linkAthletes?: boolean
+  /** Placar ao vivo por id da partida: cartões das partidas em andamento mostram o placar corrente. */
+  live?: ReadonlyMap<string, LiveMatch>
 }
 
 // Altura mínima de cada célula da primeira fase. As rodadas seguintes dividem a mesma altura total,
@@ -116,6 +119,7 @@ export function BracketTree({
   categoryName,
   onSelectMatch,
   linkAthletes = false,
+  live,
 }: BracketTreeProps) {
   if (matches.length === 0) return <EmptyNotice>Chave ainda não sorteada.</EmptyNotice>
 
@@ -161,6 +165,7 @@ export function BracketTree({
                         sets={setsOf(match.id, results)}
                         onSelect={onSelectMatch}
                         linkAthletes={linkAthletes}
+                        live={live?.get(match.id)}
                       />
                     </div>
                     {round > 1 && <Connector position={match.position} />}

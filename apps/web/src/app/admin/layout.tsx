@@ -15,7 +15,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <aside className="w-64 flex flex-col border-r border-border bg-sidebar shrink-0">
+      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0">
         <div className="flex items-center gap-3 px-6 py-5">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
             <Feather className="w-5 h-5 text-primary-foreground" />
@@ -65,12 +65,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between gap-4 px-8 py-4 border-b border-border shrink-0">
+        <header className="flex items-center justify-between gap-4 px-4 md:px-8 py-4 border-b border-border shrink-0">
           <h1 className="text-xl font-semibold">{current?.label ?? 'Administração'}</h1>
           <ThemeToggle />
         </header>
 
-        <main className="flex-1 overflow-auto p-8">
+        {/* Celular e tablet: a sidebar some e a mesma navegação vira uma faixa rolável. */}
+        <nav aria-label="Navegação administrativa" className="md:hidden flex gap-1 overflow-x-auto border-b border-border px-3 py-2 shrink-0">
+          {ADMIN_NAV.map(({ label, href, icon: Icon }) => {
+            const active = isNavItemActive(pathname, href, '/admin')
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {label}
+              </Link>
+            )
+          })}
+        </nav>
+
+        <main className="flex-1 overflow-auto p-4 md:p-8">
           {children}
         </main>
       </div>

@@ -247,6 +247,24 @@ export const matchResults = pgTable('match_results', {
 })
 
 // ---------------------------------------------------------------------------
+// Match Live States
+//
+// Placar provisório de uma partida em andamento: a sequência de pontos (1 ou 2 = quem
+// marcou). Fica numa tabela própria, separada de match_results, para que dado provisório
+// nunca seja lido como resultado por colocação, pontos, ranking ou encerramento.
+// `version` sobe a cada escrita e serve de verificação otimista entre operadores.
+// ---------------------------------------------------------------------------
+export const matchLiveStates = pgTable('match_live_states', {
+  id: id(),
+  matchId: text('match_id').notNull().references(() => matches.id),
+  points: jsonb('points').$type<(1 | 2)[]>().notNull().default(sql`'[]'::jsonb`),
+  version: integer('version').notNull().default(0),
+  ...timestamps,
+}, (table) => [
+  uniqueIndex('match_live_states_match_unique').on(table.matchId),
+])
+
+// ---------------------------------------------------------------------------
 // Rankings
 // ---------------------------------------------------------------------------
 export const rankings = pgTable('rankings', {
