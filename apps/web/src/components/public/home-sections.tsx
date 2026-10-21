@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Building2, MapPin, User } from 'lucide-react'
 import { selectRecent, selectUpcoming } from '@/lib/home-data'
-import { loadClubs, loadRankingBoards, loadTournaments } from '@/lib/public-data'
+import { loadAthleteSearch, loadClubs, loadRankingBoards, loadTournaments } from '@/lib/public-data'
 import { matchesQuery } from '@/lib/search'
 import { EmptyNotice, ErrorNotice } from './notices'
 import { RankingTabs } from './ranking-tabs'
@@ -10,8 +10,8 @@ import { TournamentCard } from './tournament-card'
 
 export const TOP_N = 10
 const TOURNAMENT_LIMIT = 6
-/** Máximo de entradas que a API devolve por página; a busca de atletas olha esse recorte de cada ranking. */
-const SEARCH_ENTRY_LIMIT = 100
+/** Mesmo mínimo que a API exige em `GET /athletes/search`. */
+export const SEARCH_MIN_LENGTH = 2
 const SEARCH_RESULT_LIMIT = 8
 
 export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -92,33 +92,18 @@ export async function TopRankings() {
   return <RankingTabs boards={result.data} showTenant={tenantCount > 1} />
 }
 
-interface AthleteHit {
-  id: string
-  name: string
-}
-
-/**
- * A API não tem busca pública de atletas (`GET /athletes` é restrito ao admin porque devolve e-mail),
- * então a busca olha os atletas que aparecem nos rankings públicos; clubes vêm de `GET /clubs`.
- */
+/** Atletas vêm de `GET /athletes/search` (só campos públicos); clubes são filtrados de `GET /clubs`. */
 export async function SearchResults({ query }: { query: string }) {
-  const [boards, clubs] = await Promise.all([loadRankingBoards(SEARCH_ENTRY_LIMIT), loadClubs()])
-
-  const athletes = new Map<string, AthleteHit>()
-  if (boards.ok) {
-    for (const board of boards.data) {
-      for (const entry of board.entries ?? []) {
-        if (matchesQuery(entry.athleteName, query)) athletes.set(entry.athleteId, { id: entry.athleteId, name: entry.athleteName })
-        if (entry.athlete2Id && entry.athlete2Name && matchesQuery(entry.athlete2Name, query)) {
-          athletes.set(entry.athlete2Id, { id: entry.athlete2Id, name: entry.athlete2Name })
-        }
-      }
-    }
+  if (query.length < SEARCH_MIN_LENGTH) {
+    return <EmptyNotice>Digite pelo menos {SEARCH_MIN_LENGTH} letras para buscar.</EmptyNotice>
   }
-  const athleteHits = [...athletes.values()].slice(0, SEARCH_RESULT_LIMIT)
+
+  const [athletes, clubs] = await Promise.all([loadAthleteSearch(query, SEARCH_RESULT_LIMIT), loadClubs()])
+
+  const athleteHits = athletes.ok ? athletes.data : []
   const clubHits = clubs.ok ? clubs.data.filter((c) => matchesQuery(c.name, query)).slice(0, SEARCH_RESULT_LIMIT) : []
 
-  const failed = !boards.ok || !clubs.ok
+  const failed = !athletes.ok || !clubs.ok
   const empty = athleteHits.length === 0 && clubHits.length === 0
 
   return (
@@ -136,7 +121,8 @@ export async function SearchResults({ query }: { query: string }) {
                   className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <User className="size-4 text-muted-foreground" aria-hidden="true" />
-                  {a.name}
+                  <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                  {a.clubName && <span className="truncate text-xs font-normal text-muted-foreground">{a.clubName}</span>}
                 </Link>
               </li>
             ))}

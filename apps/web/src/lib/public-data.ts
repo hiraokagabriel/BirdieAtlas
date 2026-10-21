@@ -34,6 +34,21 @@ export const loadClubs = cache(() =>
   safe(async () => (await apiFetch<Paginated<PublicClub>>('/clubs?pageSize=100')).data),
 )
 
+export interface AthleteSearchHit {
+  id: string
+  name: string
+  clubName: string | null
+  clubSlug: string | null
+}
+
+/** Busca pública por nome (mín. 2 caracteres); a API devolve só campos públicos. */
+export const loadAthleteSearch = cache((query: string, limit: number) =>
+  safe(
+    async () =>
+      (await apiFetch<Paginated<AthleteSearchHit>>(`/athletes/search?q=${encodeURIComponent(query)}&pageSize=${limit}`)).data,
+  ),
+)
+
 interface TenantDto {
   id: string
   name: string

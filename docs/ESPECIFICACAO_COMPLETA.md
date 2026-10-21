@@ -114,6 +114,12 @@ Listas filhas de um recurso (partidas de uma chave, inscrições de uma categori
 
 CPF, e-mail, telefone e data de nascimento são dados pessoais. Endpoints públicos nunca os devolvem: usam `publicAthleteColumns` (`apps/api/src/db/public-columns.ts`). Logs não registram dados pessoais.
 
+### Busca pública de atletas
+
+`GET /athletes/search?q=` é público (não exige modo admin) e alimenta a busca da home. `q` é aparado e tem de 2 a 80 caracteres; fora disso, `400 VALIDATION_ERROR`. `page` (padrão 1) e `pageSize` (padrão 10, máximo 25). A resposta é `{ data, pagination }`, ordenada por nome, com apenas campos públicos: `id`, `name`, `gender`, `nationality`, `photoUrl`, `active`, `clubName` e `clubSlug` (clube ativo no tenant padrão, `null` sem vínculo). Nunca devolve e-mail, CPF, telefone nem data de nascimento. Atletas excluídos (`deletedAt`) ficam de fora; inativos aparecem, como no perfil público.
+
+A busca ignora caixa e acentos ("jose" encontra "José") com `lower` e `translate` do Postgres, sem extensão, para as letras acentuadas do português. Vários termos separados por espaço (até 5) precisam aparecer todos no nome, em qualquer ordem. `%`, `_` e `\` do usuário são escapados e valem como texto. A regra mora em `apps/api/src/domain/athlete-search.ts`. A rota é estática e o Fastify a prioriza sobre `/athletes/:id`.
+
 ### Tenant
 
 O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_TENANT_SLUG`, ou o único tenant cadastrado. `tenantId` enviado pelo cliente é ignorado. Atletas são globais (identidade entre federações); o vínculo com o tenant é a afiliação. O seletor de tenant chega com as organizações do Clerk.
@@ -122,7 +128,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 
 | Recurso | Endpoints |
 |---|---|
-| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/:id/profile` (público), `POST /athletes/import-csv`, `POST /import/athletes`, `GET /import/athletes/template-columns` |
+| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/search` (público), `GET /athletes/:id/profile` (público), `POST /athletes/import-csv`, `POST /import/athletes`, `GET /import/athletes/template-columns` |
 | Afiliações | `GET/POST /athletes/:athleteId/affiliations`, `PATCH/DELETE /affiliations/:id` |
 | Clubes | `GET/POST /clubs`, `GET/PUT/DELETE /clubs/:id`, `GET /clubs/by-slug/:slug`, `GET /clubs/:id/profile` |
 | Duplas | `GET/POST /pairs`, `GET/PUT/DELETE /pairs/:id` (desativar é `PUT { active: false }`) |
