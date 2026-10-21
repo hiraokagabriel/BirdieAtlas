@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { roundTitle, describeSlot, indexEntries, slotLabel, setsOf, type BracketEntry, type BracketMatch, type SetScore } from '@/lib/bracket'
+import type { LiveMatch } from '@/lib/live'
 import { BracketTree } from './bracket-tree'
 import { MatchResultDialog } from './match-result-dialog'
 
@@ -15,10 +16,12 @@ type Props = {
   drawId: string
   /** Público: sem diálogo de resultado, com links para o perfil dos atletas. */
   readonly?: boolean
+  /** Placar ao vivo por id da partida (público). */
+  live?: ReadonlyMap<string, LiveMatch>
 }
 
 /** Chave de uma categoria. No admin abre o diálogo de resultado; no público é só leitura. */
-export function BracketDraw({ matches, registrations, results, activeCategory, drawId, readonly = false }: Props) {
+export function BracketDraw({ matches, registrations, results, activeCategory, drawId, readonly = false, live }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null)
 
   const entries = indexEntries(registrations)
@@ -33,6 +36,7 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
         categoryName={activeCategory?.name}
         onSelectMatch={readonly ? undefined : setSelectedMatch}
         linkAthletes={readonly}
+        live={live}
       />
 
       {!readonly && (

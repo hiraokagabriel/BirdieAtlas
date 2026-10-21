@@ -1,6 +1,6 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 20/10/2026, na `main`.
+> Atualizado em 21/10/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
 
@@ -100,7 +100,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Agenda: quadra e horário por partida | ✅ | Aba Agenda do torneio |
 | Agenda automática por quadra e horário | ✅ | `POST /tournaments/:id/schedule/auto` com pré-visualização; sem mudança de schema; a janela diária (`dayStartsAt`, `dayEndsAt`) só existe na API, não na tela |
 | Auditoria de resultados (quem e quando) | ❌ | |
-| Resultados ao vivo | ❌ | |
+| Placar ao vivo por quadra | ✅ | Tela do operador `/admin/live`, API de início, ponto, desfazer e encerramento, stream SSE público e seção "Ao vivo agora" em `/t/[slug]`. Barramento em memória: uma instância de API (ver especificação) |
 
 ## Phase 6 — Portal público
 

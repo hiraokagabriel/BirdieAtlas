@@ -1,12 +1,14 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { LevelBadge } from '@/components/public/level-badge'
 import { BracketDraw } from '@/components/bracket/bracket-draw'
 import { BracketSkeleton } from '@/components/bracket/bracket-tree'
 import { ErrorNotice, EmptyNotice } from '@/components/public/notices'
 import { ScheduleView } from '@/components/bracket/schedule-view'
+import { LiveNow } from '@/components/live/live-now'
+import { useLiveMatches } from '@/components/live/use-live-matches'
 import {
   Calendar, MapPin, Lock, Users, User,
   Trophy, CheckCircle2, Clock,
@@ -53,7 +55,7 @@ const statusMap: Record<string, { label: string; color: string; dot: string }> =
   draft:                { label: 'Rascunho',              color: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
   registration_open:    { label: 'Inscrições abertas',    color: 'text-info',             dot: 'bg-info' },
   registration_closed:  { label: 'Inscrições encerradas', color: 'text-warning',          dot: 'bg-warning' },
-  in_progress:          { label: 'Em andamento',          color: 'text-success',          dot: 'bg-success animate-pulse' },
+  in_progress:          { label: 'Em andamento',          color: 'text-success',          dot: 'bg-success motion-safe:animate-pulse' },
   completed:            { label: 'Encerrado',             color: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
 }
 
@@ -204,12 +206,28 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [results, setResults]             = useState<MatchResult[]>([])
 
+  // Placar ao vivo: só enquanto o torneio está em andamento. Partida encerrada recarrega chave e resumo.
+  const [refreshTick, setRefreshTick] = useState(0)
+  const tournamentId = summary?.tournament.id ?? null
+  const isLiveTournament = summary?.tournament.status === 'in_progress'
+  const liveState = useLiveMatches(isLiveTournament ? tournamentId : null, {
+    onMatchEnded: () => setRefreshTick((tick) => tick + 1),
+  })
+  const liveByMatchId = useMemo(() => new Map(liveState.matches.map((m) => [m.matchId, m])), [liveState.matches])
+  const loadedCategoryRef = useRef('')
+
   // 1. Busca torneio pelo slug, depois o summary
   useEffect(() => {
     apiFetch<Tournament>(`/tournaments/by-slug/${slug}`)
       .then((t) => apiFetch<PublicSummary>(`/tournaments/${t.id}/public-summary`).then(setSummary))
       .catch(() => setNotFound(true))
   }, [slug])
+
+  // 1b. Partida encerrada ao vivo: atualiza contagens e progresso sem trocar a tela por skeleton
+  useEffect(() => {
+    if (refreshTick === 0 || !tournamentId) return
+    apiFetch<PublicSummary>(`/tournaments/${tournamentId}/public-summary`).then(setSummary).catch(() => undefined)
+  }, [refreshTick, tournamentId])
 
   // 2. Define categoria ativa inicial
   useEffect(() => {
@@ -221,8 +239,12 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
   // 3. Carrega draw da categoria ativa
   useEffect(() => {
     if (!activeCategoryId) return
-    setDrawLoaded(false)
-    setDrawError(null)
+    // Recarga por partida encerrada é silenciosa; trocar de categoria mostra o skeleton.
+    const isRefresh = loadedCategoryRef.current === activeCategoryId
+    if (!isRefresh) {
+      setDrawLoaded(false)
+      setDrawError(null)
+    }
     let cancelled = false
     Promise.all([
       apiFetch<Draw[]>(`/tournaments/categories/${activeCategoryId}/draws`),
@@ -231,7 +253,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
       if (cancelled) return
       setRegistrations(regs)
       if (!drawList.length || !drawList[0].published) {
-        setDraw(null); setMatchList([]); setDrawLoaded(true); return
+        setDraw(null); setMatchList([]); loadedCategoryRef.current = activeCategoryId; setDrawLoaded(true); return
       }
       const d = drawList[0]
       const mList = await apiFetch<Match[]>(`/draws/${d.id}/matches`)
@@ -242,14 +264,15 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
       setDraw(d)
       setMatchList(mList)
       setResults(allResults.flat())
+      loadedCategoryRef.current = activeCategoryId
       setDrawLoaded(true)
     }).catch((err: unknown) => {
-      if (cancelled) return
+      if (cancelled || isRefresh) return
       setDrawError(err instanceof Error ? err.message : 'Erro inesperado.')
       setDrawLoaded(true)
     })
     return () => { cancelled = true }
-  }, [activeCategoryId])
+  }, [activeCategoryId, refreshTick])
 
   // ---------------------------------------------------------------------------
   // Render states
@@ -320,6 +343,9 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
         <StatCard label="Progresso"   value={`${progressPct}%`} sub={tournament.status === 'completed' ? 'Encerrado' : 'Em andamento'} />
       </div>
 
+      {/* AO VIVO */}
+      {isLiveTournament && <LiveNow state={liveState} />}
+
       {/* TABS */}
       <div className="flex border-b border-border gap-1">
         {(['bracket', 'registrations', 'schedule'] as const).map((t) => (
@@ -377,6 +403,7 @@ export default function PublicTournamentPage({ params }: { params: Promise<{ slu
               activeCategory={activeCategory}
               drawId={draw.id}
               readonly
+              live={liveByMatchId}
             />
           )}
         </div>

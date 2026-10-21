@@ -69,6 +69,7 @@ Admin, sob `/admin`, identificando registros por `id`:
 | `/admin/pairs` | Duplas |
 | `/admin/clubs`, `/admin/clubs/[clubId]` | Clubes |
 | `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios; o detalhe tem as abas Inscrições, Chaveamento, Agenda e Configurações |
+| `/admin/live` | Placar ao vivo: tela do operador de quadra (celular e tablet) |
 | `/admin/rankings`, `/admin/rankings/[rankingId]` | Rankings e regras de pontos |
 
 Público, identificando por slug:
@@ -76,7 +77,7 @@ Público, identificando por slug:
 | Rota | Conteúdo |
 |---|---|
 | `/` | Landing |
-| `/t/[slug]` | Torneio |
+| `/t/[slug]` | Torneio; em andamento, mostra "Ao vivo agora" e o placar corrente nos cartões da chave |
 | `/r/[tenantSlug]` | Rankings da federação |
 | `/a/[athleteId]` | Perfil do atleta |
 | `/c/[clubSlug]` | Clube |
@@ -137,6 +138,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Agenda automática | `POST /tournaments/:id/schedule/auto` |
+| Placar ao vivo | `GET /tournaments/:id/live` (SSE, público), `GET /tournaments/:id/live/matches` (público), `GET /tournaments/:id/live/queue` (público), `POST /draws/matches/:matchId/live/start`, `.../live/point`, `.../live/undo`, `.../live/finish`, `.../live/cancel` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
 | Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
 | Dashboard | `GET /dashboard/stats`, `GET /dashboard/recent-matches`, `GET /dashboard/upcoming-matches` |
@@ -174,7 +176,8 @@ Tabelas:
 | `tournament_registrations` | Inscrição numa categoria: `athleteId` (simples) XOR `pairId` (duplas, constraint `registrations_athlete_xor_pair`), seed, `status` e `notes`. Índices únicos parciais impedem o mesmo atleta ou dupla duas vezes na categoria (recusadas e excluídas não ocupam a vaga) |
 | `draws` | Chave de uma categoria; `published` bloqueia o ressorteio |
 | `matches` | Partida: `round`, `position`, duas inscrições, `nextMatchId`, status, agenda e quadra |
-| `match_results` | Um registro por set |
+| `match_results` | Um registro por set; só resultado oficial |
+| `match_live_states` | Placar provisório de uma partida em andamento: sequência de pontos (`points`, jsonb de 1 ou 2) e `version`; uma linha por partida (índice único em `match_id`) |
 | `rankings` | Ranking de um tenant por disciplina e ano, com `countBestResults` e `minTournamentsRequired`; slug único por tenant |
 | `point_rules` | Pontos por colocação para um ranking, por nível (e opcionalmente disciplina), com multiplicador e bônus de participação |
 | `ranking_tournaments` | Torneios que pontuam num ranking |
@@ -225,6 +228,7 @@ draft → registration_open → registration_closed → in_progress → complete
 - Alterar o vencedor de uma partida já decidida desfaz em cascata as partidas seguintes que dependiam dele.
 - No W.O., o diálogo de resultado grava 21-0 para quem avança. Na desistência (`retired`), grava as parciais com o vencedor fazendo 21. O vencedor é sempre lido dos sets salvos, nunca presumido pelo slot.
 - Resultado de partida de torneio `completed` ou `cancelled` é recusado com `409 TOURNAMENT_LOCKED`; reabra o torneio para corrigir (o `reopen` zera `finalPlacement` e revoga os pontos).
+- A gravação do resultado é uma função só (`apps/api/src/services/match-result.ts`, `saveMatchResult`), usada pela rota `POST /draws/matches/:matchId/result` e pelo encerramento de uma partida ao vivo. Ela roda numa transação que trava a linha da partida (`FOR UPDATE`), grava os sets, faz o vencedor avançar, desfaz a cascata e apaga qualquer placar provisório da partida.
 
 ### Agenda automática
 
@@ -273,6 +277,61 @@ Regras do algoritmo:
 - `unscheduled` lista o que não coube, com o motivo em português (dependência sem horário, janela diária menor que a partida, nenhum horário livre).
 
 Erros: `409 TOURNAMENT_LOCKED` com torneio encerrado ou cancelado (mesma regra do resultado de partida); `404` com torneio inexistente ou excluído; `422 NO_MATCHES` sem chaves geradas; `400 VALIDATION_ERROR` no corpo. Aplicar (`dryRun: false`) lê, planeja e grava numa transação só, com o torneio travado. Como as demais rotas de torneio, a busca é por id e não filtra por tenant (lacuna conhecida, fora do escopo desta entrega). No web, a aba Agenda tem o botão "Gerar agenda automática": pré-visualiza (`dryRun: true`) agrupando por dia e quadra e só então aplica.
+
+### Placar ao vivo
+
+Uma partida `pending` com os dois lados definidos pode ser iniciada pelo operador de quadra; enquanto isso ela fica `in_progress` com um placar provisório. Ao encerrar, o placar vira o resultado oficial pela mesma lógica da rota de resultado (`saveMatchResult`: vencedor avança, cascata, validações).
+
+**Modelo.** O placar provisório mora em `match_live_states`, tabela própria (migration `0004_match_live_states.sql`), e não em `match_results`: `computePlacements`, `finalize`, `award-points` e o motor de ranking leem `match_results` sem filtrar por status, então um set provisório ali seria lido como resultado. Com a tabela separada, o dado provisório nunca avança vencedor, nunca entra em colocação, pontos, ranking ou encerramento. Uma partida `in_progress` continua "pendente" para o ranking (`isPendingMatch`) e bloqueia `finalize` e `award-points`. A tabela guarda só a sequência de pontos (`points`: 1 ou 2, quem marcou); o placar (sets, set em disputa, vencedor) é sempre recalculado dela, e desfazer é remover o último ponto. A regra de placar é pura, em `apps/api/src/domain/live-score.ts`: set até 21 pontos com diferença de 2, limite de 30 (aos 29-29 o ponto seguinte decide), melhor de 3 sets. Quando a partida tem vencedor, novos pontos são recusados; ela só vira resultado ao encerrar. W.O. e desistência continuam pelo diálogo de resultado (que também substitui um placar provisório).
+
+**Escritas** (exigem modo admin pelo guard global; `409 TOURNAMENT_LOCKED` com torneio encerrado ou cancelado; todas validadas com Zod):
+
+| Endpoint | Corpo | Efeito |
+|---|---|---|
+| `POST /draws/matches/:matchId/live/start` | `{ courtNumber?: number \| null }` | `pending` → `in_progress`, placar 0-0. Sem `courtNumber` mantém a quadra da agenda. `422 MATCH_NOT_READY` sem os dois lados; `409 MATCH_NOT_STARTABLE` se não está pendente; `409 COURT_BUSY` se a quadra já tem partida em andamento no torneio |
+| `POST .../live/point` | `{ side: 1 \| 2, version }` | Ponto para o lado. `409 LIVE_MATCH_DECIDED` se a partida já tem vencedor |
+| `POST .../live/undo` | `{ version }` | Remove o último ponto. `409 NOTHING_TO_UNDO` sem pontos |
+| `POST .../live/finish` | `{ version }` | Encerra: grava os sets como resultado (`completed`), avança o vencedor, apaga o provisório. `409 LIVE_MATCH_NOT_DECIDED` sem vencedor. Responde como a rota de resultado: `{ match, results }` |
+| `POST .../live/cancel` | sem corpo | Descarta o provisório e volta a `pending` |
+
+Comuns: `404 MATCH_NOT_FOUND`, `409 MATCH_NOT_LIVE` (ponto, desfazer, encerrar ou cancelar fora de `in_progress`).
+
+**Concorrência.** Cada escrita roda numa transação que trava a linha da partida (`SELECT ... FOR UPDATE`); `start` também trava o torneio, para duas partidas não começarem juntas na mesma quadra. Ponto, desfazer e encerrar exigem `version`, a versão do placar que o operador viu na tela (sobe 1 a cada escrita). Se outro operador mexeu antes, a resposta é `409 LIVE_VERSION_CONFLICT` com `details: { expected, current }`, onde `current` é o placar atual: nada é gravado e o cliente passa a mostrar `current`. Assim, dois operadores na mesma partida nunca corrompem o placar nem contam o mesmo toque duas vezes.
+
+**Leituras públicas** (só nomes de atletas, duplas como "A / B"; nunca e-mail, CPF, telefone nem nascimento):
+
+- `GET /tournaments/:id/live/matches` devolve `LiveMatch[]`, por quadra, e é o fallback de polling.
+- `GET /tournaments/:id/live/queue` devolve as partidas prontas para começar (`pending`, dois lados definidos), por quadra e horário; alimenta a tela do operador.
+
+```json
+{
+  "matchId": "…", "tournamentId": "…", "categoryId": "…", "categoryName": "Simples Masculino", "discipline": "MS",
+  "drawId": "…", "round": 3, "roundLabel": "Quartas de final", "position": 2,
+  "courtNumber": 1, "scheduledAt": "2026-10-24T14:45:00.000Z", "status": "in_progress",
+  "participant1": "Ana Souza", "participant2": "Bia Lima",
+  "sets": [{ "score1": 21, "score2": 15 }],
+  "currentSet": { "setNumber": 2, "score1": 10, "score2": 8 },
+  "setsWon": { "side1": 1, "side2": 0 },
+  "winner": null, "version": 33, "updatedAt": "2026-10-24T14:58:12.000Z"
+}
+```
+
+`currentSet` é `null` quando há `winner` (falta só encerrar). `winner` é 1 ou 2.
+
+**Stream SSE.** `GET /tournaments/:id/live` é público (leitura) e responde `text/event-stream` com `Cache-Control: no-cache, no-transform`, `Connection: keep-alive` e `X-Accel-Buffering: no`. Como a resposta é escrita à mão (`reply.hijack()`), os cabeçalhos de CORS que o `@fastify/cors` já pôs na resposta (`Access-Control-Allow-Origin` refletindo a origem, `Vary: Origin`) são copiados para o `writeHead`. Eventos, com `id` crescente por conexão e `data` em JSON de uma linha:
+
+| `event` | `data` | Quando |
+|---|---|---|
+| `ready` | `{ tournamentId }` (traz `retry: 3000`) | ao conectar |
+| `snapshot` | `{ matches: LiveMatch[] }` | logo após `ready`; a conexão assina o barramento antes de ler o snapshot e segura os eventos até enviá-lo |
+| `match` | `{ match: LiveMatch }` | início, ponto, desfazer e mudança de quadra (upsert pela `matchId`; o cliente ignora versão mais antiga que a que já tem) |
+| `match-ended` | `{ matchId, reason: "finished" \| "cancelled" }` | encerrada (por `finish` ou pela rota de resultado), cancelada ou desfeita em cascata; o cliente recarrega a chave |
+
+Um comentário `: heartbeat` sai a cada 15 s. Ao desconectar (`close` da requisição) a assinatura e o timer são liberados; cliente lento (mais de 1 MB represado) é desconectado e recebe novo snapshot ao reconectar; ao fechar a API, todos os streams são encerrados. Torneio inexistente responde `404 TOURNAMENT_NOT_FOUND` em JSON antes do stream começar.
+
+**Limitação: instância única.** O barramento (`apps/api/src/services/live-bus.ts`, `EventEmitter` por torneio) vive no processo. Com mais de uma instância da API, um evento só chega aos clientes conectados na instância que recebeu a escrita; o polling (`/live/matches`) enxerga tudo, porque lê do banco. Para escalar horizontalmente, troque o módulo por Postgres `LISTEN/NOTIFY` ou Redis pub/sub, mantendo a interface.
+
+**Web.** O operador usa `/admin/live` (TanStack Query com polling de 3 s e atualização imediata pelas respostas): escolhe o torneio e a quadra, vê a partida em andamento ou a fila, inicia, marca pontos (botões grandes), desfaz e encerra com confirmação; erros da API aparecem na própria tela (inclui `TOURNAMENT_LOCKED` e `LIVE_VERSION_CONFLICT`). A página pública `/t/[slug]` mostra "Ao vivo agora" e o placar corrente nos cartões da chave quando o torneio está `in_progress`. Ela usa `EventSource` com reconexão por backoff exponencial com jitter (1 s a 30 s), mostra o estado da conexão (Conectando, Ao vivo, Reconectando, Atualizando a cada 5 s) e, depois de 4 falhas seguidas ou sem `EventSource`, cai para polling de `/live/matches` a cada 5 s, tentando voltar ao stream a cada 60 s. Uma região `aria-live="polite"` anuncia só início, fim de set, fim de jogo e partida encerrada; pontos soltos não são anunciados. A regra de eventos (reducer, backoff, anúncios) é pura, em `apps/web/src/lib/live.ts`. O layout de `app/admin` esconde a sidebar abaixo de `md` e mostra a mesma navegação (`ADMIN_NAV`) como faixa rolável.
 
 ### Pontos e ranking
 
@@ -342,7 +401,7 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 
 - **Autenticação:** Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
 - **Formatos de chave:** eliminação dupla, round robin, grupos + eliminatória e sistema suíço.
-- **Partidas:** auditoria de resultados (quem lançou e quando), resultados ao vivo por polling.
+- **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora), critérios de desempate.
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.
 - **Admin:** relatórios exportáveis, notificações, gestão de usuários e papéis.

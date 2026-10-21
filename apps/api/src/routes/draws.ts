@@ -1,12 +1,14 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
-import { draws, matches, matchResults, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
+import { draws, matches, matchLiveStates, matchResults, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
 import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
-import { buildMatchDefs, buildSlots, getSlotForPosition } from '../domain/bracket.js'
+import { buildMatchDefs, buildSlots } from '../domain/bracket.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
 import { selectRegistrations } from '../db/registrations.js'
+import { saveMatchResult } from '../services/match-result.js'
+import { getLiveMatchView, liveBus } from '../services/live-match.js'
 
 const upsertMatchResultSchema = z.object({
   sets: z.array(z.object({ setNumber: z.number(), score1: z.number(), score2: z.number() })),
@@ -21,12 +23,6 @@ const scheduleMatchSchema = z.object({
 const generateDrawSchema = z.object({
   mode: z.enum(['random', 'seeded']).default('seeded'),
 })
-
-function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
-  const wins1 = sets.filter((s) => s.score1 > s.score2).length
-  const wins2 = sets.filter((s) => s.score2 > s.score1).length
-  return wins1 > wins2 ? 1 : wins2 > wins1 ? 2 : null
-}
 
 export async function drawsRoutes(app: FastifyInstance) {
   app.get('/tournaments/categories/:categoryId/draws', async (request) => {
@@ -72,10 +68,13 @@ export async function drawsRoutes(app: FastifyInstance) {
     const matchDefs = buildMatchDefs(drawId, slots)
 
     // Apagar a chave antiga e gravar a nova é uma operação só: ou troca inteira, ou nada.
+    let liveMatchIds: string[] = []
     const updated = await db.transaction(async (tx) => {
-      const existingMatches = await tx.select({ id: matches.id }).from(matches).where(eq(matches.drawId, drawId))
+      const existingMatches = await tx.select({ id: matches.id, status: matches.status }).from(matches).where(eq(matches.drawId, drawId))
       const matchIds = existingMatches.map((m) => m.id)
+      liveMatchIds = existingMatches.filter((m) => m.status === 'in_progress').map((m) => m.id)
       if (matchIds.length) {
+        await tx.delete(matchLiveStates).where(inArray(matchLiveStates.matchId, matchIds))
         await tx.delete(matchResults).where(inArray(matchResults.matchId, matchIds))
       }
       await tx.delete(matches).where(eq(matches.drawId, drawId))
@@ -87,6 +86,12 @@ export async function drawsRoutes(app: FastifyInstance) {
         .returning()
       return row
     })
+
+    if (liveMatchIds.length) {
+      const [owner] = await db.select({ tournamentId: tournamentCategories.tournamentId })
+        .from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
+      if (owner) for (const id of liveMatchIds) liveBus.publish(owner.tournamentId, { type: 'match-ended', matchId: id, reason: 'cancelled' })
+    }
 
     return reply.status(200).send({ draw: updated, matchCount: matchDefs.length, mode })
   })
@@ -152,68 +157,32 @@ export async function drawsRoutes(app: FastifyInstance) {
     const [updated] = await db.update(matches)
       .set({ scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null, courtNumber: body.courtNumber, updatedAt: new Date() })
       .where(eq(matches.id, matchId)).returning()
+    // Quadra mudou com a partida ao vivo: o painel público acompanha.
+    if (updated && updated.status === 'in_progress') {
+      const view = await getLiveMatchView(db, matchId)
+      if (view) liveBus.publish(view.tournamentId, { type: 'match', match: view })
+    }
     return updated
   })
 
+  // A lógica vive em services/match-result.ts: a mesma função encerra partidas ao vivo (routes/live.ts).
   app.post('/draws/matches/:matchId/result', async (request, reply) => {
     const { matchId } = request.params as { matchId: string }
     const body = upsertMatchResultSchema.parse(request.body)
-    const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
-    if (!match) return reply.status(404).send({ error: 'Match not found' })
 
-    // Torneio encerrado: mudar resultado deixaria final_placement e pontos desatualizados.
-    const [owner] = await db.select({ status: tournaments.status })
-      .from(draws)
-      .innerJoin(tournamentCategories, eq(tournamentCategories.id, draws.categoryId))
-      .innerJoin(tournaments, eq(tournaments.id, tournamentCategories.tournamentId))
-      .where(and(eq(draws.id, match.drawId), isNull(tournaments.deletedAt)))
-    if (owner && (owner.status === 'completed' || owner.status === 'cancelled')) {
-      return reply.status(409).send({ error: 'O torneio está encerrado. Reabra-o para alterar resultados.', code: 'TOURNAMENT_LOCKED' })
+    const saved = await db.transaction((tx) => saveMatchResult(tx, matchId, body))
+    if (!saved.ok) return reply.status(saved.status).send({ error: saved.error, ...(saved.code ? { code: saved.code } : {}) })
+
+    // Quem acompanha o torneio ao vivo atualiza a chave (e some o placar provisório, se havia).
+    if (saved.tournamentId) {
+      liveBus.publish(saved.tournamentId, { type: 'match-ended', matchId, reason: 'finished' })
+      for (const resetId of saved.resetMatchIds) liveBus.publish(saved.tournamentId, { type: 'match-ended', matchId: resetId, reason: 'cancelled' })
     }
-
-    const newWinner =getWinnerSlot(body.sets)
-    if (!newWinner) return reply.status(400).send({ error: 'Cannot determine winner from sets' })
-    const newWinnerRegId = newWinner === 1 ? match.registration1Id : match.registration2Id
-
-    const prevResults = await db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
-    const prevWinner = prevResults.length ? getWinnerSlot(prevResults) : null
-    const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
-    const winnerChanged = prevResults.length > 0 && prevWinnerRegId !== newWinnerRegId
-
-    if (winnerChanged && match.nextMatchId) await cascadeReset(match.nextMatchId, prevWinnerRegId)
-    if (prevResults.length) await db.delete(matchResults).where(eq(matchResults.matchId, matchId))
-
-    await db.update(matches).set({ status: body.status, updatedAt: new Date() }).where(eq(matches.id, matchId))
-    const results = await db.insert(matchResults).values(
-      body.sets.map((s) => ({ id: randomUUID(), matchId, setNumber: s.setNumber, score1: s.score1, score2: s.score2 }))
-    ).returning()
-
-    if (match.nextMatchId) {
-      const slot = getSlotForPosition(match.position)
-      await db.update(matches).set({ [slot]: newWinnerRegId, updatedAt: new Date() }).where(eq(matches.id, match.nextMatchId))
-    }
-
-    return { match: { ...match, status: body.status }, results }
+    return { match: saved.match, results: saved.results }
   })
 
   app.get('/draws/matches/:matchId/result', async (request) => {
     const { matchId } = request.params as { matchId: string }
     return db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
   })
-}
-
-async function cascadeReset(matchId: string, regIdToRemove: string | null): Promise<void> {
-  const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
-  if (!match) return
-  const isSlot1 = match.registration1Id === regIdToRemove
-  const isSlot2 = match.registration2Id === regIdToRemove
-  if (!isSlot1 && !isSlot2) return
-  const prevResults = await db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
-  const prevWinner = prevResults.length ? getWinnerSlot(prevResults) : null
-  const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
-  await db.delete(matchResults).where(eq(matchResults.matchId, matchId))
-  await db.update(matches)
-    .set({ [isSlot1 ? 'registration1Id' : 'registration2Id']: null, status: 'pending', updatedAt: new Date() })
-    .where(eq(matches.id, matchId))
-  if (match.nextMatchId && prevWinnerRegId) await cascadeReset(match.nextMatchId, prevWinnerRegId)
 }
