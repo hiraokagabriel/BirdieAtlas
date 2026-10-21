@@ -136,6 +136,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Categorias | `GET/POST /tournaments/:id/categories` |
 | Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
+| Agenda automática | `POST /tournaments/:id/schedule/auto` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
 | Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
 | Dashboard | `GET /dashboard/stats`, `GET /dashboard/recent-matches`, `GET /dashboard/upcoming-matches` |
@@ -224,6 +225,54 @@ draft → registration_open → registration_closed → in_progress → complete
 - Alterar o vencedor de uma partida já decidida desfaz em cascata as partidas seguintes que dependiam dele.
 - No W.O., o diálogo de resultado grava 21-0 para quem avança. Na desistência (`retired`), grava as parciais com o vencedor fazendo 21. O vencedor é sempre lido dos sets salvos, nunca presumido pelo slot.
 - Resultado de partida de torneio `completed` ou `cancelled` é recusado com `409 TOURNAMENT_LOCKED`; reabra o torneio para corrigir (o `reopen` zera `finalPlacement` e revoga os pontos).
+
+### Agenda automática
+
+`POST /tournaments/:id/schedule/auto` propõe ou grava quadra e horário (`scheduledAt`, `courtNumber`) das partidas do torneio, sem mudança de schema: quadras, início, duração e descanso são parâmetros da chamada. Como toda escrita, exige modo admin (inclusive a pré-visualização, que é um `POST`). A regra é pura e mora em `apps/api/src/domain/schedule.ts` (`planSchedule`); a rota (`routes/schedule.ts`) só carrega os dados e grava. O corpo é validado por `autoScheduleBodySchema` (`packages/validators/src/schedule.ts`).
+
+Corpo:
+
+| Campo | Regra |
+|---|---|
+| `courts` | inteiro de 1 a 32 |
+| `startAt` | ISO 8601 com deslocamento (`2026-10-24T09:00:00-03:00` ou `Z`); o web envia o deslocamento local do navegador |
+| `matchMinutes` | inteiro de 5 a 240 (duração de toda partida) |
+| `restMinutes` | inteiro de 0 a 240 (descanso mínimo entre duas partidas do mesmo atleta e entre uma partida e as que a alimentam) |
+| `reschedule` | boolean, padrão `false` |
+| `dayStartsAt`, `dayEndsAt` | opcionais, "HH:mm" no fuso do deslocamento de `startAt`. Com qualquer um dos dois há janela diária: padrão de início é a hora de `startAt` e de fim a meia-noite. Partida que não cabe até o fim do dia vai para o início do dia seguinte. Fim depois do início e janela maior que `matchMinutes`, senão `400 VALIDATION_ERROR` (ou `422 INVALID_DAY_WINDOW` quando só um dos dois foi enviado) |
+| `dryRun` | boolean, padrão `true` |
+
+Resposta (a mesma com `dryRun` verdadeiro ou falso; só a segunda grava):
+
+```json
+{
+  "dryRun": true, "applied": false,
+  "params": { "courts": 2, "startAt": "2026-10-24T09:00:00-03:00", "matchMinutes": 40, "restMinutes": 15, "reschedule": false },
+  "summary": { "planned": 12, "unscheduled": 0 },
+  "assignments": [{
+    "matchId": "…", "categoryId": "…", "categoryName": "Simples Masculino", "discipline": "MS", "drawId": "…",
+    "round": 3, "roundLabel": "Quartas de final", "position": 1,
+    "participant1": "Ana Souza", "participant2": "Bia Lima",
+    "courtNumber": 1, "scheduledAt": "2026-10-24T12:00:00.000Z"
+  }],
+  "unscheduled": [{ "matchId": "…", "…": "…", "reason": "Depende de uma partida anterior que não pôde ser agendada." }],
+  "warnings": ["A agenda ocupa 2 dias."]
+}
+```
+
+Os nomes são só os públicos dos atletas (duplas como "A / B"); nenhum dado pessoal. `scheduledAt` sai em UTC.
+
+Regras do algoritmo:
+
+- Entram as partidas pendentes que não são bye. Bye é a regra de sempre: primeira fase com um único inscrito em `walkover` (primeira fase vazia também é ignorada). Em andamento e encerradas nunca são alteradas.
+- Ordem: fase (a primeira fase antes, a final por último, contando por chave), depois chave e posição. Uma partida só começa depois que as duas partidas que a alimentam (`nextMatchId`) terminam, mais `restMinutes`, usando o horário já gravado ou o recém-planejado.
+- Um atleta (os dois parceiros de uma dupla) nunca fica em duas partidas sobrepostas e tem pelo menos `restMinutes` entre elas, contando as partidas já agendadas ou encerradas de todas as categorias do torneio. Como o vencedor de uma partida futura ainda não existe, ela é tratada como se qualquer atleta que pode chegar a ela jogasse (decisão conservadora: garante a ausência de conflito, ao custo de mais espera nas fases finais).
+- Cada partida vai para a quadra de menor número livre no primeiro horário possível. Partidas encerradas ou em andamento com horário e quadra, e as pendentes que já têm horário e quadra (com `reschedule: false`), ocupam atletas e quadras como obstáculos e entram em `warnings` se conflitarem entre si. Com `reschedule: true`, as pendentes são replanejadas do zero. Pendente com só horário ou só quadra é replanejada, com aviso.
+- A duração das partidas já gravadas é `matchMinutes` (o schema não guarda a duração). O resultado é determinístico para a mesma entrada.
+- O deslocamento de fuso do `startAt` vale para toda a agenda (sem horário de verão).
+- `unscheduled` lista o que não coube, com o motivo em português (dependência sem horário, janela diária menor que a partida, nenhum horário livre).
+
+Erros: `409 TOURNAMENT_LOCKED` com torneio encerrado ou cancelado (mesma regra do resultado de partida); `404` com torneio inexistente ou excluído; `422 NO_MATCHES` sem chaves geradas; `400 VALIDATION_ERROR` no corpo. Aplicar (`dryRun: false`) lê, planeja e grava numa transação só, com o torneio travado. Como as demais rotas de torneio, a busca é por id e não filtra por tenant (lacuna conhecida, fora do escopo desta entrega). No web, a aba Agenda tem o botão "Gerar agenda automática": pré-visualiza (`dryRun: true`) agrupando por dia e quadra e só então aplica.
 
 ### Pontos e ranking
 

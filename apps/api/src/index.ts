@@ -7,6 +7,7 @@ import { athletesRoutes } from './routes/athletes.js'
 import { clubsRoutes } from './routes/clubs.js'
 import { tournamentsRoutes } from './routes/tournaments.js'
 import { drawsRoutes } from './routes/draws.js'
+import { scheduleRoutes } from './routes/schedule.js'
 import { rankingsRoutes } from './routes/rankings.js'
 import { dashboardRoutes } from './routes/dashboard.js'
 import { affiliationsRoutes } from './routes/affiliations.js'
@@ -30,6 +31,7 @@ await app.register(athletesRoutes)
 await app.register(clubsRoutes)
 await app.register(tournamentsRoutes)
 await app.register(drawsRoutes)
+await app.register(scheduleRoutes)
 await app.register(rankingsRoutes)
 await app.register(dashboardRoutes)
 await app.register(affiliationsRoutes)

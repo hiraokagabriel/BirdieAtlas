@@ -13,6 +13,8 @@
     },
     "check-types": {},
     "lint": {},
-    "test": {}
+    "test": {
+      "dependsOn": ["^build"]
+    }
   }
 }
