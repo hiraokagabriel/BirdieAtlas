@@ -1,6 +1,6 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 19/10/2026, na `main`.
+> Atualizado em 20/10/2026, na `main`.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
 
@@ -11,12 +11,22 @@
 | 1. Fundação | ✅ PR #10 |
 | 2. Contratos da API | ✅ PR #11 |
 | 3a. Baseline de migrations e schema | ✅ PR #13 |
-| 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | 🔄 Em PR |
-| 3c. Aposentadoria de `pointsTables` | 🔄 Em PR |
+| 3b. Inscrições (`status`/`notes`, atleta XOR dupla, `/registrations`) | ✅ PR #16 |
+| 3c. Aposentadoria de `pointsTables` | ✅ PR #17 |
 | 4. Ciclo de vida do torneio | ✅ PR #12 |
 | 5. Documentação | ✅ PR #15 |
 
 Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
+
+Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web zerado (PR #19).
+
+## Revamp visual "Atlas esportivo"
+
+| Entrega | Situação |
+|---|---|
+| Tokens e tipografia (verde-quadra, amarelo-peteca, Barlow Condensed) | ✅ PR #20 |
+| Home pública e perfil do atleta | ✅ PR #21 |
+| Chave visual (admin e pública) | ✅ PR #22 |
 
 ## Phase 0 — Fundação
 
@@ -120,4 +130,4 @@ Fora do plano: o seed passou a gerar chaves com a rodada 1 como final (PR #14).
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
-| Branches antigas no remoto | 🟢 Baixa | Restam quatro branches não mergeadas, à espera de decisão de descarte: `feat/dashboard-crud-pages` (abandonada), `feat/phase-2-registration-operations` (portada), `chore/fix-dependency-versions` e `main-v2` |
+| Dark mode sem toggle | 🟢 Baixa | Os tokens escuros existem em `globals.css`, mas nada aplica a classe `.dark` |
