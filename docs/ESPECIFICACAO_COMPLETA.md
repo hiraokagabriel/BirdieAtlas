@@ -24,8 +24,8 @@ Objetivos:
 | Web (`apps/web`) | Next.js 16 (App Router), React 19, TypeScript estrito, Tailwind CSS v4, componentes shadcn/ui sobre `radix-ui`, TanStack Query v5 |
 | API (`apps/api`) | Node.js, Fastify 5, TypeScript estrito, Zod, Drizzle ORM 0.41 |
 | Banco | PostgreSQL 16 (Docker local, porta 5432, banco `birdie_atlas`) |
-| Testes | Vitest (API, web e pacotes) |
-| CI | GitHub Actions: typecheck, lint, testes e build em todo push e PR para `main` |
+| Testes | Vitest (API, web e pacotes); Playwright (E2E, `apps/e2e`) |
+| CI | GitHub Actions em todo push e PR para `main`: job `verify` (typecheck, lint, testes e build) e job `e2e` (Playwright) |
 
 O Next.js 16 tem APIs e convenções diferentes das versões anteriores. Antes de escrever código web, consulte o guia em `node_modules/next/dist/docs/` (ver `apps/web/AGENTS.md`).
 
@@ -43,6 +43,7 @@ apps/
       routes/             uma rota Fastify por recurso
       scripts/            reset-db.ts, seed.ts
       tenant.ts           tenant padrão do servidor
+  e2e/                    testes ponta a ponta (Playwright): playwright.config.ts, support/ e tests/
   web/
     src/
       app/(public)/       portal público
@@ -392,6 +393,15 @@ Categoria;Atleta;Parceiro(a);Clube;Cabeça de chave;Status
 Simples Masculino;"'=HYPERLINK(""http://x"";""y"") Ana";;Clube Alfa;1;Aprovada
 ```
 
+## Testes E2E
+
+Os testes de ponta a ponta ficam em `apps/e2e` (Playwright, só Chromium) e rodam com `pnpm e2e`. Eles não fazem parte de `pnpm turbo run check-types lint test build`: só o `check-types` e o `lint` do pacote entram nesse comando.
+
+- **Isolamento.** O E2E não toca no ambiente de desenvolvimento. Usa o banco `birdieatlas_e2e` (o `support/global-setup.ts` recusa nomes sem "e2e" e o `db:reset` já recusa hosts não locais), a API na porta 3201 e o web na 3200. O banco é criado, migrado e populado a cada execução com os scripts da API (`db:create`, `db:reset`, `db:seed --profile small`). O web roda em build de produção (`next build` com `NEXT_DIST_DIR=.next-e2e` e `next start`), para não pisar no `.next` do desenvolvimento.
+- **Dados.** O seed é aleatório (sufixos nos slugs) e os testes não dependem dele: cada spec cria os próprios dados pela API (`support/factories.ts`), com nomes e slugs únicos, e só usa a interface onde ela é o objeto do teste. Specs rodam em paralelo (2 workers); o spec `guard`, que liga e desliga o modo admin da API inteira, roda sozinho no projeto `guard`, depois do `main`.
+- **Cobertura.** Portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados pelo diálogo, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin e fumaça de acessibilidade. Comportamento ainda não implementado fica como `test.fixme` com o motivo.
+- **CI.** O job `e2e` do GitHub Actions sobe um Postgres como serviço, instala o Chromium (`playwright install --with-deps`), roda `pnpm e2e` e, se falhar, envia o relatório HTML e os traces como artefato.
+
 ## Convenções
 
 ### TypeScript
@@ -456,4 +466,4 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.
 - **Admin:** relatórios exportáveis além dos dois CSVs atuais, notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
-- **Qualidade:** testes E2E com Playwright, PWA, acessibilidade WCAG 2.1 AA.
+- **Qualidade:** PWA, acessibilidade WCAG 2.1 AA completa (hoje há só a fumaça do E2E), mais cobertura E2E (cadastros, duplas, importação de CSV, rankings no admin).

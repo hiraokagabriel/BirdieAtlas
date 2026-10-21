@@ -29,14 +29,32 @@ pnpm dev
 
 `DEV_ADMIN_MODE=true` no `.env` da API libera as escritas enquanto não há autenticação. Para recriar o banco local do zero: `pnpm --filter @birdie-atlas/api db:reset`.
 
+## Testes E2E
+
+Testes de ponta a ponta com [Playwright](https://playwright.dev) em `apps/e2e`: portal público, ciclo de vida do torneio no admin, agenda automática, placar ao vivo (SSE), tema, guard de modo admin e uma fumaça de acessibilidade.
+
+```bash
+docker compose up -d      # Postgres
+pnpm e2e:install          # só na primeira vez: baixa o Chromium
+pnpm e2e                  # roda tudo (também aceita argumentos: pnpm e2e tests/live.spec.ts)
+```
+
+- **Isolado do desenvolvimento:** banco próprio `birdieatlas_e2e` (recriado do zero a cada execução com `db:create`, `db:reset` e `db:seed`), API em http://localhost:3201 e web em http://localhost:3200. Os servidores de desenvolvimento (3000/3001) e o banco `birdie_atlas` não são tocados.
+- **Web de produção:** o Playwright roda `next build` (saída em `apps/web/.next-e2e`) e `next start`. O build leva alguns minutos; com `E2E_SKIP_BUILD=1` o build anterior é reaproveitado.
+- **Variáveis:** `E2E_API_PORT`, `E2E_WEB_PORT` e `E2E_DATABASE_URL` (o nome do banco precisa conter "e2e").
+- **Depuração:** `pnpm --filter @birdie-atlas/e2e e2e:report` abre o relatório HTML; falhas guardam captura de tela e, na primeira repetição, o trace (`playwright show-trace`). Para ver o navegador: `pnpm e2e --headed`.
+- **CI:** o job `e2e` do GitHub Actions roda a mesma suíte e envia o relatório e os traces como artefato quando falha.
+
 ## Comandos
 
 | Comando | O que faz |
 |---|---|
 | `pnpm dev` | API e web em modo de desenvolvimento |
-| `pnpm turbo run check-types lint test build` | O mesmo que o CI |
+| `pnpm turbo run check-types lint test build` | O mesmo que o job `verify` do CI |
+| `pnpm e2e` | Testes E2E com Playwright (banco e portas próprios; ver "Testes E2E") |
 | `pnpm --filter @birdie-atlas/api db:generate` | Gera uma migration a partir do schema |
 | `pnpm --filter @birdie-atlas/api db:migrate` | Aplica as migrations pendentes |
+| `pnpm --filter @birdie-atlas/api db:create` | Cria o banco apontado por `DATABASE_URL` se ele não existir (só local; usado pelo E2E) |
 | `pnpm --filter @birdie-atlas/api db:reset` | Recria o banco local a partir das migrations (só local) |
 | `pnpm --filter @birdie-atlas/api db:seed` | Popula o banco com dados de exemplo |
 | `pnpm --filter @birdie-atlas/api db:studio` | Abre o Drizzle Studio |
