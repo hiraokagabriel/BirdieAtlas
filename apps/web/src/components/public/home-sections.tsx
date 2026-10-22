@@ -27,9 +27,9 @@ export function Section({ id, title, children }: { id: string; title: string; ch
 
 function CardsSkeleton({ count }: { count: number }) {
   return (
-    <div aria-busy="true" aria-label="Carregando" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div role="status" aria-busy="true" aria-label="Carregando" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="h-32 animate-pulse rounded-xl border border-border bg-card" />
+        <div key={i} className="h-32 motion-safe:animate-pulse rounded-xl border border-border bg-card" />
       ))}
     </div>
   )
@@ -41,15 +41,15 @@ export function TournamentsSkeleton() {
 
 export function RankingsSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Carregando" className="space-y-4">
-      <div className="h-9 w-64 animate-pulse rounded-full bg-muted" />
-      <div className="h-96 animate-pulse rounded-xl border border-border bg-card" />
+    <div role="status" aria-busy="true" aria-label="Carregando" className="space-y-4">
+      <div className="h-9 w-64 motion-safe:animate-pulse rounded-full bg-muted" />
+      <div className="h-96 motion-safe:animate-pulse rounded-xl border border-border bg-card" />
     </div>
   )
 }
 
 export function SearchSkeleton() {
-  return <div aria-busy="true" aria-label="Buscando" className="h-24 animate-pulse rounded-xl border border-border bg-card" />
+  return <div role="status" aria-busy="true" aria-label="Buscando" className="h-24 motion-safe:animate-pulse rounded-xl border border-border bg-card" />
 }
 
 export async function UpcomingTournaments() {
@@ -115,7 +115,7 @@ export async function SearchResults({ query }: { query: string }) {
           <h3 className="text-lg">Atletas</h3>
           <ul className="grid gap-2 sm:grid-cols-2">
             {athleteHits.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} className="min-w-0">
                 <Link
                   href={`/a/${a.id}`}
                   className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -134,7 +134,7 @@ export async function SearchResults({ query }: { query: string }) {
           <h3 className="text-lg">Clubes</h3>
           <ul className="grid gap-2 sm:grid-cols-2">
             {clubHits.map((c) => (
-              <li key={c.id}>
+              <li key={c.id} className="min-w-0">
                 <Link
                   href={`/c/${c.slug}`}
                   className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

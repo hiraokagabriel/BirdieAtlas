@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { Field } from '@/components/ui/field'
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -155,7 +156,7 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
     rules: rules.filter((r) => r.tournamentLevel === lvl.value),
   })).filter((g) => g.rules.length > 0 || showForm)
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando regras...</p>
+  if (isLoading) return <p role="status" className="text-sm text-muted-foreground">Carregando regras...</p>
 
   return (
     <div className="space-y-6">
@@ -166,8 +167,8 @@ export function PointRulesManager({ rankingId }: PointRulesManagerProps) {
             Define quantos pontos cada colocação vale por nível de torneio.
           </p>
         </div>
-        <Button size="sm" onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()) }}>
-          <Plus className="w-4 h-4 mr-1" /> Nova Regra
+        <Button type="button" size="sm" onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()) }}>
+          <Plus className="w-4 h-4 mr-1" aria-hidden="true" /> Nova Regra
         </Button>
       </div>
 
@@ -242,8 +243,15 @@ interface RuleRowProps {
   isDeleting: boolean
 }
 
+function ruleName(rule: PointRule): string {
+  const parts = [rule.discipline ?? 'todas as disciplinas', rule.category].filter(Boolean)
+  return parts.join(', ')
+}
+
 function RuleRow({ rule, onEdit, onDelete, isDeleting }: RuleRowProps) {
   const [open, setOpen] = useState(false)
+  const name = ruleName(rule)
+  const tableId = `rule-${rule.id}-table`
 
   return (
     <div className="space-y-2">
@@ -262,33 +270,39 @@ function RuleRow({ rule, onEdit, onDelete, isDeleting }: RuleRowProps) {
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(!open)}>
-            {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          <Button
+            type="button" variant="ghost" size="icon" className="size-8"
+            aria-expanded={open} aria-controls={tableId}
+            aria-label={`${open ? 'Ocultar' : 'Mostrar'} a tabela de pontos (${name})`}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <ChevronUp className="w-3 h-3" aria-hidden="true" /> : <ChevronDown className="w-3 h-3" aria-hidden="true" />}
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-            <Pencil className="w-3 h-3" />
+          <Button type="button" variant="ghost" size="icon" className="size-8" aria-label={`Editar regra (${name})`} onClick={onEdit}>
+            <Pencil className="w-3 h-3" aria-hidden="true" />
           </Button>
           <Button
-            variant="ghost" size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive"
+            type="button" variant="ghost" size="icon"
+            className="size-8 text-destructive hover:text-destructive"
+            aria-label={`Excluir regra (${name})`}
             onClick={onDelete} disabled={isDeleting}
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="w-3 h-3" aria-hidden="true" />
           </Button>
         </div>
       </div>
 
       {open && (
-        <div className="rounded bg-muted/40 px-3 py-2">
+        <div id={tableId} className="rounded bg-muted/40 px-3 py-2">
           <p className="text-xs font-medium text-muted-foreground mb-1">Tabela de pontos</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-0.5">
             {rule.entries.map((e) => (
-              <div key={e.placement} className="flex justify-between text-xs">
+              <li key={e.placement} className="flex justify-between text-xs">
                 <span className="text-muted-foreground">{e.placement}º lugar</span>
                 <span className="font-medium">{e.basePoints} pts</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
     </div>
@@ -324,92 +338,92 @@ function RuleForm({ form, setForm, onSave, onCancel, isSaving, title }: RuleForm
   }
 
   return (
-    <div className="rounded-lg border border-dashed p-4 space-y-4 bg-muted/20">
-      <p className="text-sm font-semibold">{title}</p>
+    <div role="group" aria-label={title} className="rounded-lg border border-dashed p-4 space-y-4 bg-muted/20">
+      <h4 className="text-sm font-semibold">{title}</h4>
 
-      <div className="grid grid-cols-2 gap-3">
-        {/* Nível */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium">Nível do Torneio *</label>
-          <Select
-            value={form.tournamentLevel}
-            onValueChange={(v: string) => setForm({ ...form, tournamentLevel: v as TournamentLevel })}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LEVELS.map((l) => (
-                <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Nível do Torneio" required>
+          {(props) => (
+            <Select
+              value={form.tournamentLevel}
+              onValueChange={(v: string) => setForm({ ...form, tournamentLevel: v as TournamentLevel })}
+            >
+              <SelectTrigger {...props} className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEVELS.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
 
-        {/* Disciplina */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium">Disciplina <span className="text-muted-foreground">(opcional)</span></label>
-          <Select
-            value={form.discipline || '_all'}
-            onValueChange={(v: string) => setForm({ ...form, discipline: v === '_all' ? '' : v })}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">Todas as disciplinas</SelectItem>
-              {DISCIPLINES.map((d) => (
-                <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Field label="Disciplina (opcional)">
+          {(props) => (
+            <Select
+              value={form.discipline || '_all'}
+              onValueChange={(v: string) => setForm({ ...form, discipline: v === '_all' ? '' : v })}
+            >
+              <SelectTrigger {...props} className="h-9 text-xs">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todas as disciplinas</SelectItem>
+                {DISCIPLINES.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
 
-        {/* Categoria */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium">Categoria <span className="text-muted-foreground">(opcional)</span></label>
-          <Input
-            className="h-8 text-xs"
-            placeholder="Ex: Open, Sub-19, Sub-23"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-          />
-        </div>
+        <Field label="Categoria (opcional)">
+          {(props) => (
+            <Input
+              {...props}
+              className="h-9 text-xs"
+              placeholder="Ex: Open, Sub-19, Sub-23"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            />
+          )}
+        </Field>
 
-        {/* Multiplicador */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium">Multiplicador</label>
-          <Input
-            className="h-8 text-xs"
-            type="number" step="0.1" min="0"
-            value={form.multiplier}
-            onChange={(e) => setForm({ ...form, multiplier: e.target.value })}
-          />
-        </div>
+        <Field label="Multiplicador">
+          {(props) => (
+            <Input
+              {...props}
+              className="h-9 text-xs"
+              type="number" step="0.1" min="0"
+              value={form.multiplier}
+              onChange={(e) => setForm({ ...form, multiplier: e.target.value })}
+            />
+          )}
+        </Field>
 
-        {/* Bônus de participação */}
-        <div className="space-y-1 col-span-2">
-          <label className="text-xs font-medium">
-            Bônus de Participação
-            <span className="text-muted-foreground ml-1">(pontos fixos independente da colocação)</span>
-          </label>
-          <Input
-            className="h-8 text-xs"
-            type="number" step="1" min="0"
-            value={form.participationBonus}
-            onChange={(e) => setForm({ ...form, participationBonus: e.target.value })}
-          />
-        </div>
+        <Field label="Bônus de Participação" hint="Pontos fixos, independentes da colocação." className="sm:col-span-2">
+          {(props) => (
+            <Input
+              {...props}
+              className="h-9 text-xs"
+              type="number" step="1" min="0"
+              value={form.participationBonus}
+              onChange={(e) => setForm({ ...form, participationBonus: e.target.value })}
+            />
+          )}
+        </Field>
       </div>
 
       <Separator />
 
       {/* Tabela de pontos por colocação */}
-      <div className="space-y-2">
+      <fieldset className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium">Pontos por Colocação</p>
-          <Button variant="outline" size="sm" className="h-6 text-xs" onClick={addEntry}>
-            <Plus className="w-3 h-3 mr-1" /> Colocação
+          <legend className="text-xs font-medium">Pontos por Colocação</legend>
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addEntry}>
+            <Plus className="w-3 h-3 mr-1" aria-hidden="true" /> Colocação
           </Button>
         </div>
 
@@ -418,29 +432,32 @@ function RuleForm({ form, setForm, onSave, onCancel, isSaving, title }: RuleForm
             <div key={i} className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground w-14">{entry.placement}º lugar</span>
               <Input
-                className="h-7 text-xs w-28"
+                className="h-8 text-xs w-28"
                 type="number" min="0"
+                aria-label={`Pontos base do ${entry.placement}º lugar`}
                 value={entry.basePoints}
                 onChange={(e) => setEntry(i, 'basePoints', e.target.value)}
               />
               <span className="text-xs text-muted-foreground">pts base</span>
               <Button
-                variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground"
+                type="button"
+                variant="ghost" size="icon" className="size-8 text-muted-foreground"
+                aria-label={`Remover a colocação ${entry.placement}º lugar`}
                 onClick={() => removeEntry(i)}
               >
-                <X className="w-3 h-3" />
+                <X className="w-3 h-3" aria-hidden="true" />
               </Button>
             </div>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>
-          <X className="w-3 h-3 mr-1" /> Cancelar
+        <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>
+          <X className="w-3 h-3 mr-1" aria-hidden="true" /> Cancelar
         </Button>
-        <Button size="sm" onClick={onSave} disabled={isSaving}>
-          <Check className="w-3 h-3 mr-1" />
+        <Button type="button" size="sm" onClick={onSave} disabled={isSaving}>
+          <Check className="w-3 h-3 mr-1" aria-hidden="true" />
           {isSaving ? 'Salvando...' : 'Salvar Regra'}
         </Button>
       </div>

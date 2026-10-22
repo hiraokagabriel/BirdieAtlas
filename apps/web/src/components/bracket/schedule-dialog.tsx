@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,7 +38,7 @@ export function ScheduleDialog({ match, open, onClose, player1Name, player2Name,
     }
   }, [open, match])
 
-  const { mutate, isPending } = useMutation({
+  const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${API_URL}/draws/matches/${match!.id}/schedule`, {
         method: 'PATCH',
@@ -67,10 +67,10 @@ export function ScheduleDialog({ match, open, onClose, player1Name, player2Name,
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarClock className="w-4 h-4" />
+            <CalendarClock className="w-4 h-4" aria-hidden="true" />
             Agendar Partida
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">{roundLabel} — {player1Name} vs {player2Name}</p>
+          <DialogDescription>{roundLabel}: {player1Name} contra {player2Name}.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -100,16 +100,23 @@ export function ScheduleDialog({ match, open, onClose, player1Name, player2Name,
         {match?.scheduledAt && (
           <button
             onClick={() => { setScheduledAt(''); setCourtNumber('') }}
-            className="flex items-center gap-1.5 text-xs text-destructive hover:underline"
+            type="button"
+            className="flex min-h-6 items-center gap-1.5 text-xs text-destructive underline-offset-2 hover:underline"
           >
-            <X className="w-3 h-3" /> Remover agendamento
+            <X className="w-3 h-3" aria-hidden="true" /> Remover agendamento
           </button>
+        )}
+
+        {error && (
+          <p role="alert" className="text-xs font-medium text-destructive">
+            Não foi possível salvar o agendamento: {error.message}
+          </p>
         )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>Cancelar</Button>
           <Button onClick={() => mutate()} disabled={isPending}>
-            {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : 'Confirmar'}
+            {isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />Salvando...</> : 'Confirmar'}
           </Button>
         </DialogFooter>
       </DialogContent>

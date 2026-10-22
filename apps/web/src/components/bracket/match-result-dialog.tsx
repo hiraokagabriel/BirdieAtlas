@@ -3,14 +3,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { ChoiceGroup } from '@/components/ui/choice-group'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Trophy, Loader2, AlertCircle } from 'lucide-react'
 
 type GameScore = { score1: string; score2: string }
+
+const ERROR_ID = 'match-result-error'
 
 type MatchResult = {
   matchId: string
@@ -37,6 +40,12 @@ type Props = {
   existingResults?: MatchResult[]
   roundLabel: string
 }
+
+const RESULT_TYPES = [
+  { value: 'completed', label: 'Normal' },
+  { value: 'walkover', label: 'W.O.' },
+  { value: 'retired', label: 'Ret.' },
+] as const
 
 function getGameWinner(game: GameScore): 1 | 2 | null {
   const s1 = parseInt(game.score1)
@@ -220,12 +229,12 @@ export function MatchResultDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Resultado' : 'Lançar Resultado'}</DialogTitle>
-          <p className="text-sm text-muted-foreground">{roundLabel}</p>
+          <DialogDescription>{roundLabel}: {player1Name} contra {player2Name}.</DialogDescription>
         </DialogHeader>
 
         {isEdit && (
           <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
-            <span>⚠️</span>
+            <span aria-hidden="true">⚠️</span>
             <span>Se o vencedor mudar, as partidas seguintes serão reabertas automaticamente.</span>
           </div>
         )}
@@ -235,10 +244,10 @@ export function MatchResultDialog({
           <div className={`flex items-center gap-3 px-4 py-3 border-b border-border ${
             winner === 1 ? 'bg-success/10' : 'bg-muted/30'
           }`}>
-            {winner === 1 && <Trophy className="w-4 h-4 text-warning shrink-0" />}
+            {winner === 1 && <Trophy className="w-4 h-4 text-warning shrink-0" aria-hidden="true" />}
             <span className={`text-sm flex-1 truncate ${
               winner === 1 ? 'font-semibold' : winner === 2 ? 'text-muted-foreground' : 'font-medium'
-            }`}>{player1Name}</span>
+            }`}>{player1Name}{winner === 1 && <span className="sr-only"> (vencedor)</span>}</span>
             <span className="text-xs text-muted-foreground font-mono">
               {displayGames.filter((g) => getGameWinner(g) === 1).length} games
             </span>
@@ -246,10 +255,10 @@ export function MatchResultDialog({
           <div className={`flex items-center gap-3 px-4 py-3 ${
             winner === 2 ? 'bg-success/10' : ''
           }`}>
-            {winner === 2 && <Trophy className="w-4 h-4 text-warning shrink-0" />}
+            {winner === 2 && <Trophy className="w-4 h-4 text-warning shrink-0" aria-hidden="true" />}
             <span className={`text-sm flex-1 truncate ${
               winner === 2 ? 'font-semibold' : winner === 1 ? 'text-muted-foreground' : 'font-medium'
-            }`}>{player2Name}</span>
+            }`}>{player2Name}{winner === 2 && <span className="sr-only"> (vencedor)</span>}</span>
             <span className="text-xs text-muted-foreground font-mono">
               {displayGames.filter((g) => getGameWinner(g) === 2).length} games
             </span>
@@ -257,27 +266,20 @@ export function MatchResultDialog({
         </div>
 
         {/* Result type tabs */}
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-          {(['completed', 'walkover', 'retired'] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => handleResultTypeChange(type)}
-              className={`flex-1 py-1 rounded-md text-xs font-semibold transition-all ${
-                resultType === type
-                  ? 'bg-card text-card-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {type === 'completed' ? 'Normal' : type === 'walkover' ? 'W.O.' : 'Ret.'}
-            </button>
-          ))}
-        </div>
+        <ChoiceGroup
+          legend="Tipo de resultado"
+          hideLegend
+          options={RESULT_TYPES}
+          value={resultType}
+          onChange={handleResultTypeChange}
+          optionClassName="flex-1 min-h-8 text-xs font-semibold"
+        />
 
         {/* Games — modo Normal */}
         {resultType === 'completed' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parciais</p>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parciais</h3>
               <p className="text-xs text-muted-foreground">
                 {showThirdGame ? '3 games (1x1 — decidindo)' : '2 games'}
               </p>
@@ -298,6 +300,9 @@ export function MatchResultDialog({
                 }`}>
                   <Input
                     type="number" min={0} max={30} placeholder="0"
+                    aria-label={`Pontos de ${player1Name} no game ${idx + 1}`}
+                    aria-invalid={showValidationError || undefined}
+                    aria-describedby={showValidationError ? ERROR_ID : undefined}
                     value={game.score1}
                     onChange={(e) => updateGame(idx, 'score1', e.target.value)}
                     className={`text-center font-mono ${
@@ -305,10 +310,13 @@ export function MatchResultDialog({
                     }`}
                   />
                   <p className="text-center text-xs text-muted-foreground font-medium">
-                    {isThird ? 'G3 🏸' : `G${idx + 1}`}
+                    {isThird ? <>G3 <span aria-hidden="true">🏸</span></> : `G${idx + 1}`}
                   </p>
                   <Input
                     type="number" min={0} max={30} placeholder="0"
+                    aria-label={`Pontos de ${player2Name} no game ${idx + 1}`}
+                    aria-invalid={showValidationError || undefined}
+                    aria-describedby={showValidationError ? ERROR_ID : undefined}
                     value={game.score2}
                     onChange={(e) => updateGame(idx, 'score2', e.target.value)}
                     className={`text-center font-mono ${
@@ -330,7 +338,7 @@ export function MatchResultDialog({
                 ? 'bg-warning/10 border-warning/30 text-warning'
                 : 'bg-info/10 border-info/30 text-info'
             }`}>
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
               <span>
                 {resultType === 'walkover'
                   ? 'W.O.: selecione quem avança. O placar será registrado como 21–0 para o vencedor.'
@@ -338,31 +346,24 @@ export function MatchResultDialog({
               </span>
             </div>
 
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quem avança?</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[player1Name, player2Name].map((name, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setGames([
-                      idx === 0 ? { score1: '21', score2: '0' } : { score1: '0', score2: '21' },
-                      idx === 0 ? { score1: '21', score2: '0' } : { score1: '0', score2: '21' },
-                    ])}
-                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                      (idx === 0 && winner === 1) || (idx === 1 && winner === 2)
-                        ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                        : 'border-border hover:bg-accent'
-                    }`}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ChoiceGroup
+              legend={resultType === 'walkover' ? 'Quem avança?' : 'Quem estava vencendo?'}
+              options={[
+                { value: 'side1', label: player1Name },
+                { value: 'side2', label: player2Name },
+              ]}
+              value={winner === 1 ? 'side1' : winner === 2 ? 'side2' : ''}
+              onChange={(side) => {
+                const game = side === 'side1' ? { score1: '21', score2: '0' } : { score1: '0', score2: '21' }
+                setGames([game, game])
+              }}
+              className="space-y-2"
+              optionClassName="flex-1 min-w-[40%] px-3 py-2 text-sm"
+            />
 
             {showValidationError && (
-              <p className="flex items-center gap-1.5 text-xs text-destructive font-medium">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <p id={ERROR_ID} role="alert" className="flex items-center gap-1.5 text-xs text-destructive font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 Selecione o vencedor antes de confirmar.
               </p>
             )}
@@ -371,8 +372,8 @@ export function MatchResultDialog({
 
         {/* Erro de validação — modo Normal */}
         {resultType === 'completed' && showValidationError && gameValidationError && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive font-medium">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <p id={ERROR_ID} role="alert" className="flex items-center gap-1.5 text-xs text-destructive font-medium">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             {gameValidationError}
           </p>
         )}
@@ -388,7 +389,7 @@ export function MatchResultDialog({
           <Button variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={isPending}>
             {isPending
-              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />Salvando...</>
               : isEdit ? 'Salvar alterações' : 'Confirmar resultado'
             }
           </Button>

@@ -3,7 +3,9 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
-import { Upload, Download, X, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Upload, Download, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type CsvRow = Record<string, string>
 
@@ -76,76 +78,53 @@ export function CsvImportModal({ open, onClose }: Props) {
     setRows([])
     setFileName('')
     setResult(null)
+    importMutation.reset()
     if (fileRef.current) fileRef.current.value = ''
     onClose()
   }
-
-  if (!open) return null
 
   const previewHeaders = rows[0] ? Object.keys(rows[0]) : []
   const previewRows = rows.slice(0, 5)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 dark:bg-black/60" onClick={handleClose} />
+    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Importar atletas via CSV</DialogTitle>
+          <DialogDescription>
+            Colunas obrigatórias: <code className="rounded bg-muted px-1">name</code>, <code className="rounded bg-muted px-1">gender</code> (M ou F).
+          </DialogDescription>
+        </DialogHeader>
 
-      <div className="relative z-10 w-full max-w-2xl bg-background rounded-2xl border border-border shadow-2xl mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div>
-            <h3 className="text-base font-semibold">Importar atletas via CSV</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Colunas obrigatórias: <code className="bg-muted px-1 rounded">name</code>, <code className="bg-muted px-1 rounded">gender</code> (M ou F)
-            </p>
-          </div>
-          <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          {/* Download template */}
-          <button
-            onClick={downloadTemplate}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
+        <div className="space-y-4">
+          <Button type="button" variant="ghost" size="sm" onClick={downloadTemplate} className="-ml-2">
+            <Download aria-hidden="true" />
             Baixar template CSV
-          </button>
+          </Button>
 
-          {/* Upload */}
+          {/* Upload: o <input> real fica dentro do rótulo; o foco aparece na área inteira. */}
           {!result && (
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
-            >
-              <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium">{fileName || 'Clique para selecionar o arquivo CSV'}</p>
-              <p className="text-xs text-muted-foreground mt-1">Apenas arquivos .csv</p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleFile}
-              />
-            </div>
+            <label className="block cursor-pointer rounded-xl border-2 border-dashed border-field-border p-8 text-center transition-colors hover:bg-muted/40 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
+              <Upload className="mx-auto mb-2 size-8 text-muted-foreground" aria-hidden="true" />
+              <span className="block text-sm font-medium">{fileName || 'Clique para selecionar o arquivo CSV'}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">Apenas arquivos .csv</span>
+              <input ref={fileRef} type="file" accept=".csv" className="sr-only" onChange={handleFile} />
+            </label>
           )}
 
-          {/* Preview */}
           {rows.length > 0 && !result && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">
-                Preview — {rows.length} linha{rows.length !== 1 ? 's' : ''} detectada{rows.length !== 1 ? 's' : ''}
-                {rows.length > 5 ? ` (mostrando as primeiras 5)` : ''}
+              <p className="text-xs font-medium text-muted-foreground">
+                Pré-visualização: {rows.length} linha{rows.length !== 1 ? 's' : ''} detectada{rows.length !== 1 ? 's' : ''}
+                {rows.length > 5 ? ' (mostrando as primeiras 5)' : ''}
               </p>
-              <div className="rounded-lg border border-border overflow-auto max-h-48">
+              <div tabIndex={0} role="region" aria-label="Pré-visualização do CSV" className="max-h-48 overflow-auto rounded-lg border border-border">
                 <table className="w-full text-xs">
+                  <caption className="sr-only">Primeiras linhas do arquivo CSV</caption>
                   <thead>
-                    <tr className="bg-muted/40 border-b border-border">
+                    <tr className="border-b border-border bg-muted/40">
                       {previewHeaders.map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground">{h}</th>
+                        <th key={h} scope="col" className="px-3 py-2 text-left font-medium text-muted-foreground">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -163,50 +142,50 @@ export function CsvImportModal({ open, onClose }: Props) {
             </div>
           )}
 
-          {/* Resultado */}
+          {importMutation.isError && (
+            <p role="alert" className="text-xs font-medium text-destructive">
+              Não foi possível importar: {importMutation.error.message}
+            </p>
+          )}
+
           {result && (
-            <div className="space-y-3">
+            <div role="status" className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5 text-success">
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
                   <span className="text-sm font-semibold">{result.created} importado{result.created !== 1 ? 's' : ''}</span>
                 </div>
                 {result.failed > 0 && (
                   <div className="flex items-center gap-1.5 text-destructive">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="size-4" aria-hidden="true" />
                     <span className="text-sm font-semibold">{result.failed} com erro</span>
                   </div>
                 )}
               </div>
               {result.errors.length > 0 && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1 max-h-40 overflow-auto">
+                <ul className="max-h-40 space-y-1 overflow-auto rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                   {result.errors.map((err) => (
-                    <p key={err.row} className="text-xs text-destructive">
+                    <li key={err.row} className="text-xs text-destructive">
                       <span className="font-semibold">Linha {err.row}:</span> {err.reason}
-                    </p>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/10">
-          <button onClick={handleClose} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={handleClose}>
             {result ? 'Fechar' : 'Cancelar'}
-          </button>
+          </Button>
           {rows.length > 0 && !result && (
-            <button
-              onClick={() => importMutation.mutate(rows)}
-              disabled={importMutation.isPending}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
+            <Button type="button" onClick={() => importMutation.mutate(rows)} disabled={importMutation.isPending}>
               {importMutation.isPending ? 'Importando...' : `Importar ${rows.length} atleta${rows.length !== 1 ? 's' : ''}`}
-            </button>
+            </Button>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

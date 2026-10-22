@@ -3,7 +3,18 @@
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
-import { X, Check } from 'lucide-react'
+import { focusFirstInvalid } from '@/lib/focus-invalid'
+import { Check } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  ClubFormFields,
+  EMPTY_CLUB_FORM,
+  clubPayload,
+  validateClubForm,
+  type ClubFormErrors,
+  type ClubFormState,
+} from './club-form-fields'
 
 interface ClubData {
   id: string
@@ -25,17 +36,8 @@ interface Props {
 }
 
 export function EditClubModal({ club, open, onClose, onSaved }: Props) {
-  const [form, setForm] = useState({
-    name: '',
-    slug: '',
-    city: '',
-    state: '',
-    primaryColor: '#6366f1',
-    secondaryColor: '#a5b4fc',
-    logoUrl: '',
-    coverUrl: '',
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [form, setForm] = useState<ClubFormState>(EMPTY_CLUB_FORM)
+  const [errors, setErrors] = useState<ClubFormErrors>({})
 
   // Pré-preenche quando abre
   useEffect(() => {
@@ -45,8 +47,8 @@ export function EditClubModal({ club, open, onClose, onSaved }: Props) {
         slug: club.slug ?? '',
         city: club.city ?? '',
         state: club.state ?? '',
-        primaryColor: club.primaryColor ?? '#6366f1',
-        secondaryColor: club.secondaryColor ?? '#a5b4fc',
+        primaryColor: club.primaryColor ?? EMPTY_CLUB_FORM.primaryColor,
+        secondaryColor: club.secondaryColor ?? EMPTY_CLUB_FORM.secondaryColor,
         logoUrl: club.logoUrl ?? '',
         coverUrl: club.coverUrl ?? '',
       })
@@ -55,177 +57,52 @@ export function EditClubModal({ club, open, onClose, onSaved }: Props) {
   }, [open, club])
 
   const mutation = useMutation({
-    mutationFn: () => {
-      const payload: Record<string, string> = {
-        name: form.name.trim(),
-        slug: form.slug.trim(),
-      }
-      if (form.city.trim()) payload.city = form.city.trim()
-      if (form.state.trim()) payload.state = form.state.trim().toUpperCase()
-      if (form.primaryColor) payload.primaryColor = form.primaryColor
-      if (form.secondaryColor) payload.secondaryColor = form.secondaryColor
-      if (form.logoUrl.trim()) payload.logoUrl = form.logoUrl.trim()
-      if (form.coverUrl.trim()) payload.coverUrl = form.coverUrl.trim()
-      return apiFetch(`/clubs/${club.id}`, { method: 'PUT', json: payload })
-    },
+    mutationFn: () => apiFetch(`/clubs/${club.id}`, { method: 'PUT', json: clubPayload(form) }),
     onSuccess: () => {
       onSaved()
       onClose()
     },
   })
 
-  function validate() {
-    const e: Record<string, string> = {}
-    if (!form.name.trim()) e.name = 'Nome é obrigatório'
-    if (!form.slug.trim()) e.slug = 'Slug é obrigatório'
-    else if (!/^[a-z0-9-]+$/.test(form.slug)) e.slug = 'Slug só pode ter letras minúsculas, números e hífens'
-    if (form.logoUrl.trim() && !/^https?:\/\//.test(form.logoUrl)) e.logoUrl = 'URL inválida'
-    if (form.coverUrl.trim() && !/^https?:\/\//.test(form.coverUrl)) e.coverUrl = 'URL inválida'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  function handleSubmit(ev: React.FormEvent) {
+  function handleSubmit(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault()
-    if (!validate()) return
+    const found = validateClubForm(form)
+    setErrors(found)
+    if (Object.keys(found).length > 0) {
+      focusFirstInvalid(ev.currentTarget)
+      return
+    }
     mutation.mutate()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 dark:bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg bg-background rounded-2xl border border-border shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-background z-10">
-          <div>
-            <h3 className="text-base font-semibold">Editar clube</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Campos com * são obrigatórios</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar clube</DialogTitle>
+          <DialogDescription>Campos com * são obrigatórios.</DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Nome do clube *</label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.name ? 'border-destructive' : 'border-border'
-              }`}
-            />
-            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium">Slug * <span className="text-xs text-muted-foreground font-normal">(usado na URL pública)</span></label>
-            <input
-              value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring font-mono ${
-                errors.slug ? 'border-destructive' : 'border-border'
-              }`}
-            />
-            {errors.slug && <p className="text-xs text-destructive">{errors.slug}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Cidade</label>
-              <input
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                placeholder="ex: Curitiba"
-                className="w-full h-9 rounded-lg border border-border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Estado</label>
-              <input
-                value={form.state}
-                onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })}
-                placeholder="ex: PR"
-                maxLength={2}
-                className="w-full h-9 rounded-lg border border-border px-3 text-sm bg-background uppercase focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Cor primária</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={form.primaryColor}
-                  onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                  className="w-9 h-9 rounded-lg border border-border cursor-pointer p-1 bg-background"
-                />
-                <span className="text-xs text-muted-foreground font-mono">{form.primaryColor}</span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Cor secundária</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={form.secondaryColor}
-                  onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })}
-                  className="w-9 h-9 rounded-lg border border-border cursor-pointer p-1 bg-background"
-                />
-                <span className="text-xs text-muted-foreground font-mono">{form.secondaryColor}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">URL do logo</label>
-            <input
-              value={form.logoUrl}
-              onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
-              placeholder="https://..."
-              className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.logoUrl ? 'border-destructive' : 'border-border'
-              }`}
-            />
-            {errors.logoUrl && <p className="text-xs text-destructive">{errors.logoUrl}</p>}
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">URL da capa</label>
-            <input
-              value={form.coverUrl}
-              onChange={(e) => setForm({ ...form, coverUrl: e.target.value })}
-              placeholder="https://..."
-              className={`w-full h-9 rounded-lg border px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
-                errors.coverUrl ? 'border-destructive' : 'border-border'
-              }`}
-            />
-            {errors.coverUrl && <p className="text-xs text-destructive">{errors.coverUrl}</p>}
-          </div>
+        <form onSubmit={handleSubmit} noValidate className="grid gap-4">
+          <ClubFormFields form={form} errors={errors} onChange={setForm} />
 
           {mutation.isError && (
-            <p className="text-xs text-destructive">Erro ao salvar. Verifique os dados e tente novamente.</p>
+            <p role="alert" className="text-xs font-medium text-destructive">
+              Erro ao salvar. Verifique os dados e tente novamente.
+            </p>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
-              <Check className="w-3.5 h-3.5" />
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              <Check aria-hidden="true" />
               {mutation.isPending ? 'Salvando...' : 'Salvar alterações'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

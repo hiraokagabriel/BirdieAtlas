@@ -198,7 +198,7 @@ export default async function PublicAthletePage({ params }: PageProps) {
                     {entry.tournamentSlug ? (
                       <Link
                         href={`/t/${entry.tournamentSlug}`}
-                        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex min-h-6 items-center rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {entry.tournamentName}
                       </Link>

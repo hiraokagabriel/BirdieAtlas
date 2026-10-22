@@ -9,6 +9,7 @@ import { BracketSkeleton } from './bracket-tree'
 import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
 import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
 import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
+import { ChoiceGroup } from '@/components/ui/choice-group'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -19,31 +20,49 @@ type Draw        = { id: string; published: boolean }
 type MatchResult = SetScore
 type DrawMode    = 'random' | 'seeded'
 
-// ─── Draw Mode Card ──────────────────────────────────────────────────────────
+// ─── Draw Mode ───────────────────────────────────────────────────────────────
 
-function DrawModeCard({ mode, selected, onSelect }: { mode: DrawMode; selected: boolean; onSelect: (m: DrawMode) => void }) {
-  const isRandom = mode === 'random'
+const DRAW_MODE_CLASS = 'flex-1 flex-col gap-3 p-5 rounded-xl border-2 min-h-0 h-auto'
+
+/** Escolha do modo de sorteio: dois cartões que são botões de rádio (nome = título + descrição). */
+function DrawModeGroup({ legend, value, onChange }: { legend: string; value: DrawMode; onChange: (m: DrawMode) => void }) {
+  const card = (mode: DrawMode, selected: boolean) => {
+    const isRandom = mode === 'random'
+    return {
+      value: mode,
+      label: isRandom ? 'Sorteio Aleatório' : 'Com Cabeças de Chave',
+      labelFromContent: true,
+      className: 'border-border bg-background hover:border-primary/40 hover:bg-muted/50',
+      activeClassName: 'border-primary bg-primary/5 text-foreground',
+      content: (
+        <>
+          <span aria-hidden="true" className={`flex size-10 items-center justify-center rounded-full ${
+            selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          }`}>
+            {isRandom ? <Shuffle className="size-5" /> : <Star className="size-5" />}
+          </span>
+          <span className="block text-center">
+            <span className="block text-sm font-semibold">{isRandom ? 'Sorteio Aleatório' : 'Com Cabeças de Chave'}</span>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              {isRandom
+                ? 'Todos os atletas embaralhados de forma totalmente aleatória'
+                : 'Cabeças de chave fixadas; demais atletas sorteados aleatoriamente'}
+            </span>
+          </span>
+        </>
+      ),
+    }
+  }
   return (
-    <button
-      onClick={() => onSelect(mode)}
-      className={`flex-1 flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all ${
-        selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-muted/50'
-      }`}
-    >
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-        selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-      }`}>
-        {isRandom ? <Shuffle className="w-5 h-5" /> : <Star className="w-5 h-5" />}
-      </div>
-      <div>
-        <p className="font-semibold text-sm text-center">{isRandom ? 'Sorteio Aleatório' : 'Com Cabeças de Chave'}</p>
-        <p className="text-xs text-muted-foreground text-center mt-1">
-          {isRandom
-            ? 'Todos os atletas embaralhados de forma totalmente aleatória'
-            : 'Cabeças de chave fixadas; demais atletas sorteados aleatoriamente'}
-        </p>
-      </div>
-    </button>
+    <ChoiceGroup
+      legend={legend}
+      hideLegend
+      options={[card('seeded', value === 'seeded'), card('random', value === 'random')]}
+      value={value}
+      onChange={onChange}
+      className="w-full"
+      optionClassName={DRAW_MODE_CLASS}
+    />
   )
 }
 
@@ -183,29 +202,27 @@ export function BracketView({
     <div className="space-y-4">
 
       {/* Category selector */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {categories.map((cat) => {
-          const isActive = cat.id === activeCategoryId
-          const color    = isActive ? DISCIPLINE_PILL_ACTIVE[cat.discipline] : DISCIPLINE_PILL[cat.discipline]
-          return (
-            <button
-              key={cat.id}
-              onClick={() => { setActiveCategoryId(cat.id); setGenerateError(null); setShowRedraw(false) }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${color ?? 'bg-muted text-muted-foreground border-border'}`}
-            >
-              {cat.name}
-            </button>
-          )
-        })}
-      </div>
+      <ChoiceGroup
+        legend="Categoria"
+        hideLegend
+        options={categories.map((cat) => ({
+          value: cat.id,
+          label: cat.name,
+          className: DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground border-border',
+          activeClassName: DISCIPLINE_PILL_ACTIVE[cat.discipline] ?? 'bg-primary text-primary-foreground border-primary',
+        }))}
+        value={activeCategoryId}
+        onChange={(id) => { setActiveCategoryId(id); setGenerateError(null); setShowRedraw(false) }}
+        optionClassName="rounded-full px-4 py-1.5"
+      />
 
       {/* Publish banner + Ressortear button */}
       {draw && (
-        <div className={`flex items-center justify-between px-4 py-2.5 rounded-lg border ${
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-lg border ${
           draw.published ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'
         }`}>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${draw.published ? 'bg-success' : 'bg-warning'}`} />
+            <div aria-hidden="true" className={`w-2 h-2 rounded-full ${draw.published ? 'bg-success' : 'bg-warning'}`} />
             <span className="text-sm font-medium">
               {draw.published ? 'Chaveamento publicado — visível na página pública' : 'Rascunho — não visível na página pública'}
             </span>
@@ -213,13 +230,16 @@ export function BracketView({
           <div className="flex items-center gap-2">
             {/* Ressortear — bloqueado quando publicado */}
             {draw.published ? (
-              <span
+              <button
+                type="button"
+                disabled
                 title="Despublique a chave antes de ressortear"
-                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md text-success/50 cursor-not-allowed select-none"
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-md text-success cursor-not-allowed disabled:opacity-60"
               >
-                <Lock className="w-3.5 h-3.5" />
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                 Ressortear
-              </span>
+                <span className="sr-only"> (indisponível: despublique a chave antes)</span>
+              </button>
             ) : (
               <button
                 onClick={() => { setShowRedraw((v) => !v); setRedrawError(null) }}
@@ -259,18 +279,15 @@ export function BracketView({
                 Todos os resultados desta categoria serão <strong>apagados</strong> e a chave será gerada novamente.
               </p>
             </div>
-            <button onClick={() => setShowRedraw(false)} className="p-1 rounded hover:bg-warning/15 text-warning">
-              <X className="w-4 h-4" />
+            <button type="button" aria-label="Fechar ressorteio" onClick={() => setShowRedraw(false)} className="rounded p-2 text-warning hover:bg-warning/15">
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
 
-          <div className="flex gap-3">
-            <DrawModeCard mode="seeded"  selected={redrawMode === 'seeded'}  onSelect={setRedrawMode} />
-            <DrawModeCard mode="random" selected={redrawMode === 'random'} onSelect={setRedrawMode} />
-          </div>
+          <DrawModeGroup legend="Modo do novo sorteio" value={redrawMode} onChange={setRedrawMode} />
 
           {redrawError && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
+            <div role="alert" className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               {redrawError}
             </div>
@@ -298,7 +315,7 @@ export function BracketView({
 
       {/* Award points banner */}
       {allTournamentDone && (
-        <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-lg border ${
           alreadyAwarded || awardResult ? 'bg-success/10 border-success/30' : 'bg-info/10 border-info/30'
         }`}>
           <div className="flex items-center gap-2">
@@ -356,12 +373,9 @@ export function BracketView({
                 Escolha o modo de sorteio para a categoria <span className="font-medium">{activeCategory?.name}</span>
               </p>
             </div>
-            <div className="flex gap-4 w-full">
-              <DrawModeCard mode="seeded"  selected={selectedMode === 'seeded'}  onSelect={setSelectedMode} />
-              <DrawModeCard mode="random" selected={selectedMode === 'random'} onSelect={setSelectedMode} />
-            </div>
+            <DrawModeGroup legend="Modo de sorteio" value={selectedMode} onChange={setSelectedMode} />
             {generateError && (
-              <div className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
+              <div role="alert" className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 {generateError}
               </div>

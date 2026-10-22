@@ -4,11 +4,17 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * `label` nomeia a região rolável (leitores de tela anunciam "região, <label>"). O contêiner entra na
+ * ordem de foco para quem usa só o teclado conseguir rolar a tabela no celular (WCAG 2.1.1).
+ */
+function Table({ className, label, ...props }: React.ComponentProps<"table"> & { label?: string }) {
   return (
     <div
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
+      tabIndex={0}
+      {...(label ? { role: "region", "aria-label": label } : {})}
     >
       <table
         data-slot="table"
@@ -69,6 +75,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
+      scope="col"
       className={cn(
         "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
         className

@@ -94,10 +94,11 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
 
   test('sorteia a chave e publica', async ({ page }) => {
     await page.goto(`/admin/tournaments/${tournament.id}`)
-    await page.getByRole('button', { name: 'Chaveamento' }).click()
+    await page.getByRole('tab', { name: 'Chaveamento' }).click()
 
     await expect(page.getByText('Chave ainda não sorteada')).toBeVisible()
-    await page.getByRole('button', { name: /Sorteio Aleatório/ }).click()
+    // Modo de sorteio é um grupo de rádios; o usuário clica no cartão (o <input> fica escondido).
+    await page.getByText('Sorteio Aleatório', { exact: true }).click()
     await page.getByRole('button', { name: 'Sortear chave' }).click()
 
     const bracket = page.getByRole('region', { name: 'Chave de Simples Masculino' })
@@ -117,7 +118,7 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
 
   test('lança os resultados pelo diálogo até aparecer o campeão', async ({ page }) => {
     await page.goto(`/admin/tournaments/${tournament.id}`)
-    await page.getByRole('button', { name: 'Chaveamento' }).click()
+    await page.getByRole('tab', { name: 'Chaveamento' }).click()
     const bracket = page.getByRole('region', { name: 'Chave de Simples Masculino' })
     await expect(bracket).toBeVisible()
     await expect(page.getByText(/^Campeão$/)).toHaveCount(0)
@@ -163,7 +164,8 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     await expect(page.getByText('Campeonato encerrado com sucesso!')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Relatório Final' })).toBeVisible()
     await page.getByRole('button', { name: 'Fechar' }).click()
-    await expect(page.getByText('Encerrado', { exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.getByRole('main').getByText('Encerrado', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reabrir campeonato' })).toBeVisible()
 
     // finalPlacement gravado: 1º, 2º e os dois semifinalistas em 3º.
@@ -184,7 +186,7 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
 
   test('com o torneio encerrado, corrigir um resultado mostra TOURNAMENT_LOCKED', async ({ page }) => {
     await page.goto(`/admin/tournaments/${tournament.id}`)
-    await page.getByRole('button', { name: 'Chaveamento' }).click()
+    await page.getByRole('tab', { name: 'Chaveamento' }).click()
     const bracket = page.getByRole('region', { name: 'Chave de Simples Masculino' })
     await expect(bracket).toBeVisible()
 
@@ -229,7 +231,7 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     expect(await profilePlacement(athletes[0] ?? fail('sem atletas'))).toBeNull()
 
     // Agora a correção é aceita: o vice vira campeão.
-    await page.getByRole('button', { name: 'Chaveamento' }).click()
+    await page.getByRole('tab', { name: 'Chaveamento' }).click()
     const bracket = page.getByRole('region', { name: 'Chave de Simples Masculino' })
     await bracket.getByRole('button', { name: /^Final.*vencedor.*Abrir resultado/ }).click()
     const dialog = page.getByRole('dialog', { name: 'Editar Resultado' })
@@ -241,7 +243,8 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     await page.getByRole('button', { name: 'Confirmar encerramento' }).click()
     await expect(page.getByText('Campeonato encerrado com sucesso!')).toBeVisible()
     await page.getByRole('button', { name: 'Fechar' }).click()
-    await expect(page.getByText('Encerrado', { exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.getByRole('main').getByText('Encerrado', { exact: true })).toBeVisible()
 
     const after = await placements()
     expect(after.get(oldRunnerUpId ?? '')).toBe(1)

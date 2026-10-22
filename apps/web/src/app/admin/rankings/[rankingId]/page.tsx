@@ -1,18 +1,24 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { Fragment, use, useEffect, useState } from 'react'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import {
   ChevronLeft, RefreshCw, Plus, Trash2,
   ChevronRight, ChevronDown, Users, User, Zap, CheckCircle2, Clock,
-  Settings, X, Trophy, Shield, Save, Medal,
+  Settings, Trophy, Shield, Save,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PointRulesManager } from '@/components/ranking/point-rules-manager'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Field } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 type Ranking = {
   id: string; name: string; description: string | null
@@ -46,6 +52,7 @@ type EditForm = {
   minTournamentsRequired: string
   autoInclude: boolean
 }
+type RankingTab = 'entries' | 'tournaments' | 'rules'
 
 const disciplineLabel: Record<string, string> = {
   MS: 'Simples Masc.', WS: 'Simples Fem.',
@@ -63,22 +70,27 @@ const placementLabel = (p: number) => {
   if (p === 3) return '🥉 3º'
   return `${p}º`
 }
+const placementText = (p: number) => `${p}º lugar`
 
 function PositionBadge({ pos }: { pos: number }) {
-  if (pos === 1) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
-  if (pos === 2) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
-  if (pos === 3) return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-bronze text-medal-bronze-foreground font-bold text-sm">🥉</span>
-  return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
+  if (pos === 1) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
+  if (pos === 2) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
+  if (pos === 3) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-bronze text-medal-bronze-foreground font-bold text-sm">🥉</span>
+  return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
 }
 
 // ---------------------------------------------------------------------------
 // Painel de detalhes de resultados por torneio
 // ---------------------------------------------------------------------------
 function ResultsDetail({
+  id,
+  athleteName,
   results,
   countBestResults,
   tournamentMap,
 }: {
+  id: string
+  athleteName: string
   results: TournamentResult[]
   countBestResults: number | null
   tournamentMap: Map<string, string>
@@ -88,43 +100,51 @@ function ResultsDetail({
   const cutoff = countBestResults ?? sorted.length
 
   return (
-    <div className="px-5 pb-4 pt-1">
+    <div id={id} className="px-5 pb-4 pt-1">
       <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-2 border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          <span>Torneio</span>
-          <span className="text-center">Colocação</span>
-          <span className="text-right">Pontos</span>
-        </div>
-        {sorted.map((r, i) => {
-          const counted = i < cutoff
-          const name = tournamentMap.get(r.tournamentId) ?? 'Torneio desconhecido'
-          return (
-            <div
-              key={r.tournamentId}
-              className={`grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-2.5 border-b border-border/50 last:border-0 text-sm ${
-                counted ? '' : 'opacity-40'
-              }`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                {countBestResults !== null && (
-                  <span className={`shrink-0 w-2 h-2 rounded-full ${
-                    counted ? 'bg-success' : 'bg-muted-foreground/40'
-                  }`} />
-                )}
-                <span className="truncate text-muted-foreground">{name}</span>
-              </div>
-              <span className="text-center tabular-nums text-muted-foreground">{placementLabel(r.placement)}</span>
-              <span className={`text-right tabular-nums font-medium ${
-                counted ? 'text-foreground' : 'text-muted-foreground line-through'
-              }`}>
-                {r.points.toLocaleString('pt-BR')}
-              </span>
-            </div>
-          )
-        })}
+        <table className="w-full text-sm">
+          <caption className="sr-only">Resultados de {athleteName} por torneio</caption>
+          <thead>
+            <tr className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left">Torneio</th>
+              <th scope="col" className="px-3 py-2 text-center">Colocação</th>
+              <th scope="col" className="px-3 py-2 text-right">Pontos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r, i) => {
+              const counted = i < cutoff
+              const name = tournamentMap.get(r.tournamentId) ?? 'Torneio desconhecido'
+              return (
+                <tr key={r.tournamentId} className="border-b border-border/50 last:border-0">
+                  <th scope="row" className="px-3 py-2.5 text-left font-normal">
+                    <span className="flex items-center gap-2 min-w-0">
+                      {countBestResults !== null && (
+                        <span aria-hidden="true" className={`shrink-0 w-2 h-2 rounded-full ${counted ? 'bg-success' : 'bg-muted-foreground/60'}`} />
+                      )}
+                      <span className="truncate text-muted-foreground">{name}</span>
+                      {countBestResults !== null && (
+                        <span className="text-xs text-muted-foreground">{counted ? '(conta)' : '(descartado)'}</span>
+                      )}
+                    </span>
+                  </th>
+                  <td className="px-3 py-2.5 text-center tabular-nums text-muted-foreground">
+                    <span aria-hidden="true">{placementLabel(r.placement)}</span>
+                    <span className="sr-only">{placementText(r.placement)}</span>
+                  </td>
+                  <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${
+                    counted ? 'text-foreground' : 'text-muted-foreground line-through'
+                  }`}>
+                    {r.points.toLocaleString('pt-BR')}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
         {countBestResults !== null && sorted.length > countBestResults && (
           <div className="px-3 py-2 text-xs text-muted-foreground border-t border-border bg-muted/20 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-muted-foreground/40 shrink-0" />
+            <span aria-hidden="true" className="w-2 h-2 rounded-full bg-muted-foreground/60 shrink-0" />
             {sorted.length - countBestResults} resultado{sorted.length - countBestResults !== 1 ? 's' : ''} descartado{sorted.length - countBestResults !== 1 ? 's' : ''} (fora do top {countBestResults})
           </div>
         )}
@@ -150,23 +170,28 @@ function EntryRow({
   const [open, setOpen] = useState(false)
   const hasDetails = entry.resultsDetail && entry.resultsDetail.length > 0
   const isTop3 = entry.position <= 3
+  const detailId = `ranking-entry-${entry.id}-details`
+  const names = isDoubles
+    ? `${entry.athlete?.name ?? '—'} e ${entry.athlete2?.name ?? '—'}`
+    : (entry.athlete?.name ?? '—')
 
   return (
-    <>
-      <div
-        className={`grid grid-cols-[3rem_1fr_auto_2rem] gap-4 px-5 py-3.5 border-b border-border/50 last:border-0 ${
-          isTop3 ? 'bg-medal-gold/10' : ''
-        } ${hasDetails ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
+    <Fragment>
+      <tr
+        className={`border-b border-border/50 last:border-0 ${isTop3 ? 'bg-medal-gold/10' : ''} ${
+          hasDetails ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''
+        }`}
         onClick={() => hasDetails && setOpen((v) => !v)}
-        role={hasDetails ? 'button' : undefined}
-        aria-expanded={hasDetails ? open : undefined}
       >
-        <div className="flex items-center"><PositionBadge pos={entry.position} /></div>
+        <td className="px-5 py-3.5 w-12">
+          <PositionBadge pos={entry.position} />
+          <span className="sr-only">{entry.position}º</span>
+        </td>
 
-        <div className="flex flex-col justify-center min-w-0">
+        <td className="px-2 py-3.5 min-w-0">
           {isDoubles ? (
             <div className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
               <span className="font-medium text-sm">
                 <Link
                   href={`/a/${entry.athleteId}`}
@@ -176,18 +201,22 @@ function EntryRow({
                   {entry.athlete?.name ?? '—'}
                 </Link>
                 {' & '}
-                <Link
-                  href={entry.athlete2Id ? `/athletes/${entry.athlete2Id}` : '#'}
-                  className="hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {entry.athlete2?.name ?? '—'}
-                </Link>
+                {entry.athlete2Id ? (
+                  <Link
+                    href={`/a/${entry.athlete2Id}`}
+                    className="hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {entry.athlete2?.name ?? '—'}
+                  </Link>
+                ) : (
+                  <span>{entry.athlete2?.name ?? '—'}</span>
+                )}
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
               <Link
                 href={`/a/${entry.athleteId}`}
                 className="font-medium text-sm hover:underline"
@@ -198,42 +227,54 @@ function EntryRow({
             </div>
           )}
           {entry.tournamentsCount > 0 && (
-            <span className="text-xs text-muted-foreground mt-0.5">
+            <span className="block text-xs text-muted-foreground mt-0.5">
               {entry.tournamentsCount} torneio{entry.tournamentsCount !== 1 ? 's' : ''}
               {ranking.countBestResults && entry.tournamentsCount > ranking.countBestResults
                 ? ` · top ${ranking.countBestResults} contados`
                 : ''}
             </span>
           )}
-        </div>
+        </td>
 
-        <div className="flex items-center justify-end">
-          <span className={`font-semibold tabular-nums ${
-            isTop3 ? 'text-warning text-base' : 'text-sm'
-          }`}>
+        <td className="px-2 py-3.5 text-right">
+          <span className={`font-semibold tabular-nums ${isTop3 ? 'text-warning text-base' : 'text-sm'}`}>
             {entry.totalPoints.toLocaleString('pt-BR')}
           </span>
-        </div>
+        </td>
 
-        <div className="flex items-center justify-center">
+        <td className="px-3 py-3.5 w-10 text-center">
           {hasDetails && (
-            <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
-                open ? 'rotate-180' : ''
-              }`}
-            />
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={detailId}
+              aria-label={`Detalhar pontos de ${names}`}
+              onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
+              className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+            >
+              <ChevronDown
+                aria-hidden="true"
+                className={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+              />
+            </button>
           )}
-        </div>
-      </div>
+        </td>
+      </tr>
 
       {open && hasDetails && (
-        <ResultsDetail
-          results={entry.resultsDetail}
-          countBestResults={ranking.countBestResults}
-          tournamentMap={tournamentMap}
-        />
+        <tr>
+          <td colSpan={4} className="p-0">
+            <ResultsDetail
+              id={detailId}
+              athleteName={names}
+              results={entry.resultsDetail}
+              countBestResults={ranking.countBestResults}
+              tournamentMap={tournamentMap}
+            />
+          </td>
+        </tr>
       )}
-    </>
+    </Fragment>
   )
 }
 
@@ -252,13 +293,15 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   const [page, setPage]         = useState(1)
   const [loading, setLoading]   = useState(false)
   const [recalcLoading, setRecalc] = useState(false)
-  const [tab, setTab]           = useState<'entries' | 'tournaments' | 'rules'>('entries')
+  const [tab, setTab]           = useState<RankingTab>('entries')
   const [unlinking, setUnlinking] = useState<string | null>(null)
   const [linking, setLinking]   = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState<EditForm | null>(null)
   const [saving, setSaving]     = useState(false)
   const PER_PAGE = 25
+
+  useDocumentTitle(ranking ? `${ranking.name} · Rankings · Administração` : 'Ranking · Administração')
 
   useEffect(() => {
     apiFetch<Ranking>(`/rankings/${rankingId}`).then((r) => {
@@ -364,7 +407,8 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   const pagination = data?.pagination
 
   if (!ranking || !editForm) return (
-    <div className="space-y-6 animate-pulse">
+    <div role="status" aria-label="Carregando ranking" className="space-y-6 motion-safe:animate-pulse">
+      <span className="sr-only">Carregando ranking…</span>
       <div className="h-8 w-32 rounded bg-muted" />
       <div className="h-24 rounded-xl bg-muted" />
       <div className="h-72 rounded-xl bg-muted" />
@@ -374,79 +418,67 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
   return (
     <div className="space-y-6">
 
-      {/* MODAL DE EDIÇÃO */}
-      {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/65 p-4">
-          <form
-            onSubmit={handleSaveEdit}
-            className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl p-6 space-y-5"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Editar Ranking</h3>
-              <button type="button" onClick={() => setShowEdit(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">Nome *</label>
-                <input
+      {/* EDIÇÃO */}
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Ranking</DialogTitle>
+            <DialogDescription>Nome, descrição e regras de contagem de {ranking.name}.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveEdit} className="grid gap-4">
+            <Field label="Nome" required muted>
+              {(props) => (
+                <Input
+                  {...props}
                   type="text" required
                   value={editForm.name}
                   onChange={(e) => setEditForm((f) => f && ({ ...f, name: e.target.value }))}
-                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">Descrição</label>
-                <input
+              )}
+            </Field>
+            <Field label="Descrição" muted>
+              {(props) => (
+                <Input
+                  {...props}
                   type="text" placeholder="Descrição opcional"
                   value={editForm.description}
                   onChange={(e) => setEditForm((f) => f && ({ ...f, description: e.target.value }))}
-                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-              </div>
-            </div>
+              )}
+            </Field>
 
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Regras de contagem</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                    <Trophy className="w-3 h-3" />
-                    Melhores resultados
-                  </label>
-                  <input
-                    type="number" min={1} max={99} placeholder="Todos (padrão)"
-                    value={editForm.countBestResults}
-                    onChange={(e) => setEditForm((f) => f && ({ ...f, countBestResults: e.target.value }))}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <p className="text-xs text-muted-foreground">Vazio = conta todos.</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                    <Shield className="w-3 h-3" />
-                    Mínimo de torneios
-                  </label>
-                  <input
-                    type="number" min={0} max={99}
-                    value={editForm.minTournamentsRequired}
-                    onChange={(e) => setEditForm((f) => f && ({ ...f, minTournamentsRequired: e.target.value }))}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <p className="text-xs text-muted-foreground">0 = sem restrição.</p>
-                </div>
+            <fieldset className="rounded-lg border border-border bg-muted/30 p-4">
+              <legend className="px-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Regras de contagem</legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Melhores resultados" muted hint="Vazio = conta todos.">
+                  {(props) => (
+                    <Input
+                      {...props}
+                      type="number" min={1} max={99} placeholder="Todos (padrão)"
+                      value={editForm.countBestResults}
+                      onChange={(e) => setEditForm((f) => f && ({ ...f, countBestResults: e.target.value }))}
+                    />
+                  )}
+                </Field>
+                <Field label="Mínimo de torneios" muted hint="0 = sem restrição.">
+                  {(props) => (
+                    <Input
+                      {...props}
+                      type="number" min={0} max={99}
+                      value={editForm.minTournamentsRequired}
+                      onChange={(e) => setEditForm((f) => f && ({ ...f, minTournamentsRequired: e.target.value }))}
+                    />
+                  )}
+                </Field>
               </div>
-            </div>
+            </fieldset>
 
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={editForm.autoInclude}
                 onChange={(e) => setEditForm((f) => f && ({ ...f, autoInclude: e.target.checked }))}
-                className="rounded"
+                className="size-4 rounded accent-primary"
               />
               <span className="text-sm">
                 <span className="font-medium">Inclusão automática</span>
@@ -454,28 +486,26 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
               </span>
             </label>
 
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="submit" disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Salvando...' : 'Salvar alterações'}
-              </button>
-              <button type="button" onClick={() => setShowEdit(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>
                 Cancelar
-              </button>
-            </div>
+              </Button>
+              <Button type="submit" disabled={saving}>
+                <Save aria-hidden="true" />
+                {saving ? 'Salvando...' : 'Salvar alterações'}
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* VOLTAR */}
       <button
+        type="button"
         onClick={() => router.push('/admin/rankings')}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ChevronLeft className="w-4 h-4" />
+        <ChevronLeft className="w-4 h-4" aria-hidden="true" />
         Voltar para Rankings
       </button>
 
@@ -487,24 +517,24 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
               DISCIPLINE_PILL[ranking.discipline] ?? ''
             }`}>
-              {isDoubles ? <Users className="w-3 h-3" /> : <User className="w-3 h-3" />}
+              {isDoubles ? <Users className="w-3 h-3" aria-hidden="true" /> : <User className="w-3 h-3" aria-hidden="true" />}
               {disciplineLabel[ranking.discipline] ?? ranking.discipline}
             </span>
             {ranking.autoInclude && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-success/30 bg-success/10 text-success text-xs">
-                <Zap className="w-3 h-3" />
+                <Zap className="w-3 h-3" aria-hidden="true" />
                 Inclusão automática
               </span>
             )}
             {ranking.countBestResults && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs">
-                <Trophy className="w-3 h-3" />
+                <Trophy className="w-3 h-3" aria-hidden="true" />
                 Top {ranking.countBestResults} torneios
               </span>
             )}
             {ranking.minTournamentsRequired > 0 && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground text-xs">
-                <Shield className="w-3 h-3" />
+                <Shield className="w-3 h-3" aria-hidden="true" />
                 Mín. {ranking.minTournamentsRequired} torneios
               </span>
             )}
@@ -515,77 +545,62 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
         <div className="flex items-start gap-2 flex-wrap">
           <ExportCsvButton path={`/rankings/${ranking.id}/entries/export.csv`} fallbackName="ranking.csv" />
           <button
+            type="button"
             onClick={() => setShowEdit(true)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4" aria-hidden="true" />
             Editar
           </button>
           <button
+            type="button"
             onClick={handleRecalculate}
             disabled={recalcLoading}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
           >
-            <RefreshCw className={`w-4 h-4 ${recalcLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${recalcLoading ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
             {recalcLoading ? 'Recalculando...' : 'Recalcular'}
           </button>
         </div>
       </div>
 
-      {/* TABS */}
-      <div className="flex border-b border-border">
-        {(['entries', 'tournaments', 'rules'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t === 'entries'     && `Classificação${data ? ` (${data.pagination.total})` : ''}`}
-            {t === 'tournaments' && `Torneios (${linkedTournaments.length})`}
-            {t === 'rules'       && 'Regras de Pontos'}
-          </button>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as RankingTab)}>
+        <TabsList aria-label="Seções do ranking">
+          <TabsTrigger value="entries">{`Classificação${data ? ` (${data.pagination.total})` : ''}`}</TabsTrigger>
+          <TabsTrigger value="tournaments">{`Torneios (${linkedTournaments.length})`}</TabsTrigger>
+          <TabsTrigger value="rules">Regras de Pontos</TabsTrigger>
+        </TabsList>
 
-      {/* TAB: ENTRIES */}
-      {tab === 'entries' && (
-        <div className="space-y-4">
+        {/* TAB: ENTRIES */}
+        <TabsContent value="entries">
 
           {/* Banner de regras ativas */}
           {(ranking.countBestResults || ranking.minTournamentsRequired > 0) && (
             <div className="rounded-lg border border-info/30 bg-info/10 px-4 py-3 text-sm text-info flex flex-wrap items-center gap-x-4 gap-y-1">
               {ranking.countBestResults && (
                 <span className="flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5" />
+                  <Trophy className="w-3.5 h-3.5" aria-hidden="true" />
                   Contando os <strong>{ranking.countBestResults} melhores</strong> resultados por atleta
                 </span>
               )}
               {ranking.minTournamentsRequired > 0 && (
                 <span className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5" />
+                  <Shield className="w-3.5 h-3.5" aria-hidden="true" />
                   Mínimo de <strong>{ranking.minTournamentsRequired}</strong> torneio{ranking.minTournamentsRequired !== 1 ? 's' : ''} para participar
                 </span>
               )}
               <span className="flex items-center gap-1.5 ml-auto text-info">
-                <Medal className="w-3.5 h-3.5" />
-                Clique em uma linha para ver o detalhamento
+                Use o botão de cada linha para ver o detalhamento
               </span>
             </div>
           )}
 
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            {/* Cabeçalho da tabela */}
-            <div className="grid grid-cols-[3rem_1fr_auto_2rem] gap-4 px-5 py-3 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <span>#</span>
-              <span>{isDoubles ? 'Dupla' : 'Atleta'}</span>
-              <span className="text-right">Pontos</span>
-              <span />
-            </div>
-
             {loading ? (
-              <div>
+              <div role="status" aria-label="Carregando classificação">
+                <span className="sr-only">Carregando classificação…</span>
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-[3rem_1fr_auto_2rem] gap-4 px-5 py-3.5 border-b border-border/50 animate-pulse">
+                  <div key={i} className="grid grid-cols-[3rem_1fr_auto_2rem] gap-4 px-5 py-3.5 border-b border-border/50 motion-safe:animate-pulse">
                     <div className="w-8 h-8 rounded-full bg-muted" />
                     <div className="h-3.5 w-40 bg-muted rounded self-center" />
                     <div className="h-4 w-16 bg-muted rounded self-center" />
@@ -599,45 +614,58 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                 <p className="text-sm mt-1">Vincule torneios e clique em Recalcular.</p>
               </div>
             ) : (
-              data.data.map((entry) => (
-                <EntryRow
-                  key={entry.id}
-                  entry={entry}
-                  isDoubles={isDoubles}
-                  ranking={ranking}
-                  tournamentMap={tournamentMap}
-                />
-              ))
+              <div tabIndex={0} role="region" aria-label="Classificação do ranking" className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">Classificação de {ranking.name}</caption>
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th scope="col" className="px-5 py-3 text-left">Posição</th>
+                      <th scope="col" className="px-2 py-3 text-left">{isDoubles ? 'Dupla' : 'Atleta'}</th>
+                      <th scope="col" className="px-2 py-3 text-right">Pontos</th>
+                      <th scope="col" className="px-3 py-3"><span className="sr-only">Detalhes</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.data.map((entry) => (
+                      <EntryRow
+                        key={entry.id}
+                        entry={entry}
+                        isDoubles={isDoubles}
+                        ranking={ranking}
+                        tournamentMap={tournamentMap}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
+            <nav aria-label="Paginação da classificação" className="mt-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 {((page - 1) * PER_PAGE) + 1}–{Math.min(page * PER_PAGE, pagination.total)} de {pagination.total}
               </p>
               <div className="flex items-center gap-2">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                  className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors">
-                  <ChevronLeft className="w-4 h-4" />
+                <button type="button" aria-label="Página anterior" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                  className="inline-flex size-9 items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors">
+                  <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <span className="text-sm font-medium px-2">{page} / {pagination.totalPages}</span>
-                <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
-                  className="p-2 rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors">
-                  <ChevronRight className="w-4 h-4" />
+                <button type="button" aria-label="Próxima página" onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
+                  className="inline-flex size-9 items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors">
+                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
-            </div>
+            </nav>
           )}
-        </div>
-      )}
+        </TabsContent>
 
-      {/* TAB: TOURNAMENTS */}
-      {tab === 'tournaments' && (
-        <div className="space-y-6">
+        {/* TAB: TOURNAMENTS */}
+        <TabsContent value="tournaments" className="space-y-6">
           {ranking.autoInclude && (
             <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success flex items-center gap-2">
-              <Zap className="w-4 h-4 shrink-0" />
+              <Zap className="w-4 h-4 shrink-0" aria-hidden="true" />
               Este ranking usa inclusão automática — todos os torneios com pontos distribuídos são considerados ao recalcular.
               Os vínculos manuais abaixo são ignorados nesse modo.
             </div>
@@ -648,37 +676,40 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
             {unlinkable.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum torneio vinculado ainda.</p>
             ) : (
-              <div className="space-y-2">
+              <ul className="space-y-2">
                 {unlinkable.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                  <li key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{t.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(t.startDate).toLocaleDateString('pt-BR')} · {statusLabel[t.status] ?? t.status}
-                        {t.pointsAwarded && ' · ✅ Pontos distribuídos'}
+                        {t.pointsAwarded && ' · Pontos distribuídos'}
                       </p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleUnlink(t.id)}
                       disabled={unlinking === t.id}
-                      className="p-1.5 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors disabled:opacity-50"
+                      aria-label={`Desvincular ${t.name}`}
+                      title="Desvincular torneio"
+                      className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
 
           {linkable.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground">Disponíveis para vincular</h3>
-              <div className="space-y-2">
+              <ul className="space-y-2">
                 {linkable.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3">
-                    <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <li key={t.id} className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3">
+                    <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate text-muted-foreground">{t.name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -686,27 +717,29 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                       </p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleLink(t.id)}
                       disabled={linking === t.id}
+                      aria-label={`Vincular ${t.name}`}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                       {linking === t.id ? 'Vinculando...' : 'Vincular'}
                     </button>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
-        </div>
-      )}
+        </TabsContent>
 
-      {/* TAB: REGRAS DE PONTOS */}
-      {tab === 'rules' && (
-        <div className="rounded-xl border border-border bg-card p-6">
-          <PointRulesManager rankingId={rankingId} />
-        </div>
-      )}
+        {/* TAB: REGRAS DE PONTOS */}
+        <TabsContent value="rules">
+          <div className="rounded-xl border border-border bg-card p-6">
+            <PointRulesManager rankingId={rankingId} />
+          </div>
+        </TabsContent>
+      </Tabs>
 
     </div>
   )

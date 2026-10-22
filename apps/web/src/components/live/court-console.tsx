@@ -466,7 +466,7 @@ function CourtPanel({ tournamentId }: { tournamentId: string }) {
               )}
             >
               <span>{n === null ? 'Sem quadra' : `Quadra ${n}`}</span>
-              <span className={cn('flex items-center gap-1 text-xs font-medium', selected ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+              <span className={cn('flex items-center gap-1 text-xs font-medium', selected ? 'text-primary-foreground/90' : 'text-muted-foreground')}>
                 {isLive && <span aria-hidden="true" className="size-1.5 rounded-full bg-success motion-safe:animate-pulse" />}
                 {isLive ? 'Ao vivo' : `${queueOnCourt(queue, n).length} na fila`}
               </span>
@@ -586,7 +586,7 @@ export function CourtConsole() {
             setTournamentId(event.target.value)
             writeStorage(STORAGE_TOURNAMENT, event.target.value)
           }}
-          className="h-12 w-full rounded-xl border border-input bg-background px-3 text-base focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"
+          className="h-12 w-full rounded-xl border border-field-border bg-background px-3 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {options.map((t) => (
             <option key={t.id} value={t.id}>

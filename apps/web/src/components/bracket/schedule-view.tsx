@@ -11,7 +11,7 @@ import { DISCIPLINE_PILL } from '@/lib/discipline'
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
   pending: { label: 'Aguardando', dot: 'bg-muted-foreground/40' },
-  in_progress: { label: 'Ao vivo', dot: 'bg-success animate-pulse' },
+  in_progress: { label: 'Ao vivo', dot: 'bg-success motion-safe:animate-pulse' },
   completed: { label: 'Encerrada', dot: 'bg-info' },
   walkover: { label: 'W.O.', dot: 'bg-warning' },
   retired: { label: 'Ret.', dot: 'bg-destructive' },
@@ -101,18 +101,20 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <select
+          aria-label="Filtrar por categoria"
           value={filterCategoryId}
           onChange={(e) => setFilterCategoryId(e.target.value)}
-          className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background"
+          className="min-h-9 rounded-lg border border-field-border bg-background px-3 py-1.5 text-sm"
         >
           <option value="all">Todas as categorias</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
         <select
+          aria-label="Filtrar por situação da partida"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background"
+          className="min-h-9 rounded-lg border border-field-border bg-background px-3 py-1.5 text-sm"
         >
           <option value="all">Todos os status</option>
           <option value="pending">Aguardando</option>
@@ -130,7 +132,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
 
       {Object.entries(grouped).length === 0 ? (
         <div className="rounded-xl border border-border p-12 text-center text-muted-foreground">
-          <CalendarClock className="w-8 h-8 mx-auto mb-3 opacity-30" />
+          <CalendarClock className="w-8 h-8 mx-auto mb-3 opacity-30" aria-hidden="true" />
           <p className="font-medium">Nenhuma partida encontrada</p>
         </div>
       ) : (
@@ -177,20 +179,23 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                      <span className="text-xs text-muted-foreground hidden sm:block">{status.label}</span>
+                      <div aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                      <span className="text-xs text-muted-foreground">{status.label}</span>
                     </div>
 
                     {!readonly && (
                       <button
+                        type="button"
+                        aria-label={`Agendar partida: ${p1} contra ${p2}`}
+                        title="Agendar partida"
                         onClick={() => {
                           setSelectedMatch({ ...match })
                           setSelectedP1(p1)
                           setSelectedP2(p2)
                         }}
-                        className="shrink-0 p-1.5 rounded-lg hover:bg-accent transition-colors"
+                        className="shrink-0 rounded-lg p-2 transition-colors hover:bg-accent"
                       >
-                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
                       </button>
                     )}
                   </div>

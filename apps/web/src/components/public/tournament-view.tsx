@@ -17,6 +17,8 @@ import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { PrintButton } from '@/components/shared/print-button'
 import { ShareControl } from '@/components/shared/share-control'
 import { shareImageFilename, shareImagePath } from '@/lib/share'
+import { ChoiceGroup } from '@/components/ui/choice-group'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /** Dados vindos do servidor (page.tsx) para o controle de compartilhar. */
 export type TournamentShare = { title: string; text: string }
@@ -75,7 +77,8 @@ const disciplineLabel: Record<string, string> = {
 // ---------------------------------------------------------------------------
 function PageSkeleton() {
   return (
-    <div className="space-y-8 animate-pulse">
+    <div role="status" aria-busy="true" className="space-y-8 motion-safe:animate-pulse">
+      <span className="sr-only">Carregando torneio…</span>
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8 space-y-4">
         <div className="h-4 w-24 bg-muted rounded" />
         <div className="h-8 w-72 bg-muted rounded" />
@@ -104,8 +107,8 @@ function PageSkeleton() {
 function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-      <Trophy className="w-12 h-12 text-muted-foreground/30" />
-      <h2 className="text-xl font-semibold">Torneio não encontrado</h2>
+      <Trophy className="w-12 h-12 text-muted-foreground/40" />
+      <h1 className="text-xl font-semibold">Torneio não encontrado</h1>
       <p className="text-sm text-muted-foreground max-w-xs">
         O link que você acessou não corresponde a nenhum torneio. Verifique se o endereço está correto.
       </p>
@@ -140,7 +143,8 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
   }, [categoryId])
 
   if (loading) return (
-    <div className="space-y-2 animate-pulse">
+    <div role="status" aria-busy="true" className="space-y-2 motion-safe:animate-pulse">
+      <span className="sr-only">Carregando inscritos…</span>
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-10 rounded-lg bg-muted" />
       ))}
@@ -155,7 +159,7 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
   const pending   = regs.filter((r) => r.status === 'pending')
 
   const renderRow = (r: Registration) => (
-    <div key={r.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+    <li key={r.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
       {isDoubles
         ? <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         : <User  className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
@@ -166,27 +170,28 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
       </span>
       {r.seed != null && (
         <span className="text-xs font-semibold text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">
-          #{r.seed}
+          <span className="sr-only">Cabeça de chave </span>#{r.seed}
         </span>
       )}
       {r.status === 'approved'
-        ? <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-label="Aprovada" />
-        : <Clock        className="w-4 h-4 text-warning shrink-0" aria-label="Pendente" />}
-    </div>
+        ? <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+        : <Clock        className="w-4 h-4 text-warning shrink-0" />}
+      <span className="sr-only">{r.status === 'approved' ? 'Inscrição aprovada' : 'Inscrição pendente'}</span>
+    </li>
   )
 
   return (
     <div className="space-y-4">
       {confirmed.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirmados ({confirmed.length})</p>
-          {confirmed.map(renderRow)}
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirmados ({confirmed.length})</h3>
+          <ul className="space-y-1.5">{confirmed.map(renderRow)}</ul>
         </div>
       )}
       {pending.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pendentes ({pending.length})</p>
-          {pending.map(renderRow)}
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pendentes ({pending.length})</h3>
+          <ul className="space-y-1.5">{pending.map(renderRow)}</ul>
         </div>
       )}
     </div>
@@ -302,7 +307,7 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
             <h1 className="text-3xl font-bold tracking-tight">{tournament.name}</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className={`w-2 h-2 rounded-full ${status.dot}`} />
+            <div aria-hidden="true" className={`w-2 h-2 rounded-full ${status.dot}`} />
             <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
           </div>
         </div>
@@ -329,7 +334,15 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
               <span>Progresso das partidas</span>
               <span className="tabular-nums font-medium">{stats.completedMatches} / {stats.totalMatches} ({progressPct}%)</span>
             </div>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              role="progressbar"
+              aria-label="Progresso das partidas"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPct}
+              aria-valuetext={`${stats.completedMatches} de ${stats.totalMatches} partidas`}
+              className="h-2 rounded-full bg-muted overflow-hidden"
+            >
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
@@ -366,44 +379,34 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
       {/* AO VIVO */}
       {isLiveTournament && <div className="print:hidden"><LiveNow state={liveState} /></div>}
 
+      <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)} className="space-y-8">
       {/* TABS */}
-      <div className="flex border-b border-border gap-1 print:hidden">
-        {(['bracket', 'registrations', 'schedule'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t === 'bracket'       && '🏆 Chaveamento'}
-            {t === 'registrations' && '👥 Inscritos'}
-            {t === 'schedule'      && '📅 Agenda'}
-          </button>
-        ))}
-      </div>
+      <TabsList aria-label="Seções do torneio" className="gap-1 print:hidden">
+        <TabsTrigger value="bracket" className="px-5 py-2.5"><span aria-hidden="true">🏆</span> Chaveamento</TabsTrigger>
+        <TabsTrigger value="registrations" className="px-5 py-2.5"><span aria-hidden="true">👥</span> Inscritos</TabsTrigger>
+        <TabsTrigger value="schedule" className="px-5 py-2.5"><span aria-hidden="true">📅</span> Agenda</TabsTrigger>
+      </TabsList>
 
       {/* SELETOR DE CATEGORIA */}
       {(tab === 'bracket' || tab === 'registrations') && categories.length > 1 && (
-        <div className="flex items-center gap-2 flex-wrap print:hidden">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                cat.id === activeCategoryId
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
+        <ChoiceGroup
+          legend="Categoria"
+          hideLegend
+          className="print:hidden"
+          options={categories.map((cat) => ({
+            value: cat.id,
+            label: cat.name,
+            className: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 bg-transparent',
+          }))}
+          value={activeCategoryId}
+          onChange={setActiveCategoryId}
+          optionClassName="rounded-full px-4 py-1.5"
+        />
       )}
 
       {/* TAB: CHAVEAMENTO */}
-      {tab === 'bracket' && (
+      <TabsContent value="bracket" className="mt-0 space-y-0">
+        <h2 className="sr-only">Chaveamento</h2>
         <div className="print-bracket-page min-w-0 space-y-3">
           {activeCategory && (
             <p className="hidden font-heading text-xl font-semibold print:block">{activeCategory.name}</p>
@@ -435,10 +438,12 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
             />
           )}
         </div>
-      )}
+      </TabsContent>
 
       {/* TAB: INSCRITOS */}
-      {tab === 'registrations' && activeCategory && (
+      <TabsContent value="registrations" className="mt-0">
+      <h2 className="sr-only">Inscritos</h2>
+      {activeCategory && (
         <div className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium ${
@@ -466,15 +471,18 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
           </div>
         </div>
       )}
+      </TabsContent>
 
       {/* TAB: AGENDA */}
-      {tab === 'schedule' && (
+      <TabsContent value="schedule" className="mt-0">
+        <h2 className="sr-only">Agenda</h2>
         <ScheduleView
           tournamentId={tournament.id}
           categories={categories}
           readonly
         />
-      )}
+      </TabsContent>
+      </Tabs>
 
     </div>
   )

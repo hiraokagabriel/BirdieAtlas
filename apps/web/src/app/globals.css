@@ -28,6 +28,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-field-border: var(--field-border);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -109,10 +110,12 @@
   --muted-foreground: oklch(0.47 0.02 150);
   --accent: oklch(0.92 0.11 97);
   --accent-foreground: oklch(0.28 0.05 95);
-  --destructive: oklch(0.55 0.21 27);
+  --destructive: oklch(0.48 0.21 27);
   --destructive-foreground: oklch(0.985 0.006 95);
   --border: oklch(0.9 0.012 95);
   --input: oklch(0.88 0.014 95);
+  /* Borda de campos de formulário: 3:1 contra fundo, card e popover (WCAG 1.4.11). */
+  --field-border: oklch(0.62 0.012 95);
   --ring: oklch(0.6 0.12 155);
   --chart-1: oklch(0.52 0.12 155);
   --chart-2: oklch(0.82 0.16 95);
@@ -190,10 +193,11 @@
   --muted-foreground: oklch(0.72 0.02 150);
   --accent: oklch(0.35 0.07 95);
   --accent-foreground: oklch(0.95 0.05 97);
-  --destructive: oklch(0.7 0.17 22);
+  --destructive: oklch(0.74 0.17 22);
   --destructive-foreground: oklch(0.18 0.03 160);
   --border: oklch(0.95 0.01 95 / 12%);
   --input: oklch(0.95 0.01 95 / 16%);
+  --field-border: oklch(0.58 0.02 160);
   --ring: oklch(0.65 0.13 155);
   --chart-1: oklch(0.72 0.15 155);
   --chart-2: oklch(0.85 0.16 95);
@@ -257,7 +261,17 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  /* Foco visível para tudo que não define o próprio estilo: contorno sólido de 2px na cor do anel (3:1 no claro e no escuro). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Região rolável é o bloco de contenção do texto sr-only de dentro (position: absolute); sem isto ele vaza e alarga a página. */
+  [role='region'][tabindex='0'],
+  [data-slot='table-container'] {
+    position: relative;
   }
   body {
     @apply bg-background text-foreground;
@@ -269,5 +283,20 @@
   h2,
   h3 {
     @apply font-heading font-semibold tracking-tight;
+  }
+}
+
+/*
+ * Movimento reduzido (WCAG 2.3.3 e 2.2.2): sem animação contínua (pontos pulsantes, spinners, skeleton) nem
+ * transição de entrada/saída. O estado continua legível pelo texto; o spinner some atrás do rótulo "Salvando...".
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

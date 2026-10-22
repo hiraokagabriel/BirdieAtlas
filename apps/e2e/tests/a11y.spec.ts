@@ -10,8 +10,9 @@ import {
 } from '../support/factories.js'
 
 // Fumaça de acessibilidade só com o Playwright (sem axe): estrutura, pontos de referência (landmarks),
-// imagens com alt, nome acessível nos controles e foco visível no primeiro Tab. Não substitui uma auditoria
-// WCAG completa (PROGRESS.md mantém o item "Acessibilidade WCAG 2.1 AA" em aberto).
+// imagens com alt, nome acessível nos controles e foco visível no primeiro Tab. A auditoria WCAG 2.1 AA completa
+// (axe em todas as rotas, temas, viewports e overlays, mais verificações de teclado e foco) está em
+// `wcag.spec.ts`, `wcag-overlays.spec.ts` e `wcag-targeted.spec.ts`.
 
 interface PageCase {
   name: string
@@ -33,7 +34,7 @@ test.beforeAll(async () => {
 
 const publicPages: PageCase[] = [
   { name: 'início', path: () => '/', ready: (p) => p.getByRole('region', { name: 'Top 10 dos rankings' }).getByRole('tablist') },
-  { name: 'ranking', path: () => '/r/fpb-sp', ready: (p) => p.getByRole('button', { name: /Simples|Duplas/ }).first() },
+  { name: 'ranking', path: () => '/r/fpb-sp', ready: (p) => p.getByRole('radio', { name: /Simples|Duplas/ }).first() },
   { name: 'torneio', path: () => `/t/${prepared.tournament.slug}`, ready: (p) => p.getByRole('region', { name: /^Chave de/ }) },
   { name: 'atleta', path: () => `/a/${athlete.id}`, ready: (p) => p.getByRole('heading', { level: 1, name: athlete.name }) },
   { name: 'clube', path: () => `/c/${club.slug}`, ready: (p) => p.getByRole('heading', { level: 1, name: club.name }) },
@@ -114,9 +115,8 @@ for (const [group, pages] of [
   })
 }
 
-test.fixme(
+test(
   'a tela "Torneio não encontrado" tem um h1',
-  // components/public/tournament-view.tsx desenha essa tela com <h2>: a página fica sem h1 (a do atleta tem h1).
   async ({ page }) => {
     await page.goto('/t/torneio-que-nao-existe')
     await expect(page.getByRole('heading', { name: 'Torneio não encontrado' })).toBeVisible()

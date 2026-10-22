@@ -209,7 +209,7 @@ export function AutoScheduleDialog({ tournamentId, defaultStartDate, open, onClo
             <input
               id="auto-schedule-reschedule"
               type="checkbox"
-              className="size-4 rounded border-input accent-primary"
+              className="size-4 rounded accent-primary"
               checked={form.reschedule}
               onChange={(e) => update('reschedule', e.target.checked)}
               disabled={busy || applied !== null}
@@ -277,7 +277,7 @@ export function AutoScheduleDialog({ tournamentId, defaultStartDate, open, onClo
                     {day.label}
                   </h3>
                   <div className="overflow-x-auto rounded-xl border border-border">
-                    <Table>
+                    <Table aria-labelledby={`auto-schedule-day-${day.key}`}>
                       <TableHeader>
                         <TableRow>
                           <TableHead scope="col" className="w-20">Horário</TableHead>
