@@ -243,7 +243,8 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     await page.getByRole('button', { name: 'Confirmar encerramento' }).click()
     await expect(page.getByText('Campeonato encerrado com sucesso!')).toBeVisible()
     await page.getByRole('button', { name: 'Fechar' }).click()
-    await expect(page.getByText('Encerrado', { exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.getByRole('main').getByText('Encerrado', { exact: true })).toBeVisible()
 
     const after = await placements()
     expect(after.get(oldRunnerUpId ?? '')).toBe(1)
