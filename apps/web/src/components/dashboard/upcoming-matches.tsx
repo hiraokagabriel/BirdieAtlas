@@ -21,7 +21,7 @@ type UpcomingMatch = {
 }
 
 const statusConfig = {
-  in_progress: { label: 'Ao vivo', className: 'bg-success hover:bg-success text-background animate-pulse' },
+  in_progress: { label: 'Ao vivo', className: 'bg-success hover:bg-success text-background' },
   pending:     { label: 'Aguardando', className: 'bg-muted text-muted-foreground' },
 }
 
@@ -47,7 +47,8 @@ export function UpcomingMatches() {
       </CardHeader>
       <CardContent className="space-y-3">
         {matches === null ? (
-          <div className="space-y-2">
+          <div role="status" aria-busy="true" className="space-y-2">
+            <span className="sr-only">Carregando próximas partidas…</span>
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
           </div>
         ) : matches.length === 0 ? (
@@ -67,7 +68,10 @@ export function UpcomingMatches() {
                     </span>
                     <span className="text-xs text-muted-foreground">{roundLabel(match.round)}</span>
                   </div>
-                  <Badge className={status.className} variant="secondary">{status.label}</Badge>
+                  <Badge className={status.className} variant="secondary">
+                    {match.status === 'in_progress' && <span aria-hidden="true" className="size-1.5 rounded-full bg-background motion-safe:animate-pulse" />}
+                    {status.label}
+                  </Badge>
                 </div>
                 <div className="text-sm font-medium">
                   {match.player1} <span className="text-muted-foreground font-normal">vs</span> {match.player2}

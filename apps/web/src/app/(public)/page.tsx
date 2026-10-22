@@ -15,13 +15,19 @@ import {
 // Dados mudam a cada torneio; renderiza por requisição em vez de prerender no build.
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'BirdieAtlas · Torneios e rankings de badminton',
-  description: 'Acompanhe torneios, resultados, rankings, atletas e clubes de badminton das federações.',
-}
+const DESCRIPTION = 'Acompanhe torneios, resultados, rankings, atletas e clubes de badminton das federações.'
 
 function firstValue(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value)?.trim().slice(0, 80) ?? ''
+}
+
+/** Com busca, o título diz o que foi buscado (cada página precisa de um título próprio, WCAG 2.4.2). */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }): Promise<Metadata> {
+  const query = firstValue((await searchParams).q)
+  return {
+    title: query ? `Busca por “${query}” · BirdieAtlas` : 'BirdieAtlas · Torneios e rankings de badminton',
+    description: DESCRIPTION,
+  }
 }
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -30,7 +36,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <div className="space-y-12">
       <section aria-labelledby="hero-title" className="rounded-2xl bg-primary px-5 py-8 text-primary-foreground md:px-10 md:py-12">
-        <p className="text-sm font-semibold uppercase tracking-widest text-primary-foreground/80">BirdieAtlas</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-primary-foreground/90">BirdieAtlas</p>
         <h1 id="hero-title" className="mt-2 max-w-3xl text-4xl leading-none md:text-6xl">
           Todo o badminton das federações num só lugar
         </h1>
@@ -50,7 +56,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             maxLength={80}
             placeholder="Buscar atleta ou clube"
             autoComplete="off"
-            className="h-11 min-w-0 flex-1 rounded-lg border border-transparent bg-background px-4 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="h-11 min-w-0 rounded-lg border border-transparent bg-background sm:flex-1 px-4 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
           <button
             type="submit"

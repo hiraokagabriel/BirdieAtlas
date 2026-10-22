@@ -10,6 +10,7 @@ import {
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { disciplineChartColor } from '@/lib/discipline'
+import { ChoiceGroup } from '@/components/ui/choice-group'
 
 type Category = 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
 
@@ -115,44 +116,60 @@ export function RankingChart() {
             <CardTitle>Ranking de Pontos</CardTitle>
             <CardDescription>{label} — Temporada 2026</CardDescription>
           </div>
-          <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActive(cat)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                  active === cat
-                    ? 'bg-card text-card-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+          <ChoiceGroup
+            legend="Disciplina do ranking"
+            hideLegend
+            options={CATEGORIES.map((cat) => ({ value: cat, label: cat, content: cat, labelFromContent: true }))}
+            value={active}
+            onChange={setActive}
+            optionClassName="min-h-8 px-2.5 py-1 text-xs font-semibold"
+          />
         </div>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="space-y-3">
+          <div role="status" aria-busy="true" className="space-y-3">
+            <span className="sr-only">Carregando ranking…</span>
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-8 w-full rounded" />)}
           </div>
         ) : data.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma entrada no ranking.</p>
         ) : (
+          <>
+          {/* Alternativa em texto do gráfico (WCAG 1.1.1): o desenho fica fora da árvore de acessibilidade. */}
+          <table className="sr-only">
+            <caption>{label}: pontos dos primeiros colocados</caption>
+            <thead>
+              <tr>
+                <th scope="col">Atleta</th>
+                <th scope="col">Pontos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, index) => (
+                <tr key={`${row.name}-${index}`}>
+                  <th scope="row">{row.name}</th>
+                  <td>{row.points}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div aria-hidden="true">
           <ResponsiveContainer width="100%" height={chartHeight}>
-            <BarChart data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
+            <BarChart accessibilityLayer={false} data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
               <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} width={110} />
               <Tooltip content={<CustomTooltip color={color} />} cursor={{ fill: 'var(--muted)', fillOpacity: 0.5 }} />
               <Bar dataKey="points" radius={[0, 6, 6, 0]} maxBarSize={32}>
                 {data.map((_, index) => (
-                  <Cell key={index} fill={color} fillOpacity={1 - index * 0.1} />
+                  <Cell key={index} fill={color} fillOpacity={1 - index * 0.04} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          </div>
+          </>
         )}
       </CardContent>
     </Card>

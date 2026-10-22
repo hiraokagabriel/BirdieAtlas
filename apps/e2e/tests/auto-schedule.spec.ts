@@ -65,7 +65,7 @@ function assertNoCourtOverlap(matches: readonly Match[]): void {
 
 test('pré-visualiza sem gravar, aplica e a agenda respeita atletas e quadras', async ({ page }) => {
   await page.goto(`/admin/tournaments/${prepared.tournament.id}`)
-  await page.getByRole('button', { name: 'Agenda', exact: true }).click()
+  await page.getByRole('tab', { name: 'Agenda', exact: true }).click()
   await expect(page.getByText('Sem horário definido')).toBeVisible()
 
   await page.getByRole('button', { name: 'Gerar agenda automática' }).click()
@@ -87,7 +87,7 @@ test('pré-visualiza sem gravar, aplica e a agenda respeita atletas e quadras', 
   // Aplicar grava exatamente a proposta.
   await dialog.getByRole('button', { name: 'Aplicar agenda' }).click()
   await expect(dialog.getByText('Agenda aplicada: 7 partidas agendadas.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Fechar' }).click()
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).click()
   await expect(dialog).toBeHidden()
 
   const scheduled = await listMatches(prepared.draw.id)
@@ -120,7 +120,7 @@ test('com tudo agendado, uma nova pré-visualização não tem partidas para pla
   }
 
   await page.goto(`/admin/tournaments/${prepared.tournament.id}`)
-  await page.getByRole('button', { name: 'Agenda', exact: true }).click()
+  await page.getByRole('tab', { name: 'Agenda', exact: true }).click()
   await page.getByRole('button', { name: 'Gerar agenda automática' }).click()
   const dialog = page.getByRole('dialog', { name: 'Gerar agenda automática' })
   await dialog.getByRole('button', { name: 'Pré-visualizar' }).click()
@@ -140,7 +140,7 @@ test('com tudo agendado, uma nova pré-visualização não tem partidas para pla
 
 test('valida os parâmetros do formulário antes de chamar a API', async ({ page }) => {
   await page.goto(`/admin/tournaments/${prepared.tournament.id}`)
-  await page.getByRole('button', { name: 'Agenda', exact: true }).click()
+  await page.getByRole('tab', { name: 'Agenda', exact: true }).click()
   await page.getByRole('button', { name: 'Gerar agenda automática' }).click()
   const dialog = page.getByRole('dialog', { name: 'Gerar agenda automática' })
 
@@ -158,7 +158,7 @@ test('abrir a aba Agenda antes de as categorias chegarem não deixa a lista vazi
     await route.continue()
   })
   await page.goto(`/admin/tournaments/${own.tournament.id}`)
-  await page.getByRole('button', { name: 'Agenda', exact: true }).click()
+  await page.getByRole('tab', { name: 'Agenda', exact: true }).click()
   await expect(page.getByText('Sem horário definido')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('Nenhuma partida encontrada')).toHaveCount(0)
 })

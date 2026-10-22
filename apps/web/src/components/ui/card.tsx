@@ -33,9 +33,10 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** Título da seção: `<h3>` (o `<h2>` é o título da página; o `<h1>` vem do shell). */
+function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
   return (
-    <div
+    <h3
       data-slot="card-title"
       className={cn(
         "font-heading text-lg leading-snug font-semibold tracking-tight group-data-[size=sm]/card:text-base",

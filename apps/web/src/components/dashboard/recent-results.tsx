@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
@@ -41,13 +41,15 @@ export function RecentResults() {
       </CardHeader>
       <CardContent>
         {results === null ? (
-          <div className="space-y-2">
+          <div role="status" aria-busy="true" className="space-y-2">
+            <span className="sr-only">Carregando resultados recentes…</span>
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
         ) : results.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma partida encerrada ainda.</p>
         ) : (
-          <Table>
+          <Table label="Resultados recentes">
+            <TableCaption className="sr-only">Últimas partidas encerradas no torneio</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Categoria</TableHead>

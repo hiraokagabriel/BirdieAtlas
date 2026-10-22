@@ -228,7 +228,7 @@ test.describe('perfil do atleta', () => {
     await page.goto(`/a/${champion.id}`)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(champion.name)
 
-    const stat = (label: string) => page.getByRole('term').filter({ hasText: label }).locator('..').getByRole('definition')
+    const stat = (label: string) => page.getByRole('term').filter({ hasText: label }).locator('..').getByRole('definition').first()
     await expect(stat('Títulos')).toHaveText(String(expectedTitles))
     await expect(stat('Pódios')).toHaveText(String(expectedPodiums))
     await expect(stat('Torneios disputados')).toHaveText(String(expectedTournaments))
@@ -247,7 +247,7 @@ test.describe('perfil do atleta', () => {
 
   test('o vice tem pódio e o título fica só com o campeão', async ({ page }) => {
     await page.goto(`/a/${runnerUp.id}`)
-    const stat = (label: string) => page.getByRole('term').filter({ hasText: label }).locator('..').getByRole('definition')
+    const stat = (label: string) => page.getByRole('term').filter({ hasText: label }).locator('..').getByRole('definition').first()
     await expect(stat('Títulos')).toHaveText('0')
     await expect(stat('Pódios')).toHaveText('1')
     await expect(page.getByRole('region', { name: 'Histórico de torneios' }).getByText('2º lugar')).toBeAttached()
@@ -310,7 +310,7 @@ test.describe('torneio público encerrado', () => {
     await page.goto(`/t/${prepared.tournament.slug}`)
     await expect(page.getByRole('button', { name: 'Imprimir / Salvar PDF' })).toBeVisible()
 
-    await page.getByRole('button', { name: /Inscritos/ }).click()
+    await page.getByRole('tab', { name: /Inscritos/ }).click()
     for (const athlete of athletes) await expect(page.getByText(athlete.name)).toBeVisible()
     await expect(page.getByText('Confirmados (4)')).toBeVisible()
   })
@@ -332,7 +332,7 @@ test.describe('ranking público', () => {
   test('lista a classificação e oferece o CSV pela API', async ({ page, request }) => {
     await page.goto(`/r/${TENANT_SLUG}`)
     await expect(page.getByRole('heading', { level: 1, name: 'Ranking' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Simples Masc.' }).first()).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Simples Masc.' }).first()).toBeVisible()
 
     const row = page.getByRole('link', { name: champion.name })
     await expect(row).toBeVisible()

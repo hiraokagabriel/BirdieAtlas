@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { AdminModeToggle } from '@/components/dashboard/admin-mode-toggle'
 import { ADMIN_NAV, isNavItemActive } from '@/lib/navigation'
+import { MAIN_CONTENT_ID, SkipLink } from '@/components/shared/skip-link'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -15,6 +16,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      <SkipLink />
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0">
         <div className="flex items-center gap-3 px-6 py-5">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
@@ -28,7 +30,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <Separator />
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav aria-label="Navegação administrativa" className="flex-1 px-3 py-4 space-y-1">
           {ADMIN_NAV.map(({ label, href, icon: Icon }) => {
             const active = isNavItemActive(pathname, href, '/admin')
             return (
@@ -93,7 +95,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <main className="flex-1 overflow-auto p-4 md:p-8">
+        <main id={MAIN_CONTENT_ID} tabIndex={-1} className="focus:outline-none flex-1 overflow-auto p-4 md:p-8">
           {children}
         </main>
       </div>

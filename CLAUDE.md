@@ -31,6 +31,7 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 - Admin usa TanStack Query com `apiFetch` (`apps/web/src/lib/api.ts`); páginas públicas são Server Components.
 - Navegação só em `apps/web/src/lib/navigation.ts`. Nunca crie outra sidebar, shell ou layout administrativo.
 - Toda tela trata carregamento, erro, vazio e sucesso, só com dados reais da API.
+- UI nova mantém o spec WCAG verde (axe + teclado, em `apps/e2e`): campo com `Field`, escolha exclusiva com `ChoiceGroup`, abas com `Tabs`, diálogo com `Dialog`, ícone sem texto com `aria-label`. Rodar: `pnpm --filter @birdie-atlas/e2e exec playwright test wcag --project=main`. Exceção só em `ALLOWED_VIOLATIONS` (`apps/e2e/support/axe.ts`), com motivo e critério; nunca desligar regra inteira.
 
 ## Testes E2E
 

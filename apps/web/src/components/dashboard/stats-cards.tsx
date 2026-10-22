@@ -57,18 +57,21 @@ export function StatsCards() {
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div aria-busy={stats === null} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {cards.map((stat) => (
         <Card key={stat.title} className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-            <div className={`p-2 rounded-lg ${stat.bg}`}>
+            <div aria-hidden="true" className={`p-2 rounded-lg ${stat.bg}`}>
               <stat.icon className={`w-4 h-4 ${stat.color}`} />
             </div>
           </CardHeader>
           <CardContent>
             {stat.value === null ? (
-              <Skeleton className="h-8 w-16 mb-1" />
+              <>
+                <Skeleton className="h-8 w-16 mb-1" />
+                <span role="status" className="sr-only">Carregando {stat.title}</span>
+              </>
             ) : (
               <p className="text-3xl font-bold">{stat.value}</p>
             )}

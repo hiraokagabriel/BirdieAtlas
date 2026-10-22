@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import type { AthleteRow } from '@/app/admin/athletes/page'
+import type { AthleteRow } from './athletes-view'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { ChoiceGroup } from '@/components/ui/choice-group'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { AthleteSheet } from './athlete-sheet'
 import { Search, Users } from 'lucide-react'
@@ -27,6 +28,12 @@ function getInitials(name: string): string {
 
 export type GenderFilter = 'all' | 'M' | 'F'
 
+const GENDER_FILTERS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'M', label: genderLabel.M },
+  { value: 'F', label: genderLabel.F },
+] as const
+
 interface AthletesTableProps {
   athletes: AthleteRow[]
   total: number
@@ -46,38 +53,34 @@ export function AthletesTable({
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-60">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
           <Input
+            type="search"
+            aria-label="Buscar atletas por nome ou e-mail"
             placeholder="Buscar por nome ou e-mail..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-          {(['all', 'M', 'F'] as const).map((g) => (
-            <button
-              key={g}
-              onClick={() => onGenderFilterChange(g)}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                genderFilter === g
-                  ? 'bg-card text-card-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {g === 'all' ? 'Todos' : genderLabel[g]}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground ml-auto">
-          <Users className="w-4 h-4" />
+        <ChoiceGroup
+          legend="Filtrar por gênero"
+          hideLegend
+          options={GENDER_FILTERS}
+          value={genderFilter}
+          onChange={onGenderFilterChange}
+          optionClassName="min-h-8 px-3 py-1 text-xs font-semibold"
+        />
+        <div role="status" className="flex items-center gap-1.5 text-sm text-muted-foreground ml-auto">
+          <Users className="w-4 h-4" aria-hidden="true" />
           <span>{total} atleta{total !== 1 ? 's' : ''}</span>
         </div>
       </div>
 
       {/* Table */}
       <div className="rounded-xl border border-border overflow-hidden">
-        <Table>
+        <Table label="Lista de atletas">
+          <caption className="sr-only">Atletas filiados à federação. Ative o nome para abrir os detalhes.</caption>
           <TableHeader>
             <TableRow className="bg-muted/40">
               <TableHead>Atleta</TableHead>
@@ -109,10 +112,15 @@ export function AthletesTable({
                           {getInitials(athlete.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{athlete.name}</p>
-                        {athlete.email && <p className="text-xs text-muted-foreground">{athlete.email}</p>}
-                      </div>
+                      <button
+                        type="button"
+                        aria-haspopup="dialog"
+                        onClick={(event) => { event.stopPropagation(); setSelectedAthlete(athlete) }}
+                        className="min-h-6 rounded-sm text-left outline-offset-4"
+                      >
+                        <span className="block font-medium text-sm">{athlete.name}</span>
+                        {athlete.email && <span className="block text-xs text-muted-foreground">{athlete.email}</span>}
+                      </button>
                     </div>
                   </TableCell>
                   <TableCell>

@@ -1,4 +1,7 @@
+import type { Metadata } from 'next'
 import { CourtConsole } from '@/components/live/court-console'
+
+export const metadata: Metadata = { title: 'Placar ao vivo · Administração · BirdieAtlas' }
 
 export default function AdminLivePage() {
   return (

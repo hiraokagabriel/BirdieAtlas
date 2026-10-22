@@ -143,7 +143,7 @@ test.describe('interface', () => {
 
   test('lançar resultado mostra a mensagem no próprio diálogo', async ({ page }) => {
     await page.goto(`/admin/tournaments/${playing.tournament.id}`)
-    await page.getByRole('button', { name: 'Chaveamento' }).click()
+    await page.getByRole('tab', { name: 'Chaveamento' }).click()
     await page.getByRole('button', { name: /^(?!.*vencedor).*Abrir resultado/ }).first().click()
 
     const dialog = page.getByRole('dialog', { name: 'Lançar Resultado' })

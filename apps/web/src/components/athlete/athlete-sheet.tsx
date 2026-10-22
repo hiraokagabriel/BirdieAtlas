@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
-import type { AthleteRow } from '@/app/admin/athletes/page'
+import type { AthleteRow } from './athletes-view'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
@@ -74,10 +74,11 @@ export function AthleteSheet({
                     href={`/a/${athlete.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+                    className="inline-flex min-h-6 items-center gap-1 mt-2 text-xs text-primary underline underline-offset-2"
                   >
                     <ExternalLink className="w-3 h-3" />
                     Ver página pública
+                    <span className="sr-only"> (abre em nova aba)</span>
                   </Link>
                 </div>
               </div>

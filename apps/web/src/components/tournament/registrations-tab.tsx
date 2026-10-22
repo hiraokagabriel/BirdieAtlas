@@ -10,6 +10,8 @@ import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'luci
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ErrorNotice } from '@/components/public/notices'
+import { ChoiceGroup } from '@/components/ui/choice-group'
+import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 
 type Category = {
   id: string
@@ -186,23 +188,27 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
   return (
     <div className="space-y-4">
       {/* Seletor de categoria */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => { setActiveCategoryId(cat.id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-              activeCategoryId === cat.id
-                ? (DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground')
-                : 'border-border text-muted-foreground hover:text-foreground bg-background'
-            }`}
-          >
-            {isDoubles(cat.discipline) ? <Users className="w-3 h-3" /> : <User className="w-3 h-3" />}
-            {cat.name}
-            {activeCategoryId === cat.id && <span className="opacity-60">({total})</span>}
-          </button>
-        ))}
-      </div>
+      <ChoiceGroup
+        legend="Categoria"
+        hideLegend
+        options={categories.map((cat) => ({
+          value: cat.id,
+          label: cat.name,
+          content: (
+            <>
+              {isDoubles(cat.discipline) ? <Users className="w-3 h-3" aria-hidden="true" /> : <User className="w-3 h-3" aria-hidden="true" />}
+              {cat.name}
+              {activeCategoryId === cat.id && <span>({total})</span>}
+            </>
+          ),
+          labelFromContent: true,
+          className: 'border-border text-muted-foreground hover:text-foreground bg-background',
+          activeClassName: DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground',
+        }))}
+        value={activeCategoryId}
+        onChange={(id) => { setActiveCategoryId(id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
+        optionClassName="rounded-full px-3 py-1.5 text-xs font-semibold"
+      />
 
       {/* Tabela de inscritos */}
       <div className="rounded-xl border border-border overflow-hidden">
@@ -219,10 +225,12 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
             <span className="self-center text-xs text-muted-foreground">Torneio encerrado: inscrições bloqueadas</span>
           ) : (
             <button
+              type="button"
+              aria-expanded={showForm}
               onClick={() => { setShowForm((v) => !v); setError(null) }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex min-h-8 items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
             >
-              <UserPlus className="w-3.5 h-3.5" />
+              <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
               Inscrever
             </button>
           )}
@@ -237,76 +245,81 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                 <span className="font-medium">Regra de gênero:</span> {genderHint[discipline]}
               </p>
             )}
-            <div className="space-y-1">
-              <label htmlFor="registration-athlete-search" className="text-xs text-muted-foreground font-medium">
-                Buscar atleta
-              </label>
-              <input
-                id="registration-athlete-search"
-                type="search"
-                placeholder="Nome ou e-mail"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              {searchTruncated && (
-                <p className="text-xs text-muted-foreground">
-                  Mostrando os {ATHLETE_SEARCH_LIMIT} primeiros resultados. Refine a busca para encontrar outros atletas.
-                </p>
+            <Field
+              label="Buscar atleta"
+              muted
+              hint={searchTruncated ? `Mostrando os ${ATHLETE_SEARCH_LIMIT} primeiros resultados. Refine a busca para encontrar outros atletas.` : undefined}
+            >
+              {(props) => (
+                <input
+                  {...props}
+                  type="search"
+                  placeholder="Nome ou e-mail"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className={FIELD_CONTROL_CLASS}
+                />
               )}
-            </div>
+            </Field>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">
-                  {doubles ? 'Atleta 1 *' : 'Atleta *'}
-                </label>
-                <select
-                  value={athleteId}
-                  onChange={(e) => handleAthlete1Change(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Selecionar...</option>
-                  {athletesForSlot1.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-                {athletesForSlot1.length === 0 && (
-                  <p className="text-xs text-warning">Nenhum atleta disponível para esta categoria.</p>
-                )}
-              </div>
-
-              {doubles && (
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground font-medium">Atleta 2 *</label>
+              <Field
+                label={doubles ? 'Atleta 1' : 'Atleta'}
+                required
+                muted
+                error={error && !athleteId ? error : undefined}
+                hint={athletesForSlot1.length === 0 ? 'Nenhum atleta disponível para esta categoria.' : undefined}
+              >
+                {(props) => (
                   <select
-                    value={athlete2Id}
-                    onChange={(e) => setAthlete2Id(e.target.value)}
-                    disabled={discipline === 'XD' && !athleteId}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                    {...props}
+                    value={athleteId}
+                    onChange={(e) => handleAthlete1Change(e.target.value)}
+                    className={FIELD_CONTROL_CLASS}
                   >
-                    <option value="">
-                      {discipline === 'XD' && !athleteId ? 'Selecione o atleta 1 primeiro' : 'Selecionar...'}
-                    </option>
-                    {athletesForSlot2.map((a) => (
+                    <option value="">Selecionar...</option>
+                    {athletesForSlot1.map((a) => (
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
-                </div>
+                )}
+              </Field>
+
+              {doubles && (
+                <Field label="Atleta 2" required muted error={error && athleteId && !athlete2Id ? error : undefined}>
+                  {(props) => (
+                    <select
+                      {...props}
+                      value={athlete2Id}
+                      onChange={(e) => setAthlete2Id(e.target.value)}
+                      disabled={discipline === 'XD' && !athleteId}
+                      className={FIELD_CONTROL_CLASS}
+                    >
+                      <option value="">
+                        {discipline === 'XD' && !athleteId ? 'Selecione o atleta 1 primeiro' : 'Selecionar...'}
+                      </option>
+                      {athletesForSlot2.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
               )}
 
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">Seed (opcional)</label>
-                <input
-                  type="number" min={1} placeholder="ex: 1"
-                  value={seed}
-                  onChange={(e) => setSeed(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
+              <Field label="Cabeça de chave (opcional)" muted>
+                {(props) => (
+                  <input
+                    {...props}
+                    type="number" min={1} placeholder="ex: 1"
+                    value={seed}
+                    onChange={(e) => setSeed(e.target.value)}
+                    className={FIELD_CONTROL_CLASS}
+                  />
+                )}
+              </Field>
             </div>
 
-            {error && (
-              <p className="text-xs text-destructive font-medium">{error}</p>
+            {error && athleteId && (doubles ? athlete2Id : true) && (
+              <p role="alert" className="text-xs text-destructive font-medium">{error}</p>
             )}
 
             <div className="flex items-center gap-3">
@@ -330,7 +343,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
 
         {/* Lista */}
         {isLoading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
+          <div role="status" className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : loadError && !data ? (
           <div className="p-4">
             <ErrorNotice>Não foi possível carregar as inscrições: {loadError.message}</ErrorNotice>
@@ -343,23 +356,26 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
           <div className="divide-y divide-border">
             {registrations.map((reg, index) => {
               const badge = STATUS_BADGE[reg.status]
-              const iconBtn = 'shrink-0 p-1.5 rounded-lg text-muted-foreground transition-colors disabled:opacity-50'
+              const iconBtn = 'shrink-0 p-2 rounded-lg text-muted-foreground transition-colors disabled:opacity-50'
               return (
                 <div key={reg.id} className="px-4 py-3 hover:bg-muted/20 transition-colors">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">{index + 1}</span>
 
                     {reg.seed ? (
                       <span className="inline-flex items-center gap-1 w-8 shrink-0">
                         <Trophy className="w-3 h-3 text-warning" aria-hidden="true" />
-                        <span className="text-xs font-semibold text-warning">{reg.seed}</span>
+                        <span className="text-xs font-semibold text-warning">
+                          <span className="sr-only">Cabeça de chave </span>
+                          {reg.seed}
+                        </span>
                       </span>
                     ) : (
                       <span className="w-8 shrink-0" />
                     )}
 
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${reg.status === 'rejected' ? 'line-through text-muted-foreground' : ''}`}>
+                    <div className="min-w-40 flex-1">
+                      <p className={`text-sm font-medium break-words ${reg.status === 'rejected' ? 'line-through text-muted-foreground' : ''}`}>
                         {reg.athleteName ?? reg.athleteId}
                         {reg.athlete2Name && (
                           <span className="text-muted-foreground"> / {reg.athlete2Name}</span>
@@ -379,7 +395,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                             title="Aprovar inscrição"
                             aria-label={`Aprovar inscrição de ${reg.athleteName ?? reg.athleteId}`}
                           >
-                            <Check className="w-3.5 h-3.5" />
+                            <Check className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                         )}
                         {reg.status !== 'rejected' && (
@@ -390,7 +406,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                             title="Recusar inscrição"
                             aria-label={`Recusar inscrição de ${reg.athleteName ?? reg.athleteId}`}
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                         )}
                         {reg.status === 'rejected' && (
@@ -401,7 +417,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                             title="Reabrir como pendente"
                             aria-label={`Reabrir inscrição de ${reg.athleteName ?? reg.athleteId}`}
                           >
-                            <RotateCcw className="w-3.5 h-3.5" />
+                            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                         )}
                         <button
@@ -411,7 +427,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                           title="Remover inscrição"
                           aria-label={`Remover inscrição de ${reg.athleteName ?? reg.athleteId}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                       </div>
                     )}
@@ -437,7 +453,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                         onChange={(e) => setRejectReason(e.target.value)}
                         placeholder="Motivo da recusa (obrigatório)"
                         maxLength={1000}
-                        className="flex-1 h-8 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="h-8 flex-1 rounded-lg border border-field-border bg-background px-3 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <button
                         type="submit"

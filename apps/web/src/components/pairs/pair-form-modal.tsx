@@ -1,10 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, useAthleteSearch } from '@/hooks/use-athlete-search'
-import { X, Search, Users } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { genderAvatarClass } from '@/lib/discipline'
+import { Button } from '@/components/ui/button'
+import { ChoiceGroup } from '@/components/ui/choice-group'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Athlete = {
   id: string
@@ -30,15 +33,19 @@ type Props = {
 }
 
 const DISCIPLINES = [
-  { value: 'MD', label: 'Duplas Masc. (MD)' },
-  { value: 'WD', label: 'Duplas Fem. (WD)' },
-  { value: 'XD', label: 'Misto (XD)' },
+  { value: 'MD', label: 'MD, Duplas masculinas', content: <span className="text-center">MD<span className="block text-xs font-normal">Masc.</span></span> },
+  { value: 'WD', label: 'WD, Duplas femininas', content: <span className="text-center">WD<span className="block text-xs font-normal">Fem.</span></span> },
+  { value: 'XD', label: 'XD, Duplas mistas', content: <span className="text-center">XD<span className="block text-xs font-normal">Misto</span></span> },
 ] as const
 
 function initials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('')
 }
 
+/**
+ * Escolha de atleta com busca: botão que abre um painel (padrão de divulgação, `aria-expanded`) com um campo
+ * de busca rotulado e a lista de resultados como botões. O atleta escolhido aparece no nome do botão.
+ */
 function AthleteSelector({
   label, value, onChange, excludeId,
 }: {
@@ -50,43 +57,56 @@ function AthleteSelector({
   const [search, setSearch] = useState('')
   const [open, setOpen]     = useState(false)
   const { athletes, total } = useAthleteSearch(search)
+  const base = useId()
+  const labelId = `${base}-label`
+  const panelId = `${base}-panel`
+  const searchId = `${base}-search`
+  const valueId = `${base}-value`
 
   const selected = value
   const filtered = athletes.filter((a) => a.id !== excludeId)
 
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium">{label}</label>
+      <span id={labelId} className="block text-sm font-medium">{label}</span>
       <div className="relative">
         <button
           type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-labelledby={`${labelId} ${valueId}`}
           onClick={() => setOpen((o) => !o)}
-          className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/50 transition-colors"
+          className="flex h-9 w-full items-center gap-2 rounded-lg border border-field-border bg-background px-3 text-left text-sm transition-colors hover:bg-muted/50"
         >
-          {selected ? (
-            <>
-              <div
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(selected.gender)}`}
-              >
-                {initials(selected.name)}
-              </div>
-              <span className="flex-1 truncate">{selected.name}</span>
-            </>
-          ) : (
-            <span className="text-muted-foreground">Selecionar atleta...</span>
-          )}
+          <span id={valueId} className="flex min-w-0 flex-1 items-center gap-2">
+            {selected ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className={`flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${genderAvatarClass(selected.gender)}`}
+                >
+                  {initials(selected.name)}
+                </span>
+                <span className="truncate">{selected.name}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">Selecionar atleta...</span>
+            )}
+          </span>
         </button>
 
         {open && (
-          <div className="absolute z-50 top-full mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
-            <div className="p-2 border-b border-border">
+          <div id={panelId} className="absolute top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+            <div className="border-b border-border p-2">
+              <label htmlFor={searchId} className="sr-only">Buscar atleta para {label}</label>
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
+                  id={searchId}
                   autoFocus
-                  type="text"
+                  type="search"
                   placeholder="Buscar atleta..."
-                  className="w-full h-8 rounded-md border border-border bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="h-8 w-full rounded-md border border-field-border bg-background pl-8 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -94,28 +114,36 @@ function AthleteSelector({
             </div>
             <div className="max-h-48 overflow-y-auto">
               {filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhum atleta encontrado</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">Nenhum atleta encontrado</p>
               ) : (
-                filtered.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left"
-                    onClick={() => { onChange(a); setOpen(false); setSearch('') }}
-                  >
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(a.gender)}`}
-                    >
-                      {initials(a.name)}
-                    </div>
-                    <span className="flex-1 truncate">{a.name}</span>
-                    <span className="text-xs text-muted-foreground">{a.gender === 'M' ? 'M' : 'F'}</span>
-                  </button>
-                ))
+                <ul>
+                  {filtered.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        aria-pressed={a.id === selected?.id}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                        onClick={() => { onChange(a); setOpen(false); setSearch('') }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${genderAvatarClass(a.gender)}`}
+                        >
+                          {initials(a.name)}
+                        </span>
+                        <span className="flex-1 truncate">{a.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          <span className="sr-only">Gênero </span>
+                          {a.gender === 'M' ? 'M' : 'F'}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
             {total > ATHLETE_SEARCH_LIMIT && (
-              <p className="px-3 py-2 text-xs text-muted-foreground border-t border-border">Refine a busca: mostrando {ATHLETE_SEARCH_LIMIT} de {total}.</p>
+              <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">Refine a busca: mostrando {ATHLETE_SEARCH_LIMIT} de {total}.</p>
             )}
           </div>
         )}
@@ -181,89 +209,43 @@ export function PairFormModal({ open, pair, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold">{pair ? 'Editar dupla' : 'Nova dupla'}</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{pair ? 'Editar dupla' : 'Nova dupla'}</DialogTitle>
+          <DialogDescription>
+            {pair ? 'Só a disciplina da dupla pode ser alterada.' : 'Escolha os dois atletas e a disciplina da dupla.'}
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Atleta 1 */}
-          <AthleteSelector
-            label="Atleta 1"
-            value={athlete1}
-            onChange={setAthlete1}
-            excludeId={athlete2Id}
+        <form onSubmit={handleSubmit} className="grid gap-5">
+          <AthleteSelector label="Atleta 1" value={athlete1} onChange={setAthlete1} excludeId={athlete2Id} />
+          <AthleteSelector label="Atleta 2" value={athlete2} onChange={setAthlete2} excludeId={athlete1Id} />
+
+          <ChoiceGroup
+            legend="Disciplina"
+            options={DISCIPLINES}
+            value={discipline}
+            onChange={setDiscipline}
+            className="space-y-1.5"
+            optionClassName="flex-1 py-2 text-xs"
           />
 
-          {/* Atleta 2 */}
-          <AthleteSelector
-            label="Atleta 2"
-            value={athlete2}
-            onChange={setAthlete2}
-            excludeId={athlete1Id}
-          />
-
-          {/* Disciplina */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Disciplina</label>
-            <div className="flex gap-2">
-              {DISCIPLINES.map(({ value }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setDiscipline(value)}
-                  className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                    discipline === value
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border hover:bg-muted'
-                  }`}
-                >
-                  {value}
-                  <span className="block text-xs font-normal opacity-70">
-                    {value === 'MD' ? 'Masc.' : value === 'WD' ? 'Fem.' : 'Misto'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Erro */}
           {error && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
           )}
 
-          {/* Footer */}
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 h-9 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={saving}>
               {saving ? 'Salvando...' : pair ? 'Salvar' : 'Criar dupla'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

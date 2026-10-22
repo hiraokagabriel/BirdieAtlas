@@ -393,13 +393,48 @@ Categoria;Atleta;Parceiro(a);Clube;Cabeça de chave;Status
 Simples Masculino;"'=HYPERLINK(""http://x"";""y"") Ana";;Clube Alfa;1;Aprovada
 ```
 
+## Acessibilidade
+
+Meta: WCAG 2.1 nível AA em todo o web, no tema claro e no escuro, no desktop e no celular. O que está garantido hoje é o que os testes abaixo cobrem; o resto (ver "Limites") depende de revisão manual.
+
+### O que está garantido
+
+- **Estrutura.** Idioma `pt-BR`; um `<h1>` por página e nenhum salto de nível (no admin o `<h1>` é o item da navegação e cada tela abre com um `<h2>`); landmarks `banner`, `navigation` (sempre com `aria-label` único), `main`; link "Pular para o conteúdo" como primeiro item do foco nos dois shells (`components/shared/skip-link.tsx`); `aria-current="page"` na navegação; título de aba descritivo e único por rota (`metadata` nas páginas de servidor, `useDocumentTitle` nas de cliente); página 404 própria, em português.
+- **Teclado e foco.** Tudo que o mouse faz o teclado faz (linhas clicáveis da tabela de atletas têm um botão no nome, abas e escolhas exclusivas têm setas). Diálogos e painéis usam sempre o `Dialog`/`Sheet` do Radix (`components/ui`): foco preso, `Escape` fecha, o foco volta a quem abriu, o fundo fica inerte, nome e descrição obrigatórios. Foco visível em tudo: contorno sólido de 2px na cor `--ring` (3:1 no claro e no escuro), definido em `globals.css` e nos componentes de `components/ui`.
+- **Formulários.** `Field` (`components/ui/field.tsx`) liga rótulo, dica e erro ao campo por `useId`: `<label for>`, `aria-describedby`, `aria-invalid`, `aria-required`, erro em `role="alert"`. Depois de um envio inválido o foco vai ao primeiro campo com erro (`lib/focus-invalid.ts`). Escolhas exclusivas (gênero, disciplina, categoria, tipo de resultado, modo de sorteio) usam `ChoiceGroup`: `<fieldset>` + `<input type="radio">` reais, então o estado é `checked`, não só a cor. Abas usam `Tabs` (Radix). Placeholder nunca é o único rótulo.
+- **Tabelas e dados.** Tabelas reais com `<th scope>`, legenda (`<caption>` ou `aria-label` na região rolável) e região rolável focável; cabeçalhos ordenáveis com `aria-sort` (`components/shared/sort-header.tsx`); o ranking público e o do admin são `<table>`. A chave é uma região nomeada ("Chave de <categoria>") lida da primeira fase à final, com cada partida nomeada pelos dois lados. O gráfico do dashboard tem alternativa em tabela e o desenho fica fora da árvore de acessibilidade.
+- **Cor e contraste.** Texto 4,5:1 (3:1 para texto grande) e componentes de interface e anéis de foco 3:1, nos dois temas. Status nunca só por cor: todo ponto colorido vem com texto ao lado. Tokens que mudaram em `globals.css`: `--destructive` claro de L 0,55 para 0,48 (botão destrutivo sobre o rodapé do diálogo de 3,7:1 para 4,6:1) e escuro de L 0,70 para 0,74 (de 3,9:1 para 4,65:1), com o fundo tingido do botão destrutivo em /10 no escuro também; `--field-border` novo para a borda de campos (3,5:1 sobre o fundo no claro, 4,5:1 no escuro, no lugar da `--input`, que dava 1,4:1 e continua só para preenchimentos); texto `/80` sobre `--primary` (hero e tela do operador) passou a `/90` (de 4,4:1 para 5,1:1). Anel de foco `--ring`: 3,6:1 no claro e 6,2:1 no escuro, sem mudança. A cor de marca do clube, que vem do cadastro, é misturada ao texto até dar 4,5:1 (`lib/club-color.ts`, com teste).
+- **Movimento.** `prefers-reduced-motion: reduce` desliga toda animação e transição (regra única em `globals.css`); os pontos pulsantes e o `skeleton` também usam `motion-safe:`. A impressão e as imagens de compartilhamento não são afetadas.
+- **Avisos.** Toasts: Radix, região "Notificações", botão de fechar com nome e sempre visível; erros ficam até serem dispensados, os demais somem em 10 s (pausam com mouse ou foco). Carregamento usa `role="status"`/`aria-busy`. O placar ao vivo anuncia só início, fim de set e fim de jogo; nenhuma região `aria-live="assertive"`.
+- **Alvos.** Mínimo de 24x24 px em todo controle (exceto link dentro de texto corrido) e de 44 px na tela do operador de quadra.
+- **Reflow.** Sem rolagem horizontal da página a partir de 320 px (400% de zoom em 1280 px) nem em 640 px (200%); tabelas e a chave rolam dentro de uma região focável.
+
+### Como é testado
+
+`pnpm e2e` roda três specs de acessibilidade em `apps/e2e/tests` (ver "Testes E2E"):
+
+- `wcag.spec.ts`: axe-core (`@axe-core/playwright`, tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`) em todas as rotas públicas e do admin, com dados reais (torneio encerrado com chave e pódio, torneio com partida ao vivo, atleta com pódios, clube, ranking com pontos, listas, abas do torneio, tela do operador), nos temas claro e escuro e nos viewports 1280 e 390.
+- `wcag-overlays.spec.ts`: o mesmo axe com cada overlay aberto (menu de tema, toasts, diálogo de resultado em todos os modos, agendamento e agenda automática, encerrar campeonato nos três estados, sheet e modais de atleta, clube, dupla, importação de CSV, formulários de inscrição e de ranking, select aberto), nas mesmas quatro combinações.
+- `wcag-targeted.spec.ts`: o que o axe não vê: títulos únicos, ordem dos cabeçalhos, landmarks, rótulos de verdade (não placeholder), tabelas, skip link, indicador de foco com 2px e 3:1, setas nas abas, fluxos só com teclado (menu de tema, lançar resultado, cadastrar atleta), foco preso/devolvido e `Escape` em sete overlays, erros de formulário ligados ao campo, movimento reduzido, reflow em 320 e 640 px, alvos de 24 e 44 px, regiões `aria-live`.
+
+A falha de uma violação do axe imprime regra, impacto, critério WCAG, seletor, HTML e link de ajuda. `support/axe.ts` tem a lista `ALLOWED_VIOLATIONS` para falsos positivos justificados: cada entrada é um nó (regra + trecho do seletor) com motivo e critério; nunca se desliga uma regra inteira, e `color-contrast` nunca é desligada. Hoje há três entradas, todas `aria-hidden-focus` no shell com um overlay modal do Radix aberto (o `Select` e o menu de tema, só nas auditorias "select aberto" e "menu de tema"): o Radix põe `aria-hidden` no shell e prende o foco no overlay, então nada do shell é alcançável, e um teste de foco comprova isso ("menu e lista abertos prendem o foco"). `WCAG_REPORT=<arquivo>` grava uma linha JSON por violação, para contar tudo de uma vez.
+
+### Limites e o que falta
+
+- O axe cobre cerca de um terço dos critérios; o resto é verificado pelo `wcag-targeted.spec.ts` só no que foi listado acima.
+- **Passada manual com leitor de tela (NVDA, JAWS, VoiceOver, TalkBack) ainda não foi feita.** Os testes comprovam nomes, papéis, estados e ordem na árvore de acessibilidade, não como cada leitor os fala.
+- Também faltam à mão: navegação só por teclado em um navegador real com extensões desligadas, zoom de 200% de texto (não só de página) em todas as telas, modo de alto contraste do Windows, `prefers-contrast`, legendas/alternativas para as imagens de compartilhamento (PNG gerados no servidor) e revisão do vocabulário em linguagem simples.
+- O gráfico do dashboard (Recharts) é decorativo para tecnologia assistiva; a tabela oculta é a alternativa.
+- Critérios do WCAG 2.2 que o time adotou como meta (alvo de 24 px) estão testados; os demais da 2.2 (por exemplo, autenticação acessível) não se aplicam enquanto não houver login.
+- Páginas de impressão (`print.css`) e os PNG de compartilhamento não passam pelo axe.
+
 ## Testes E2E
 
 Os testes de ponta a ponta ficam em `apps/e2e` (Playwright, só Chromium) e rodam com `pnpm e2e`. Eles não fazem parte de `pnpm turbo run check-types lint test build`: só o `check-types` e o `lint` do pacote entram nesse comando.
 
 - **Isolamento.** O E2E não toca no ambiente de desenvolvimento. Usa o banco `birdieatlas_e2e` (o `support/global-setup.ts` recusa nomes sem "e2e" e o `db:reset` já recusa hosts não locais), a API na porta 3201 e o web na 3200. O banco é criado, migrado e populado a cada execução com os scripts da API (`db:create`, `db:reset`, `db:seed --profile small`). O web roda em build de produção (`next build` com `NEXT_DIST_DIR=.next-e2e` e `next start`), para não pisar no `.next` do desenvolvimento.
 - **Dados.** O seed é aleatório (sufixos nos slugs) e os testes não dependem dele: cada spec cria os próprios dados pela API (`support/factories.ts`), com nomes e slugs únicos, e só usa a interface onde ela é o objeto do teste. Specs rodam em paralelo (2 workers); o spec `guard`, que liga e desliga o modo admin da API inteira, roda sozinho no projeto `guard`, depois do `main`.
-- **Cobertura.** Portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados pelo diálogo, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin e fumaça de acessibilidade. Comportamento ainda não implementado fica como `test.fixme` com o motivo.
+- **Cobertura.** Portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados pelo diálogo, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin, fumaça de acessibilidade e a auditoria WCAG (ver "Acessibilidade"). Comportamento ainda não implementado fica como `test.fixme` com o motivo.
 - **CI.** O job `e2e` do GitHub Actions sobe um Postgres como serviço, instala o Chromium (`playwright install --with-deps`), roda `pnpm e2e` e, se falhar, envia o relatório HTML e os traces como artefato.
 
 ## Convenções
@@ -420,6 +455,7 @@ Os testes de ponta a ponta ficam em `apps/e2e` (Playwright, só Chromium) e roda
 - Reutilize `components/ui` e `components/shared`. Nunca crie uma segunda sidebar, shell ou layout administrativo: a área admin usa o layout de `app/admin`.
 - Toda tela trata carregamento, erro, vazio e sucesso.
 - Sem dados simulados: telas mostram apenas dados reais da API.
+- Acessibilidade: campo com `Field`, escolha exclusiva com `ChoiceGroup`, abas com `Tabs`, diálogo e painel com `Dialog`/`Sheet`, ícone sem texto com `aria-label`, tabela com `<th scope>` e legenda. Tela nova mantém `wcag.spec.ts`, `wcag-overlays.spec.ts` e `wcag-targeted.spec.ts` verdes (ver "Acessibilidade").
 
 ### API
 
@@ -466,4 +502,4 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.
 - **Admin:** relatórios exportáveis além dos dois CSVs atuais, notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
-- **Qualidade:** PWA, acessibilidade WCAG 2.1 AA completa (hoje há só a fumaça do E2E), mais cobertura E2E (cadastros, duplas, importação de CSV, rankings no admin).
+- **Qualidade:** PWA, passada manual de acessibilidade com leitores de tela (a automatizada já cobre WCAG 2.1 AA), mais cobertura E2E (cadastros, duplas, importação de CSV, rankings no admin).

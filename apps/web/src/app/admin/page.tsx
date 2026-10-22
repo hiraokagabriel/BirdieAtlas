@@ -1,7 +1,10 @@
+import type { Metadata } from 'next'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 import { RankingChart } from '@/components/dashboard/ranking-chart'
 import { UpcomingMatches } from '@/components/dashboard/upcoming-matches'
 import { RecentResults } from '@/components/dashboard/recent-results'
+
+export const metadata: Metadata = { title: 'Visão geral · Administração · BirdieAtlas' }
 
 export default function DashboardPage() {
   return (

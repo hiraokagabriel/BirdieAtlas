@@ -5,12 +5,13 @@ import { use, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import {
   MapPin, Users, TrendingUp, Trophy,
-  Search, ArrowUpDown, ChevronUp, ChevronDown,
-  ExternalLink, User,
+  Search, ExternalLink, User,
 } from 'lucide-react'
 import Link from 'next/link'
 import { DISCIPLINE_PILL, genderAvatarClass } from '@/lib/discipline'
-import { clubInkColor } from '@/lib/club-color'
+import { clubInkColor, clubInkOnWhite } from '@/lib/club-color'
+import { SortHeader } from '@/components/shared/sort-header'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,7 +69,8 @@ function initials(name: string) {
 // ---------------------------------------------------------------------------
 function PageSkeleton() {
   return (
-    <div className="space-y-8 animate-pulse">
+    <div role="status" aria-busy="true" className="space-y-8 motion-safe:animate-pulse">
+      <span className="sr-only">Carregando clube…</span>
       <div className="rounded-2xl border border-border overflow-hidden">
         <div className="h-40 bg-muted" />
         <div className="bg-card px-6 pb-6 pt-0">
@@ -100,8 +102,8 @@ function PageSkeleton() {
 function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-      <Users className="w-12 h-12 text-muted-foreground/30" />
-      <h2 className="text-xl font-semibold">Clube não encontrado</h2>
+      <Users className="w-12 h-12 text-muted-foreground/40" />
+      <h1 className="text-xl font-semibold">Clube não encontrado</h1>
       <p className="text-sm text-muted-foreground max-w-xs">
         O link que você acessou não corresponde a nenhum clube. Verifique se o endereço está correto.
       </p>
@@ -124,23 +126,13 @@ function StatCard({
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-1">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-        <Icon className="w-3.5 h-3.5" style={{ color: clubInkColor(accentColor) }} />
+        <Icon className="w-3.5 h-3.5" style={{ color: clubInkColor(accentColor) }} aria-hidden="true" />
         {label}
       </div>
       <p className="text-2xl font-bold tabular-nums">{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   )
-}
-
-// ---------------------------------------------------------------------------
-// SortIcon
-// ---------------------------------------------------------------------------
-function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
-  if (sortField !== field) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />
-  return sortDir === 'asc'
-    ? <ChevronUp className="w-3 h-3 ml-1" />
-    : <ChevronDown className="w-3 h-3 ml-1" />
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +150,8 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
   const [activeFilter, setActive]         = useState<'all' | 'true' | 'false'>('all')
   const [sortField, setSortField]         = useState<SortField>('totalPoints')
   const [sortDir, setSortDir]             = useState<SortDir>('desc')
+
+  useDocumentTitle(profile ? `${profile.club.name} · Clube` : 'Clube')
 
   useEffect(() => {
     apiFetch<Club>(`/clubs/by-slug/${clubSlug}`)
@@ -202,7 +196,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
   const primary   = club.primaryColor   ?? '#01696f'
   const secondary = club.secondaryColor ?? primary
 
-  const selectCls = 'h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer'
+  const selectCls = 'h-9 rounded-lg border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
 
   return (
     <div className="space-y-8">
@@ -236,7 +230,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                   className="w-full h-full object-contain p-1"
                 />
               ) : (
-                <span className="text-3xl font-black" style={{ color: primary }}>
+                <span aria-hidden="true" className="text-3xl font-black" style={{ color: clubInkOnWhite(primary) }}>
                   {club.name.charAt(0)}
                 </span>
               )}
@@ -304,11 +298,12 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
         {/* Filtros */}
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
             <input
-              type="text"
+              type="search"
+              aria-label="Buscar atleta do plantel"
               placeholder="Buscar atleta..."
-              className="w-full h-9 rounded-lg border border-border bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full h-9 rounded-lg border border-field-border bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -331,8 +326,8 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
 
         {/* Tabela */}
         {filtered.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <User className="w-8 h-8 text-muted-foreground/30" />
+          <div role="status" className="rounded-xl border border-border bg-card flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <User className="w-8 h-8 text-muted-foreground/40" />
             <p className="font-medium text-muted-foreground">Nenhum atleta encontrado</p>
             <p className="text-sm text-muted-foreground max-w-xs">
               Tente ajustar os filtros aplicados.
@@ -340,39 +335,19 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
+            <div tabIndex={0} role="region" aria-label="Plantel do clube" className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">Plantel de {club.name}, com pontos por disciplina. Use os botões do cabeçalho para ordenar.</caption>
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8">#</th>
-                    <th className="text-left px-4 py-3">
-                      <button
-                        className="flex items-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground"
-                        onClick={() => toggleSort('name')}
-                      >
-                        Atleta <SortIcon field="name" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    <th className="px-4 py-3">
-                      <button
-                        className="flex items-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground"
-                        onClick={() => toggleSort('totalPoints')}
-                      >
-                        Total <SortIcon field="totalPoints" sortField={sortField} sortDir={sortDir} />
-                      </button>
-                    </th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8">#</th>
+                    <SortHeader label="Atleta" active={sortField === 'name'} direction={sortDir} onSort={() => toggleSort('name')} />
+                    <SortHeader label="Total" active={sortField === 'totalPoints'} direction={sortDir} onSort={() => toggleSort('totalPoints')} className="text-center" />
                     {DISCIPLINES.map((d) => (
-                      <th key={d} className="px-4 py-3">
-                        <button
-                          className="flex items-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground"
-                          onClick={() => toggleSort(d)}
-                        >
-                          {d} <SortIcon field={d} sortField={sortField} sortDir={sortDir} />
-                        </button>
-                      </th>
+                      <SortHeader key={d} label={d} active={sortField === d} direction={sortDir} onSort={() => toggleSort(d)} className="text-center" />
                     ))}
-                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3" />
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                    <th scope="col" className="px-4 py-3"><span className="sr-only">Perfil do atleta</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -390,13 +365,14 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                             <Image
                               unoptimized
                               src={athlete.photoUrl}
-                              alt={athlete.name}
+                              alt=""
                               width={32}
                               height={32}
                               className="w-8 h-8 rounded-full object-cover shrink-0"
                             />
                           ) : (
                             <div
+                              aria-hidden="true"
                               className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${genderAvatarClass(athlete.gender)}`}
                             >
                               {initials(athlete.name)}
@@ -448,10 +424,10 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                           href={`/a/${athlete.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                          title="Ver perfil do atleta"
+                          aria-label={`Ver perfil de ${athlete.name} (abre em nova aba)`}
+                          className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-primary"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                         </Link>
                       </td>
                     </tr>

@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
-import { X, AlertTriangle, Trophy, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, Trophy, CheckCircle2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type PodiumEntry = {
   placement: number
@@ -39,6 +41,13 @@ interface Props {
   onFinalized: () => void
 }
 
+const DISCIPLINE_LABEL: Record<string, string> = {
+  MS: 'Simples Masc.', WS: 'Simples Fem.',
+  MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Misto',
+}
+
+const PLACEMENT_LABEL: Record<number, string> = { 1: '1º lugar', 2: '2º lugar', 3: '3º lugar' }
+
 export function FinalizeTournamentModal({ tournamentId, tournamentName, open, onClose, onFinalized }: Props) {
   const [result, setResult] = useState<FinalizeResult | null>(null)
   const [apiError, setApiError] = useState<FinalizeError | null>(null)
@@ -59,143 +68,127 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
   function handleClose() {
     setResult(null)
     setApiError(null)
+    mutation.reset()
     onClose()
   }
 
-  if (!open) return null
-
-  const disciplineLabel: Record<string, string> = {
-    MS: 'Simples Masc.', WS: 'Simples Fem.',
-    MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Misto',
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 dark:bg-black/65" onClick={handleClose} />
-      <div className="relative z-10 w-full max-w-2xl bg-background rounded-2xl border border-border shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
+      {/* Sem o X do canto: cada estado tem o próprio botão de saída ("Cancelar" ou "Fechar"). */}
+      <DialogContent showCloseButton={false} className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Trophy className="size-5 text-warning" aria-hidden="true" />
+            {result ? 'Relatório Final' : 'Encerrar Campeonato'}
+          </DialogTitle>
+          <DialogDescription>
+            {result
+              ? `Resultado final de ${tournamentName}.`
+              : `Confirme o encerramento de ${tournamentName}.`}
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-background z-10">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-warning" />
-            <h3 className="text-base font-semibold">
-              {result ? 'Relatório Final' : 'Encerrar Campeonato'}
-            </h3>
-          </div>
-          <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-5">
-
-          {/* Estado: confirmação */}
-          {!result && !apiError && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-warning/10 border border-warning/30">
-                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-warning">Ação irreversível</p>
-                  <p className="text-sm text-warning">
-                    Encerrar <strong>{tournamentName}</strong> irá:
-                  </p>
-                  <ul className="text-sm text-warning list-disc list-inside space-y-0.5">
-                    <li>Bloquear novas inscrições definitivamente</li>
-                    <li>Alterar o status para <strong>Encerrado</strong></li>
-                    <li>Gerar o relatório final com os primeiros lugares</li>
-                  </ul>
-                  <p className="text-xs text-warning mt-2">Todas as chaves precisam estar completamente jogadas.</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end gap-3">
-                <button onClick={handleClose} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => mutation.mutate()}
-                  disabled={mutation.isPending}
-                  className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 disabled:opacity-50 transition-colors"
-                >
-                  {mutation.isPending ? 'Encerrando...' : 'Confirmar encerramento'}
-                </button>
+        {/* Estado: confirmação */}
+        {!result && !apiError && (
+          <>
+            <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-warning">Ação irreversível</p>
+                <p className="text-sm text-warning">
+                  Encerrar <strong>{tournamentName}</strong> irá:
+                </p>
+                <ul className="list-inside list-disc space-y-0.5 text-sm text-warning">
+                  <li>Bloquear novas inscrições definitivamente</li>
+                  <li>Alterar o status para <strong>Encerrado</strong></li>
+                  <li>Gerar o relatório final com os primeiros lugares</li>
+                </ul>
+                <p className="mt-2 text-xs text-warning">Todas as chaves precisam estar completamente jogadas.</p>
               </div>
             </div>
-          )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="destructive" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+                {mutation.isPending ? 'Encerrando...' : 'Confirmar encerramento'}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
 
-          {/* Estado: erro (chaves incompletas ou outro) */}
-          {apiError && (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30">
-                <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-destructive">{apiError.error}</p>
-                  {apiError.incomplete && apiError.incomplete.length > 0 && (
-                    <ul className="text-sm text-destructive space-y-1">
-                      {apiError.incomplete.map((item, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <span className="text-destructive/70 mt-0.5">•</span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button onClick={handleClose} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Fechar
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Estado: sucesso + relatório */}
-          {result && (
-            <div className="space-y-5">
-              <div className="flex items-center gap-2 text-success">
-                <CheckCircle2 className="w-5 h-5" />
-                <p className="text-sm font-semibold">Campeonato encerrado com sucesso!</p>
-              </div>
-
-              {result.report.map((cat) => (
-                <div key={cat.categoryId} className="rounded-xl border border-border overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-warning" />
-                      <span className="font-semibold text-sm">{cat.categoryName}</span>
-                    </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
-                      {disciplineLabel[cat.discipline] ?? cat.discipline}
-                    </span>
-                  </div>
-                  <div className="divide-y divide-border">
-                    {cat.podium.map((entry) => (
-                      <div key={entry.placement} className="flex items-center gap-3 px-4 py-3">
-                        <span className="text-xl w-8 text-center">{entry.medal}</span>
-                        <div>
-                          <p className="text-sm font-semibold">{entry.athleteName}</p>
-                          {entry.athlete2Name && (
-                            <p className="text-xs text-muted-foreground">+ {entry.athlete2Name}</p>
-                          )}
-                        </div>
-                      </div>
+        {/* Estado: erro (chaves incompletas ou outro) */}
+        {apiError && (
+          <>
+            <div role="alert" className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-destructive">{apiError.error}</p>
+                {apiError.incomplete && apiError.incomplete.length > 0 && (
+                  <ul className="list-inside list-disc space-y-1 text-sm text-destructive">
+                    {apiError.incomplete.map((item, i) => (
+                      <li key={i}>{item}</li>
                     ))}
-                    {cat.podium.length === 0 && (
-                      <p className="px-4 py-3 text-xs text-muted-foreground">Sem dados de resultado para esta categoria.</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              <div className="flex justify-end">
-                <button onClick={handleClose} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                  Fechar
-                </button>
+                  </ul>
+                )}
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {/* Estado: sucesso + relatório */}
+        {result && (
+          <>
+            <div role="status" className="flex items-center gap-2 text-success">
+              <CheckCircle2 className="size-5" aria-hidden="true" />
+              <p className="text-sm font-semibold">Campeonato encerrado com sucesso!</p>
+            </div>
+
+            {result.report.map((cat) => (
+              <section key={cat.categoryId} aria-label={cat.categoryName} className="overflow-hidden rounded-xl border border-border">
+                <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="size-4 text-warning" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold">{cat.categoryName}</h3>
+                  </div>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                    {DISCIPLINE_LABEL[cat.discipline] ?? cat.discipline}
+                  </span>
+                </div>
+                {cat.podium.length > 0 ? (
+                  <ol className="divide-y divide-border">
+                    {cat.podium.map((entry) => (
+                      <li key={entry.placement} className="flex items-center gap-3 px-4 py-3">
+                        <span aria-hidden="true" className="w-8 text-center text-xl">{entry.medal}</span>
+                        <div>
+                          <p className="text-sm font-semibold">
+                            <span className="sr-only">{PLACEMENT_LABEL[entry.placement] ?? `${entry.placement}º lugar`}: </span>
+                            {entry.athleteName}
+                          </p>
+                          {entry.athlete2Name && <p className="text-xs text-muted-foreground">+ {entry.athlete2Name}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="px-4 py-3 text-xs text-muted-foreground">Sem dados de resultado para esta categoria.</p>
+                )}
+              </section>
+            ))}
+
+            <DialogFooter>
+              <Button type="button" onClick={handleClose}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

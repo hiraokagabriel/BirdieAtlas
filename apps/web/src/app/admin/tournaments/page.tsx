@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { PagerLinks } from '@/components/shared/pager-links'
@@ -18,6 +19,8 @@ type Tournament = {
   state: string
   location: string
 }
+
+export const metadata: Metadata = { title: 'Torneios · Administração · BirdieAtlas' }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   draft: { label: 'Rascunho', className: 'bg-muted text-muted-foreground' },

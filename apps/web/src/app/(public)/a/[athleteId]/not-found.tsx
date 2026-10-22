@@ -1,5 +1,8 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { User } from 'lucide-react'
+
+export const metadata: Metadata = { title: 'Atleta não encontrado · BirdieAtlas' }
 
 export default function AthleteNotFound() {
   return (
