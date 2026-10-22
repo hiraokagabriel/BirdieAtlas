@@ -40,6 +40,11 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 - Cada spec cria os próprios dados pela API (`apps/e2e/support/factories.ts`) e usa locators por papel e rótulo. Teste instável é falha: corrija a causa. Comportamento ainda não implementado vira `test.fixme` com o motivo, nunca asserção enfraquecida.
 - Depurar: `pnpm --filter @birdie-atlas/e2e e2e:report` abre o relatório HTML; o trace da primeira repetição fica em `apps/e2e/test-results` (`pnpm --filter @birdie-atlas/e2e exec playwright show-trace <trace.zip>`). `E2E_SKIP_BUILD=1` reaproveita o build do web (rode sem ele quando o código do web mudar).
 
+## Agentes do projeto
+
+- Em `.claude/agents/`: `birdie-verifier` (verificação independente antes do commit: pipeline, API, navegador, privacidade; não edita código) e `birdie-reviewer` (revisão somente leitura do diff contra estas regras). Quem implementa não é quem verifica: use o verificador depois de cada mudança e o revisor antes do PR.
+- Todo briefing de agente nomeia a branch e proíbe commit, push, `db:push` e mexer no banco `birdie_atlas` e nas portas 3000/3001; verificação pesada usa o banco e as portas do E2E.
+
 ## Ambiente local
 
 - `apps/api/.env` precisa de `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true` (ver `.env.example`).
