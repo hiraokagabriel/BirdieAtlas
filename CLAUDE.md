@@ -42,7 +42,7 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 
 ## Agentes do projeto
 
-- Em `.claude/agents/`: `birdie-verifier` (verificação independente antes do commit: pipeline, API, navegador, privacidade; não edita código) e `birdie-reviewer` (revisão somente leitura do diff contra estas regras). Quem implementa não é quem verifica: use o verificador depois de cada mudança e o revisor antes do PR.
+- Em `.claude/agents/`: `birdie-verifier` (verificação independente antes do commit: pipeline, API, navegador, privacidade; não edita código) e `birdie-reviewer` (revisão somente leitura do diff contra estas regras). Quem implementa não é quem verifica: use o verificador depois de cada mudança de comportamento e o revisor antes do PR.
 - Todo briefing de agente nomeia a branch e proíbe commit, push, `db:push` e mexer no banco `birdie_atlas` e nas portas 3000/3001; verificação pesada usa o banco e as portas do E2E.
 
 ## Ambiente local
