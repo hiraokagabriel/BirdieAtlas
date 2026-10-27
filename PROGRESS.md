@@ -1,6 +1,6 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 21/10/2026.
+> Atualizado em 27/10/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
 
@@ -119,7 +119,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | Dashboard com dados reais | ✅ | |
-| Relatórios exportáveis | 🟡 | CSV de inscritos por categoria (admin) e de entradas do ranking; falta o resto dos relatórios |
+| Relatórios exportáveis | ✅ | CSV de inscritos e de entradas do ranking, mais resultados, agenda e colocação final por torneio e atletas por clube (admin). Rotas e colunas na especificação |
 | Notificações | ❌ | Dependem de provedor de e-mail/WhatsApp e de login |
 | Gestão de usuários e papéis | ❌ | Depende do Clerk |
 
@@ -128,9 +128,9 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | Testes unitários de domínio (Vitest) | ✅ | |
-| Testes E2E com Playwright | 🟡 | `apps/e2e`, `pnpm e2e`, job `e2e` no CI (verificado no GitHub). Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin e a auditoria de acessibilidade (axe, teclado e foco). Falta: cadastros (atletas, clubes, duplas), importação de CSV, rankings e regras de pontos no admin, inscrições pela interface |
+| Testes E2E com Playwright | ✅ | `apps/e2e`, `pnpm e2e`, job `e2e` no CI (verificado no GitHub). Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin e a auditoria de acessibilidade (axe, teclado e foco). Também cobre cadastros (atletas, clubes, duplas), importação de CSV, inscrições pela interface, rankings e regras de pontos no admin, os quatro relatórios CSV, imagens de compartilhamento e impressão |
 | PWA e push notifications | ❌ | |
-| Acessibilidade WCAG 2.1 AA | 🟡 | Auditoria automática com axe (WCAG A e AA) em 25 rotas e estados, em tema claro e escuro, em desktop e celular, mais 23 overlays abertos (diálogos, sheets, menus), e testes dirigidos de teclado, foco preso e devolvido, Escape, skip link, reflow, alvos de toque, movimento reduzido e `aria-live` (`apps/e2e/tests/wcag*.spec.ts`). Antes das correções o axe achou 185 grupos de violação (366 nós), sobretudo `color-contrast`, `button-name`, `label` e `select-name`; todos corrigidos, com 3 exceções documentadas em `ALLOWED_VIOLATIONS`. Pendente: passada manual com leitor de tela (o axe cobre cerca de um terço dos critérios), impressão e imagens de compartilhamento fora do axe |
+| Acessibilidade WCAG 2.1 AA | 🟡 | Auditoria automática com axe (WCAG A e AA) em 25 rotas e estados, em tema claro e escuro, em desktop e celular, mais 23 overlays abertos (diálogos, sheets, menus), e testes dirigidos de teclado, foco preso e devolvido, Escape, skip link, reflow, alvos de toque, movimento reduzido e `aria-live` (`apps/e2e/tests/wcag*.spec.ts`). Antes das correções o axe achou 185 grupos de violação (366 nós), sobretudo `color-contrast`, `button-name`, `label` e `select-name`; todos corrigidos, com 3 exceções documentadas em `ALLOWED_VIOLATIONS`. Impressão e imagens de compartilhamento têm teste próprio (`share-print.spec.ts`). Pendente: passada manual com leitor de tela (o axe cobre cerca de um terço dos critérios); roteiro pronto em `docs/ACESSIBILIDADE_LEITOR_DE_TELA.md`, falta alguém executá-lo |
 
 ## Dívidas técnicas
 
