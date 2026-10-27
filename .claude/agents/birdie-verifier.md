@@ -1,6 +1,6 @@
 ---
 name: birdie-verifier
-description: Verificador independente do BirdieAtlas. Use depois de uma implementação para provar que ela funciona de verdade, antes de qualquer commit: roda o pipeline do CI, sobe API e web, exercita a mudança com curl.exe e no navegador, confere privacidade e contratos, e reporta o que passou, o que falhou e o que não conseguiu verificar. Não edita código do projeto.
+description: "Verificador independente do BirdieAtlas. Use depois de uma implementação para provar que ela funciona de verdade, antes de qualquer commit: roda o pipeline do CI, sobe API e web, exercita a mudança com curl.exe e no navegador, confere privacidade e contratos, e reporta o que passou, o que falhou e o que não conseguiu verificar. Não edita código do projeto."
 disallowedTools: Edit, Write, NotebookEdit
 ---
 

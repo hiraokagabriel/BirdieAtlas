@@ -29,6 +29,22 @@ pnpm dev
 
 `DEV_ADMIN_MODE=true` no `.env` da API libera as escritas enquanto não há autenticação. Para recriar o banco local do zero: `pnpm --filter @birdie-atlas/api db:reset`.
 
+## Configurar em outra máquina (Claude Code)
+
+O repositório já traz o que é do projeto: `CLAUDE.md`, os agents `birdie-reviewer` e `birdie-verifier` (`.claude/agents/`), `.claude/settings.json` (liga `claude-mem` e `mattpocock-skills` e registra os marketplaces deles) e `.claude/launch.json` (API na 3001, web na 3000). Ao abrir o projeto no Claude Code, aceite a instalação dos plugins pedidos.
+
+Fora do Git, por máquina:
+
+1. Node.js 20+, pnpm 9 e Docker Desktop (ver "Rodando localmente").
+2. `apps/api/.env` copiado de `apps/api/.env.example`, com `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true`. O arquivo não é versionado.
+3. Banco: `docker compose up -d`, depois `pnpm --filter @birdie-atlas/api db:reset` e `db:seed`.
+4. Chromium do Playwright: `pnpm e2e:install`.
+5. Conferir: `pnpm turbo run check-types lint test build`.
+
+Plugins pessoais usados nas sessões (instale com `/plugin`; não fazem parte do projeto): `superpowers`, `code-simplifier`, `claude-md-management` e `claude-code-setup` (marketplace `anthropic-plugin-directory`); `commit-commands`, `code-review`, `typescript-lsp` e `rust-analyzer-lsp` (`claude-plugins-official`); `web-quality-skills` (`addyosmani/web-quality-skills`); `caveman` (`JuliusBrussee/caveman`); `ui-ux-pro-max` (`nextlevelbuilder/ui-ux-pro-max-skill`); `agentic-bundle-aas-qa-test-automation` e `agentic-bundle-aas-accessibility-inclusive-ux` (`sickn33/agentic-awesome-skills`).
+
+A memória do Claude Code (`~/.claude/projects/...`) e as configurações pessoais (`~/.claude/settings.json`: modelo, hooks, variáveis) não são do projeto e não vão para o Git.
+
 ## Testes E2E
 
 Testes de ponta a ponta com [Playwright](https://playwright.dev) em `apps/e2e`: portal público, ciclo de vida do torneio no admin, agenda automática, placar ao vivo (SSE), tema, guard de modo admin e uma fumaça de acessibilidade.
