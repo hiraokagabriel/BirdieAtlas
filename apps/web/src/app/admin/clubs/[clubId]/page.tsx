@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { DISCIPLINE_PILL, genderAvatarClass } from '@/lib/discipline'
 import { clubInkColor, clubInkOnWhite } from '@/lib/club-color'
 import { SortHeader } from '@/components/shared/sort-header'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
 type RosterAthlete = {
@@ -166,6 +167,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
             </div>
             {/* Botões de ação */}
             <div className="mb-1 flex items-center gap-2 shrink-0">
+              <ExportCsvButton path={`/clubs/${club.id}/athletes/export.csv`} fallbackName="atletas.csv" label="Exportar atletas" />
               <Link
                 href={`/c/${club.slug}`}
                 target="_blank"

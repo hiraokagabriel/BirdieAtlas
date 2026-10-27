@@ -10,6 +10,7 @@ import { FinalizeTournamentModal } from '@/components/tournament/finalize-tourna
 import { TournamentSetupTab } from '@/components/tournament/tournament-setup-tab'
 import { TournamentStatusActions } from '@/components/tournament/tournament-status-actions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Calendar, MapPin, ExternalLink, ChevronLeft, Flag, RotateCcw, Settings } from 'lucide-react'
 import Link from 'next/link'
@@ -113,6 +114,9 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <TournamentStatusActions tournamentId={tournament.id} status={tournament.status} onChanged={fetchTournament} />
+          <ExportCsvButton path={`/tournaments/${tournament.id}/results/export.csv`} fallbackName="resultados.csv" label="Exportar resultados" />
+          <ExportCsvButton path={`/tournaments/${tournament.id}/schedule/export.csv`} fallbackName="agenda.csv" label="Exportar agenda" />
+          <ExportCsvButton path={`/tournaments/${tournament.id}/podium/export.csv`} fallbackName="colocacao.csv" label="Exportar colocação" />
           {isCompleted && (
             <button
               onClick={handleReopen}

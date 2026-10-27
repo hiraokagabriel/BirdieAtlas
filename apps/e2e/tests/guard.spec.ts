@@ -3,6 +3,7 @@ import { api, apiCall, setAdminMode } from '../support/api.js'
 import {
   createAthlete,
   createCategory,
+  createClub,
   createTournament,
   prepareTournament,
   type PreparedTournament,
@@ -90,6 +91,10 @@ test.describe('API', () => {
       `/athletes/${playing.athletes[0]?.id}`,
       `/registrations/tournament/${playing.tournament.id}`,
       `/tournaments/${playing.tournament.id}/registrations/export.csv`,
+      `/tournaments/${playing.tournament.id}/results/export.csv`,
+      `/tournaments/${playing.tournament.id}/schedule/export.csv`,
+      `/tournaments/${playing.tournament.id}/podium/export.csv`,
+      `/clubs/${(await createClub()).id}/athletes/export.csv`,
     ]) {
       const res = await apiCall<ErrorBody>('GET', path)
       expect(res.status, path).toBe(403)
