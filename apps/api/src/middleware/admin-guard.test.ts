@@ -25,6 +25,14 @@ describe('requiresAdmin', () => {
     expect(requiresAdmin('GET', '/tournaments/:id/registrations/export.csv')).toBe(true)
     expect(requiresAdmin('HEAD', '/tournaments/:id/registrations/export.csv')).toBe(true)
     expect(requiresAdmin('GET', '/rankings/:rankingId/entries/export.csv')).toBe(false)
+    for (const route of [
+      '/tournaments/:id/results/export.csv',
+      '/tournaments/:id/schedule/export.csv',
+      '/tournaments/:id/podium/export.csv',
+      '/clubs/:id/athletes/export.csv',
+    ]) {
+      expect(requiresAdmin('GET', route)).toBe(true)
+    }
   })
 
   it('never guards the admin-mode toggle or unmatched routes', () => {

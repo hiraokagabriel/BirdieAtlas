@@ -19,6 +19,10 @@ const ADMIN_ONLY_READS = new Set([
   '/athletes/:id',
   '/registrations/tournament/:tournamentId',
   '/tournaments/:id/registrations/export.csv',
+  '/tournaments/:id/results/export.csv',
+  '/tournaments/:id/schedule/export.csv',
+  '/tournaments/:id/podium/export.csv',
+  '/clubs/:id/athletes/export.csv',
 ])
 
 /** Rotas que controlam o próprio modo admin ficam fora do guard. */

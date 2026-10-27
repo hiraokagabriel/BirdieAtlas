@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify'
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { autoScheduleBodySchema, utcOffsetMinutesFromIso, type AutoScheduleBody } from '@birdie-atlas/validators'
 import { db } from '../db/index.js'
-import { athletes, draws, matches, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
-import { selectRegistrations } from '../db/registrations.js'
+import { matches, tournaments } from '../db/schema.js'
+import { loadTournamentMatches } from '../db/tournament-matches.js'
 import { planSchedule, resolveDayWindowMinutes, roundLabel, type ScheduleMatch } from '../domain/schedule.js'
 
 // Agenda automática: propõe (dryRun) ou grava (dryRun: false) quadra e horário das partidas do
@@ -64,43 +64,9 @@ async function runAutoSchedule(ex: Executor, tournamentId: string, body: AutoSch
     return { ok: false, status: 409, error, code: 'TOURNAMENT_LOCKED' }
   }
 
-  const categories = await ex.select().from(tournamentCategories)
-    .where(and(eq(tournamentCategories.tournamentId, tournamentId), isNull(tournamentCategories.deletedAt)))
-    .orderBy(asc(tournamentCategories.name), asc(tournamentCategories.id))
-  const drawRows = categories.length
-    ? await ex.select().from(draws).where(inArray(draws.categoryId, categories.map((c) => c.id))).orderBy(asc(draws.generatedAt), asc(draws.id))
-    : []
-  // Uma chave por categoria, a mais antiga: a mesma que a aba Agenda e o encerramento usam.
-  const drawByCategory = new Map<string, (typeof drawRows)[number]>()
-  for (const draw of drawRows) if (!drawByCategory.has(draw.categoryId)) drawByCategory.set(draw.categoryId, draw)
-  const activeDraws = [...drawByCategory.values()]
-
-  const matchRows = activeDraws.length
-    ? await ex.select().from(matches).where(inArray(matches.drawId, activeDraws.map((d) => d.id)))
-    : []
+  const { categoryByDraw, matchRows, athletesByRegistrationId, participantName } = await loadTournamentMatches(ex, tournamentId)
   if (!matchRows.length) {
     return { ok: false, status: 422, error: 'Nenhuma chave foi gerada neste torneio. Gere as chaves antes de agendar.', code: 'NO_MATCHES' }
-  }
-
-  // Atletas por inscrição, incluindo inscrições excluídas: partidas antigas ainda as referenciam.
-  const registrationIds = [...new Set(matchRows.flatMap((m) => [m.registration1Id, m.registration2Id]).filter((id): id is string => id !== null))]
-  const registrations = registrationIds.length
-    ? await selectRegistrations(inArray(tournamentRegistrations.id, registrationIds), { includeDeleted: true, executor: ex })
-    : []
-  const athletesByRegistrationId = new Map<string, string[]>(
-    registrations.map((r) => [r.id, r.athlete2Id ? [r.athleteId, r.athlete2Id] : [r.athleteId]]),
-  )
-  const athleteIds = [...new Set([...athletesByRegistrationId.values()].flat())]
-  // Só id e nome: nada de e-mail, CPF, telefone ou nascimento.
-  const athleteRows = athleteIds.length
-    ? await ex.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, athleteIds))
-    : []
-  const nameById = new Map(athleteRows.map((a) => [a.id, a.name]))
-  const participantName = (registrationId: string | null): string | null => {
-    if (!registrationId) return null
-    const ids = athletesByRegistrationId.get(registrationId)
-    if (!ids) return null
-    return ids.map((id) => nameById.get(id) ?? '?').join(' / ')
   }
 
   const scheduleMatches: ScheduleMatch[] = matchRows.map((m) => ({
@@ -129,7 +95,6 @@ async function runAutoSchedule(ex: Executor, tournamentId: string, body: AutoSch
     utcOffsetMinutes: utcOffsetMinutesFromIso(body.startAt),
   })
 
-  const categoryByDraw = new Map(activeDraws.map((d) => [d.id, categories.find((c) => c.id === d.categoryId)!]))
   const matchById = new Map(matchRows.map((m) => [m.id, m]))
   const describe = (matchId: string): SchedulePreviewMatch => {
     const match = matchById.get(matchId)!

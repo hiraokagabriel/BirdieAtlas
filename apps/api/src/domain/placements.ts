@@ -14,7 +14,7 @@ export interface PlacementSet {
   score2: number
 }
 
-function winnerSlotFromSets(sets: PlacementSet[]): 1 | 2 | null {
+export function winnerSlotFromSets(sets: readonly PlacementSet[]): 1 | 2 | null {
   if (!sets.length) return null
   const w1 = sets.filter((s) => s.score1 > s.score2).length
   const w2 = sets.filter((s) => s.score2 > s.score1).length

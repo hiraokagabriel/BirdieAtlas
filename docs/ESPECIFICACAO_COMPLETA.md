@@ -142,6 +142,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público; inclui `finalPlacement`, preenchida só com o torneio encerrado), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `GET /tournaments/:id/registrations/export.csv` (admin, CSV), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Agenda automática | `POST /tournaments/:id/schedule/auto` |
+| Relatórios (admin, CSV) | `GET /tournaments/:id/results/export.csv`, `GET /tournaments/:id/schedule/export.csv`, `GET /tournaments/:id/podium/export.csv`, `GET /clubs/:id/athletes/export.csv` (ver "Compartilhamento e exportações") |
 | Placar ao vivo | `GET /tournaments/:id/live` (SSE, público), `GET /tournaments/:id/live/matches` (público), `GET /tournaments/:id/live/queue` (público), `POST /draws/matches/:matchId/live/start`, `.../live/point`, `.../live/undo`, `.../live/finish`, `.../live/cancel` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `GET /rankings/:rankingId/entries/export.csv` (público, CSV), `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
 | Tenants | `GET/POST /tenants`, `GET/PUT/DELETE /tenants/:id` |
@@ -382,9 +383,14 @@ Botão "Imprimir / Salvar PDF" (`PrintButton`) na chave do torneio público e no
 
 - `GET /tournaments/:id/registrations/export.csv` (admin): uma linha por inscrição, ordenadas por categoria. Colunas: `Categoria; Atleta; Parceiro(a); Clube; Cabeça de chave; Status` (`Pendente`, `Aprovada`, `Recusada`; recusadas incluídas). Dados pessoais: só nomes e o clube atual, nunca e-mail, data de nascimento nem `notes`. É leitura só de admin (`ADMIN_ONLY_READS`): sem modo admin, `403 ADMIN_MODE_DISABLED`.
 - `GET /rankings/:rankingId/entries/export.csv` (público, como a lista de entradas): `Posição; Atleta; Parceiro(a); Pontos; Torneios`, ordenado pela posição. `404` para ranking inexistente.
+- Relatórios do torneio e do clube (admin, todos em `ADMIN_ONLY_READS`; sem modo admin, `403 ADMIN_MODE_DISABLED`; `404` com `TOURNAMENT_NOT_FOUND` ou `CLUB_NOT_FOUND`). As linhas são montadas por funções puras em `apps/api/src/domain/reports.ts` e as partidas vêm de `db/tournament-matches.ts`, o mesmo carregador da agenda automática (uma chave por categoria, a mais antiga):
+  - `GET /tournaments/:id/results/export.csv`: `Categoria; Fase; Partida; Atleta 1; Atleta 2; Placar; Vencedor; Status`. Uma linha por partida com ao menos um participante, da primeira fase para a final. `Placar` é `6-4 3-6 7-5`; `Vencedor` sai dos sets (num bye, o lado presente) e fica vazio enquanto a partida não foi jogada ou quando não há sets (W.O. e desistência sem placar), como na colocação final; `Status`: Pendente, Em andamento, Encerrada, W.O., Desistência.
+  - `GET /tournaments/:id/schedule/export.csv`: `Quadra; Horário; Categoria; Fase; Atleta 1; Atleta 2; Status`. Só partidas com horário, ordenadas por horário e quadra. O horário sai em `dd/MM/aaaa HH:mm` no fuso de Brasília (`REPORT_TIME_ZONE`), não no fuso do servidor.
+  - `GET /tournaments/:id/podium/export.csv`: `Categoria; Colocação; Atleta; Parceiro(a); Clube`. Lê o `finalPlacement` gravado no encerramento (1º, 2º, 3º, 5º, 9º...); torneio ainda aberto devolve só o cabeçalho.
+  - `GET /clubs/:id/athletes/export.csv`: `Clube; Atleta; Afiliado desde`. Afiliações ativas (sem data de término) de atletas não excluídos, por nome; o clube é filtrado pelo tenant do servidor.
 - Formato (`apps/api/src/domain/csv.ts`): UTF-8 com BOM, separador `;` (convenção do Excel em português do Brasil, onde a vírgula é separador decimal), quebra de linha CRLF e CRLF no fim. Campo com `;`, aspas ou quebra de linha vai entre aspas, com aspas dobradas. Texto que começa com `=`, `+`, `-`, `@`, TAB ou CR ganha um apóstrofo na frente (injeção de fórmula); números não são alterados.
 - Cabeçalhos: `Content-Type: text/csv; charset=utf-8` e `Content-Disposition: attachment; filename="<slug>.csv"; filename*=UTF-8''<slug>.csv`. O nome é um slug ASCII (`slugifyFilename`), então não há injeção de cabeçalho. O CORS expõe `Content-Disposition` para o navegador ler o nome.
-- Web: botão "Exportar CSV" na aba Inscrições do torneio e na página do ranking no admin (`ExportCsvButton`). Baixa por `fetch` e mostra o erro (`403`, rede) abaixo do botão.
+- Web: botão "Exportar CSV" na aba Inscrições do torneio e na página do ranking no admin (`ExportCsvButton`); "Exportar resultados", "Exportar agenda" e "Exportar colocação" no cabeçalho do torneio; "Exportar atletas" na página do clube (a propriedade `label` do botão distingue os textos). Baixa por `fetch` e mostra o erro (`403`, rede) abaixo do botão.
 
 Exemplo (`export.csv` de inscritos):
 
@@ -426,7 +432,8 @@ A falha de uma violação do axe imprime regra, impacto, critério WCAG, seletor
 - Também faltam à mão: navegação só por teclado em um navegador real com extensões desligadas, zoom de 200% de texto (não só de página) em todas as telas, modo de alto contraste do Windows, `prefers-contrast`, legendas/alternativas para as imagens de compartilhamento (PNG gerados no servidor) e revisão do vocabulário em linguagem simples.
 - O gráfico do dashboard (Recharts) é decorativo para tecnologia assistiva; a tabela oculta é a alternativa.
 - Critérios do WCAG 2.2 que o time adotou como meta (alvo de 24 px) estão testados; os demais da 2.2 (por exemplo, autenticação acessível) não se aplicam enquanto não houver login.
-- Páginas de impressão (`print.css`) e os PNG de compartilhamento não passam pelo axe.
+- Páginas de impressão (`print.css`) e os PNG de compartilhamento não passam pelo axe. Têm teste próprio em `share-print.spec.ts`: dimensões dos PNG (IHDR), anexo e fallback `404`; em `@media print`, cabeçalho e botões somem, o conteúdo fica e o axe não acha violações; `window.print` força o tema claro. O que continua só à mão é a aparência no papel.
+- Roteiro da passada manual com leitor de tela: [`ACESSIBILIDADE_LEITOR_DE_TELA.md`](ACESSIBILIDADE_LEITOR_DE_TELA.md). Enquanto ninguém o executar e registrar o resultado, o item segue pendente.
 
 ## Testes E2E
 
@@ -435,6 +442,7 @@ Os testes de ponta a ponta ficam em `apps/e2e` (Playwright, só Chromium) e roda
 - **Isolamento.** O E2E não toca no ambiente de desenvolvimento. Usa o banco `birdieatlas_e2e` (o `support/global-setup.ts` recusa nomes sem "e2e" e o `db:reset` já recusa hosts não locais), a API na porta 3201 e o web na 3200. O banco é criado, migrado e populado a cada execução com os scripts da API (`db:create`, `db:reset`, `db:seed --profile small`). O web roda em build de produção (`next build` com `NEXT_DIST_DIR=.next-e2e` e `next start`), para não pisar no `.next` do desenvolvimento.
 - **Dados.** O seed é aleatório (sufixos nos slugs) e os testes não dependem dele: cada spec cria os próprios dados pela API (`support/factories.ts`), com nomes e slugs únicos, e só usa a interface onde ela é o objeto do teste. Specs rodam em paralelo (2 workers); o spec `guard`, que liga e desliga o modo admin da API inteira, roda sozinho no projeto `guard`, depois do `main`.
 - **Cobertura.** Portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados pelo diálogo, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin, fumaça de acessibilidade e a auditoria WCAG (ver "Acessibilidade"). Comportamento ainda não implementado fica como `test.fixme` com o motivo.
+- **Cadastros e administração.** `cadastros.spec.ts` (atletas, importação de CSV com linha rejeitada, clubes, duplas), `inscricoes-ui.spec.ts` (inscrever, aprovar, recusar com motivo, reabrir, remover), `rankings-admin.spec.ts` (criar ranking, regras de pontos, vincular torneio e recalcular), `reports.spec.ts` (os quatro CSVs, privacidade e botões) e `share-print.spec.ts` (PNG de compartilhamento e impressão).
 - **CI.** O job `e2e` do GitHub Actions sobe um Postgres como serviço, instala o Chromium (`playwright install --with-deps`), roda `pnpm e2e` e, se falhar, envia o relatório HTML e os traces como artefato.
 
 ## Convenções
@@ -500,6 +508,6 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora), critérios de desempate.
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.
-- **Admin:** relatórios exportáveis além dos dois CSVs atuais, notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
+- **Admin:** notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
-- **Qualidade:** PWA, passada manual de acessibilidade com leitores de tela (a automatizada já cobre WCAG 2.1 AA), mais cobertura E2E (cadastros, duplas, importação de CSV, rankings no admin).
+- **Qualidade:** PWA, passada manual de acessibilidade com leitores de tela (a automatizada já cobre WCAG 2.1 AA), execução do roteiro manual de leitor de tela.

@@ -3,8 +3,10 @@ import { api, apiCall, setAdminMode } from '../support/api.js'
 import {
   createAthlete,
   createCategory,
+  createClub,
   createTournament,
   prepareTournament,
+  type Club,
   type PreparedTournament,
   type Tournament,
 } from '../support/factories.js'
@@ -24,6 +26,7 @@ interface ErrorBody {
 
 let draftTournament: Tournament
 let playing: PreparedTournament
+let club: Club
 
 test.describe.configure({ mode: 'serial' })
 
@@ -32,6 +35,7 @@ test.beforeAll(async () => {
   draftTournament = await createTournament({ name: `Guard Rascunho ${Date.now().toString(36)}` })
   await createCategory(draftTournament.id)
   playing = await prepareTournament({ name: `Guard Jogo ${Date.now().toString(36)}` })
+  club = await createClub()
 })
 
 test.afterAll(async () => {
@@ -90,6 +94,10 @@ test.describe('API', () => {
       `/athletes/${playing.athletes[0]?.id}`,
       `/registrations/tournament/${playing.tournament.id}`,
       `/tournaments/${playing.tournament.id}/registrations/export.csv`,
+      `/tournaments/${playing.tournament.id}/results/export.csv`,
+      `/tournaments/${playing.tournament.id}/schedule/export.csv`,
+      `/tournaments/${playing.tournament.id}/podium/export.csv`,
+      `/clubs/${club.id}/athletes/export.csv`,
     ]) {
       const res = await apiCall<ErrorBody>('GET', path)
       expect(res.status, path).toBe(403)
