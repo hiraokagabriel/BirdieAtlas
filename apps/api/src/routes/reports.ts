@@ -80,8 +80,9 @@ export async function reportsRoutes(app: FastifyInstance) {
     const categories = await db.select().from(tournamentCategories)
       .where(and(eq(tournamentCategories.tournamentId, id), isNull(tournamentCategories.deletedAt)))
     const categoryName = new Map(categories.map((c) => [c.id, c.name]))
+    // Categoria excluída fica de fora: `selectRegistrations` não a filtra e a linha sairia sem nome de categoria.
     const placed = (await selectRegistrations(eq(tournamentCategories.tournamentId, id)))
-      .filter((r) => r.finalPlacement !== null)
+      .filter((r) => r.finalPlacement !== null && categoryName.has(r.categoryId))
     const athleteIds = [...new Set(placed.flatMap((r) => [r.athleteId, r.athlete2Id].filter((v): v is string => v !== null)))]
     const names = await athleteNames(athleteIds)
     const clubNames = await currentClubNames(athleteIds)

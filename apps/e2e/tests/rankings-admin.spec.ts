@@ -93,8 +93,10 @@ test('cadastra, edita e exclui uma regra de pontos', async ({ page }) => {
 })
 
 test('vincula um torneio encerrado, recalcula e mostra a classificação', async ({ page }) => {
-  const ranking = await createRankingWithRules({ year: YEAR + 2 })
-  const prepared = await prepareTournament({ name: `Torneio do ranking ${uniqueTag()}`, level: 'state' })
+  // Nível "international": nenhum outro spec usa, então distribuir os pontos não vincula este torneio a rankings alheios
+  // (nem recalcula o ranking de outro spec que roda em paralelo).
+  const ranking = await createRankingWithRules({ year: YEAR + 2, level: 'international' })
+  const prepared = await prepareTournament({ name: `Torneio do ranking ${uniqueTag()}`, level: 'international' })
   const report = await completeTournament(prepared)
   // Distribuir os pontos vincula o torneio aos rankings com regra para o nível dele (e só então ele pode ser vinculado à mão).
   await api.post(`/tournaments/${prepared.tournament.id}/award-points`)
@@ -119,7 +121,7 @@ test('vincula um torneio encerrado, recalcula e mostra a classificação', async
 
   const entries = await api.get<Entries>(`/rankings/${ranking.id}/entries`)
   const top = entries.data.find((e) => e.athleteId === champion.id)
-  // Campeão de torneio estadual: 100 pontos do 1º lugar + 5 de participação (regra de `createRankingWithRules`).
+  // Campeão: 100 pontos do 1º lugar + 5 de participação (regra de `createRankingWithRules`).
   expect(top?.totalPoints).toBe(105)
   expect(top?.position).toBe(1)
 })

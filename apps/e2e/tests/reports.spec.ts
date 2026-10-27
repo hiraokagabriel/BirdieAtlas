@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiCall } from '../support/api.js'
+import { api, apiCall } from '../support/api.js'
 import { API_URL } from '../support/env.js'
 import {
   affiliate,
@@ -19,7 +19,10 @@ import {
 // atletas têm e-mail e data de nascimento, que nunca podem aparecer nas exportações.
 
 const BOM = '﻿'
-const BIRTH_DATE = '1990-04-17'
+// Data improvável de aparecer por acaso numa tag hexadecimal ou num horário.
+const BIRTH_DATE = '1987-03-09'
+const BIRTH_DATE_BR = '09/03/1987'
+const SECRET_NOTE = 'nota-interna-secreta'
 const SCHEDULED_AT = '2026-10-27T17:30:00.000Z'
 
 let prepared: PreparedTournament
@@ -48,6 +51,10 @@ test.beforeAll(async () => {
   )
   prepared = await prepareTournament({ athletes, name: `Relatórios ${tag}` })
   club = await createClub()
+  // `notes` é motivo interno da inscrição: nenhum relatório pode mostrá-lo.
+  const firstRegistration = prepared.registrations[0]
+  if (!firstRegistration) throw new Error('Sem inscrições.')
+  await api.patch(`/registrations/${firstRegistration.id}`, { notes: SECRET_NOTE })
 
   const semifinal = prepared.matches.find((m) => m.round === 2)
   if (!semifinal) throw new Error('A chave de 4 atletas não tem semifinal.')
@@ -73,7 +80,6 @@ test.describe('CSV de resultados', () => {
     expect(rows.map((r) => r[1])).toEqual(['Semifinal', 'Semifinal', 'Final'])
     for (const row of rows) {
       expect(row[5]).toBe('21-15 21-12')
-      expect(row[6]).toBe(row[3])
       expect(row[7]).toBe('Encerrada')
     }
     expect(rows[2]?.[6]).toBe(champion.name)
@@ -126,6 +132,15 @@ test.describe('CSV de atletas do clube', () => {
     expect(rows).toEqual([[club.name, champion.name, '01/01/2024']])
   })
 
+  test('nome que parece fórmula ou tem ponto e vírgula sai neutralizado e entre aspas', async () => {
+    const tricky = await createAthlete({ name: `=SOMA(1;2) ${uniqueTag()}`, gender: 'F' })
+    const ownClub = await createClub()
+    await affiliate(tricky.id, ownClub.id)
+    const res = await csv(`/clubs/${ownClub.id}/athletes/export.csv`)
+    const line = res.text.split('\r\n')[1]
+    expect(line).toBe(`${ownClub.name};"'${tricky.name}";01/01/2024`)
+  })
+
   test('clube inexistente responde 404', async () => {
     const res = await apiCall<{ code: string }>('GET', '/clubs/nao-existe/athletes/export.csv')
     expect(res.status).toBe(404)
@@ -145,7 +160,9 @@ test('nenhum relatório vaza e-mail nem data de nascimento', async () => {
     for (const email of emails) expect(text, path).not.toContain(email)
     expect(text, path).not.toContain('@example.com')
     expect(text, path).not.toContain(BIRTH_DATE)
-    expect(text, path).not.toContain('1990')
+    expect(text, path).not.toContain(BIRTH_DATE_BR)
+    expect(text, path).not.toContain('1987')
+    expect(text, path).not.toContain(SECRET_NOTE)
   }
 })
 

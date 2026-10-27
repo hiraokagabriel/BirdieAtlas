@@ -68,7 +68,7 @@ export async function countRegistrations(where?: SQL, options: RegistrationQuery
   return row?.total ?? 0
 }
 
-/** Clube atual (afiliação sem data de término) de cada atleta. */
+/** Clube atual (afiliação sem data de término) de cada atleta; com duas ativas, vale a de início mais recente. */
 export async function currentClubNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()
   const rows = await db

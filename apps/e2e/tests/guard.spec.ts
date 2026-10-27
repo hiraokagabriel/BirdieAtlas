@@ -86,6 +86,7 @@ test.describe('API', () => {
   })
 
   test('leituras com dados pessoais também exigem o modo admin', async () => {
+    const club = await createClub()
     for (const path of [
       '/athletes',
       `/athletes/${playing.athletes[0]?.id}`,
@@ -94,7 +95,7 @@ test.describe('API', () => {
       `/tournaments/${playing.tournament.id}/results/export.csv`,
       `/tournaments/${playing.tournament.id}/schedule/export.csv`,
       `/tournaments/${playing.tournament.id}/podium/export.csv`,
-      `/clubs/${(await createClub()).id}/athletes/export.csv`,
+      `/clubs/${club.id}/athletes/export.csv`,
     ]) {
       const res = await apiCall<ErrorBody>('GET', path)
       expect(res.status, path).toBe(403)
