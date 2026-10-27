@@ -6,6 +6,7 @@ import {
   createClub,
   createTournament,
   prepareTournament,
+  type Club,
   type PreparedTournament,
   type Tournament,
 } from '../support/factories.js'
@@ -25,6 +26,7 @@ interface ErrorBody {
 
 let draftTournament: Tournament
 let playing: PreparedTournament
+let club: Club
 
 test.describe.configure({ mode: 'serial' })
 
@@ -33,6 +35,7 @@ test.beforeAll(async () => {
   draftTournament = await createTournament({ name: `Guard Rascunho ${Date.now().toString(36)}` })
   await createCategory(draftTournament.id)
   playing = await prepareTournament({ name: `Guard Jogo ${Date.now().toString(36)}` })
+  club = await createClub()
 })
 
 test.afterAll(async () => {
@@ -86,7 +89,6 @@ test.describe('API', () => {
   })
 
   test('leituras com dados pessoais também exigem o modo admin', async () => {
-    const club = await createClub()
     for (const path of [
       '/athletes',
       `/athletes/${playing.athletes[0]?.id}`,
