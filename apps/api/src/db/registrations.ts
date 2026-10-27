@@ -1,6 +1,6 @@
-import { and, asc, count, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import { db } from './index.js'
-import { pairs, tournamentCategories, tournamentRegistrations } from './schema.js'
+import { athleteAffiliations, athletes, clubs, pairs, tournamentCategories, tournamentRegistrations } from './schema.js'
 
 type RegistrationRow = typeof tournamentRegistrations.$inferSelect
 /** `db` ou uma transação (ex.: ler dentro do lock da categoria). */
@@ -66,4 +66,23 @@ export async function countRegistrations(where?: SQL, options: RegistrationQuery
     .leftJoin(pairs, eq(pairs.id, tournamentRegistrations.pairId))
     .where(whereClause(where, options))
   return row?.total ?? 0
+}
+
+/** Clube atual (afiliação sem data de término) de cada atleta. */
+export async function currentClubNames(ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const rows = await db
+    .select({ athleteId: athleteAffiliations.athleteId, clubName: clubs.name })
+    .from(athleteAffiliations)
+    .innerJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
+    .where(and(inArray(athleteAffiliations.athleteId, ids), isNull(athleteAffiliations.endedAt)))
+    .orderBy(asc(athleteAffiliations.startedAt))
+  return new Map(rows.map((r) => [r.athleteId, r.clubName]))
+}
+
+/** Nome de cada atleta, por id. */
+export async function athleteNames(ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const rows = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, ids))
+  return new Map(rows.map((a) => [a.id, a.name]))
 }
