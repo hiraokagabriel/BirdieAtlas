@@ -42,3 +42,4 @@ birdatlas.7z
 .next-e2e/
 playwright-report/
 test-results/
+.playwright-cli/

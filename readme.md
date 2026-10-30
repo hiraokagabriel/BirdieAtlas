@@ -8,6 +8,8 @@ Plataforma web para gestão de campeonatos de badminton: atletas, clubes, duplas
 - [Progresso](PROGRESS.md): o que está pronto, o que falta e as dívidas técnicas.
 - [Redesign](docs/REDESIGN.md): decisões do redesign e o motivo delas.
 - [Contrato de inscrições](docs/api/tournament-registrations.md): contrato do PR 3b.
+- [Fluxo de trabalho](workflow.md): da branch ao merge, com gates, verificação e checklist do PR.
+- [Instalação em máquina nova](docs/SETUP.md): roteiro para o Claude Code instalar e verificar tudo sozinho.
 - [CLAUDE.md](CLAUDE.md): regras para agentes de código.
 
 ## Rodando localmente
@@ -31,17 +33,11 @@ pnpm dev
 
 ## Configurar em outra máquina (Claude Code)
 
-O repositório já traz o que é do projeto: `CLAUDE.md`, os agents `birdie-reviewer` e `birdie-verifier` (`.claude/agents/`), `.claude/settings.json` (liga `claude-mem` e `mattpocock-skills` e registra os marketplaces deles) e `.claude/launch.json` (API na 3001, web na 3000). Ao abrir o projeto no Claude Code, aceite a instalação dos plugins pedidos.
+O repositório já traz o que é do projeto: `CLAUDE.md`, os agents `birdie-reviewer` e `birdie-verifier` (`.claude/agents/`), os plugins e marketplaces em `.claude/settings.json`, as skills em `.claude/skills/` e `.claude/launch.json` (API na 3001, web na 3000). Ao abrir o projeto no Claude Code, aceite a instalação dos plugins pedidos e reinicie a sessão.
 
-Fora do Git, por máquina:
+O roteiro completo para preparar uma máquina nova, que o próprio Claude Code pode seguir sozinho, está em [`docs/SETUP.md`](docs/SETUP.md).
 
-1. Node.js 20+, pnpm 9 e Docker Desktop (ver "Rodando localmente").
-2. `apps/api/.env` copiado de `apps/api/.env.example`, com `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true`. O arquivo não é versionado.
-3. Banco: `docker compose up -d`, depois `pnpm --filter @birdie-atlas/api db:reset` e `db:seed`.
-4. Chromium do Playwright: `pnpm e2e:install`.
-5. Conferir: `pnpm turbo run check-types lint test build`.
-
-Plugins pessoais usados nas sessões (instale com `/plugin`; não fazem parte do projeto): `superpowers`, `code-simplifier`, `claude-md-management` e `claude-code-setup` (marketplace `anthropic-plugin-directory`); `commit-commands`, `code-review`, `typescript-lsp` e `rust-analyzer-lsp` (`claude-plugins-official`); `web-quality-skills` (`addyosmani/web-quality-skills`); `caveman` (`JuliusBrussee/caveman`); `ui-ux-pro-max` (`nextlevelbuilder/ui-ux-pro-max-skill`); `agentic-bundle-aas-qa-test-automation` e `agentic-bundle-aas-accessibility-inclusive-ux` (`sickn33/agentic-awesome-skills`).
+Plugins pessoais, fora do projeto (instale com `/plugin` se quiser): `caveman` (`JuliusBrussee/caveman`), `claude-code-setup` e `rust-analyzer-lsp` (`claude-plugins-official`).
 
 A memória do Claude Code (`~/.claude/projects/...`) e as configurações pessoais (`~/.claude/settings.json`: modelo, hooks, variáveis) não são do projeto e não vão para o Git.
 

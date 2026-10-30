@@ -1,9 +1,42 @@
 {
+  "env": {
+    "ENABLE_CODE_SECURITY_REVIEW": "0"
+  },
   "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "agentic-bundle-aas-accessibility-inclusive-ux@agentic-awesome-skills": true,
+    "agentic-bundle-aas-qa-test-automation@agentic-awesome-skills": true,
+    "web-quality-skills@addy-web-quality-skills": true,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
     "claude-mem@thedotmack": true,
     "mattpocock-skills@mattpocock": true
   },
   "extraKnownMarketplaces": {
+    "agentic-awesome-skills": {
+      "source": {
+        "source": "github",
+        "repo": "sickn33/agentic-awesome-skills"
+      }
+    },
+    "addy-web-quality-skills": {
+      "source": {
+        "source": "github",
+        "repo": "addyosmani/web-quality-skills"
+      }
+    },
+    "ui-ux-pro-max-skill": {
+      "source": {
+        "source": "github",
+        "repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+      }
+    },
     "thedotmack": {
       "source": {
         "source": "github",
