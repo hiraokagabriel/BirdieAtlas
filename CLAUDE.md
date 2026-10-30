@@ -1,6 +1,6 @@
 # BirdieAtlas — regras para agentes
 
-A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Leia a seção relevante antes de mudar comportamento, contrato ou schema, e atualize-a no mesmo PR. O andamento fica em [`PROGRESS.md`](PROGRESS.md).
+A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Leia a seção relevante antes de mudar comportamento, contrato ou schema, e atualize-a no mesmo PR. O andamento fica em [`PROGRESS.md`](PROGRESS.md). A ordem dos passos de uma mudança (branch, gates, verificador, revisor, PR) fica em [`workflow.md`](workflow.md).
 
 ## Antes de entregar
 

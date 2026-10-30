@@ -8,6 +8,7 @@ Plataforma web para gestão de campeonatos de badminton: atletas, clubes, duplas
 - [Progresso](PROGRESS.md): o que está pronto, o que falta e as dívidas técnicas.
 - [Redesign](docs/REDESIGN.md): decisões do redesign e o motivo delas.
 - [Contrato de inscrições](docs/api/tournament-registrations.md): contrato do PR 3b.
+- [Fluxo de trabalho](workflow.md): da branch ao merge, com gates, verificação e checklist do PR.
 - [CLAUDE.md](CLAUDE.md): regras para agentes de código.
 
 ## Rodando localmente
