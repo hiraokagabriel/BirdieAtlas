@@ -31,6 +31,16 @@ pnpm dev
 
 `DEV_ADMIN_MODE=true` no `.env` da API libera as escritas enquanto não há autenticação. Para recriar o banco local do zero: `pnpm --filter @birdie-atlas/api db:reset`.
 
+## Configurar em outra máquina (Claude Code)
+
+O repositório já traz o que é do projeto: `CLAUDE.md`, os agents `birdie-reviewer` e `birdie-verifier` (`.claude/agents/`), os plugins e marketplaces em `.claude/settings.json`, as skills em `.claude/skills/` e `.claude/launch.json` (API na 3001, web na 3000). Ao abrir o projeto no Claude Code, aceite a instalação dos plugins pedidos e reinicie a sessão.
+
+O roteiro completo para preparar uma máquina nova, que o próprio Claude Code pode seguir sozinho, está em [`docs/SETUP.md`](docs/SETUP.md).
+
+Plugins pessoais, fora do projeto (instale com `/plugin` se quiser): `caveman` (`JuliusBrussee/caveman`), `claude-code-setup` e `rust-analyzer-lsp` (`claude-plugins-official`).
+
+A memória do Claude Code (`~/.claude/projects/...`) e as configurações pessoais (`~/.claude/settings.json`: modelo, hooks, variáveis) não são do projeto e não vão para o Git.
+
 ## Testes E2E
 
 Testes de ponta a ponta com [Playwright](https://playwright.dev) em `apps/e2e`: portal público, ciclo de vida do torneio no admin, agenda automática, placar ao vivo (SSE), tema, guard de modo admin e uma fumaça de acessibilidade.
