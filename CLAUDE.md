@@ -45,6 +45,13 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 - Em `.claude/agents/`: `birdie-verifier` (verificação independente antes do commit: pipeline, API, navegador, privacidade; não edita código) e `birdie-reviewer` (revisão somente leitura do diff contra estas regras). Quem implementa não é quem verifica: use o verificador depois de cada mudança de comportamento e o revisor antes do PR.
 - Todo briefing de agente nomeia a branch e proíbe commit, push, `db:push` e mexer no banco `birdie_atlas` e nas portas 3000/3001; verificação pesada usa o banco e as portas do E2E.
 
+## Skills e plugins
+
+- Plugins do projeto em `.claude/settings.json`; skills de terceiros copiadas em `.claude/skills/` (origem, versão e como atualizar em `.claude/skills/README.md`). Este arquivo e a especificação vencem qualquer skill.
+- Conflitos conhecidos: erros seguem `{ error, code?, details? }`, não o formato aninhado do `api-and-interface-design`; dados remotos no admin usam TanStack Query, não SWR (`vercel-react-best-practices`); RLS, Supabase Auth e pg_cron do `supabase-postgres-best-practices` não se aplicam (o tenant é filtrado na aplicação); migrations do Drizzle não têm `down`, então a reversão é por expandir e contrair, não pelo "down path" do `deprecation-and-migration`.
+- `security-guidance` roda só os avisos por padrão: as revisões por LLM estão desligadas (`ENABLE_CODE_SECURITY_REVIEW=0` no `env` de `.claude/settings.json`) enquanto o projeto roda só localmente. Não religue sem combinar.
+- Navegador na verificação: skill `playwright-cli`. Onde ela diz `playwright-cli <comando>`, rode `pnpm --filter @birdie-atlas/e2e exec playwright cli <comando>` (vem com o `@playwright/test` de `apps/e2e`; não há binário global). Arquivos de sessão ficam em `.playwright-cli/`, ignorado pelo Git.
+
 ## Ambiente local
 
 - `apps/api/.env` precisa de `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true` (ver `.env.example`).
