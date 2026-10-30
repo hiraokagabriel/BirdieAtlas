@@ -476,7 +476,7 @@ Os testes de ponta a ponta ficam em `apps/e2e` (Playwright, só Chromium) e roda
 ### Git
 
 - Conventional Commits.
-- Branches `feat/...`, `fix/...`, `docs/...` ou `chore/...`. Nunca commitar direto na `main`: todo trabalho entra por PR.
+- Branches `feat/...`, `fix/...`, `docs/...`, `chore/...`, `test/...` ou `refactor/...`. Fluxo completo em [`workflow.md`](../workflow.md). Nunca commitar direto na `main`: todo trabalho entra por PR.
 
 ## Critério de pronto
 
