@@ -137,7 +137,9 @@ export function RankingChart() {
         ) : (
           <>
           {/* Alternativa em texto do gráfico (WCAG 1.1.1): o desenho fica fora da árvore de acessibilidade. */}
-          <table className="sr-only">
+          {/* O sr-only fica num div: numa <table> o width de 1px é ignorado e o nome mais longo (sem quebra) alarga a página em 320px. */}
+          <div className="sr-only">
+          <table>
             <caption>{label}: pontos dos primeiros colocados</caption>
             <thead>
               <tr>
@@ -154,6 +156,7 @@ export function RankingChart() {
               ))}
             </tbody>
           </table>
+          </div>
           <div aria-hidden="true">
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart accessibilityLayer={false} data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
