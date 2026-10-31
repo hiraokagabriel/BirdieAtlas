@@ -16,6 +16,7 @@ const READ_METHODS = new Set(['GET', 'HEAD'])
 /** Leituras que devolvem dados pessoais de atletas ou notas internas: só para admin. */
 const ADMIN_ONLY_READS = new Set([
   '/athletes',
+  '/athletes/export.csv',
   '/athletes/:id',
   '/registrations/tournament/:tournamentId',
   '/tournaments/:id/registrations/export.csv',

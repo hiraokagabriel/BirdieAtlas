@@ -24,7 +24,12 @@ const createAthleteSchema = z.object({
 const csvRowSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   gender: z.enum(['M', 'F'], { errorMap: () => ({ message: 'Gênero deve ser M ou F' }) }),
-  birthDate: z.string().optional(),
+  // AAAA-MM-DD e data real do calendário (2000-02-30 não passa); vazio vira "sem data".
+  birthDate: z.string().refine((v) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
+    const d = new Date(`${v}T00:00:00Z`)
+    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v)
+  }, 'Data de nascimento deve ser AAAA-MM-DD').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   email: z.string().email('E-mail inválido').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   nationality: z.string().default('BR'),
 })

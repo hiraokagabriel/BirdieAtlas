@@ -17,6 +17,9 @@ describe('requiresAdmin', () => {
   it('protects reads with personal data', () => {
     expect(requiresAdmin('GET', '/athletes')).toBe(true)
     expect(requiresAdmin('GET', '/athletes/:id')).toBe(true)
+    expect(requiresAdmin('GET', '/athletes/export.csv')).toBe(true)
+    expect(requiresAdmin('GET', '/tournaments/:id/results/export.csv')).toBe(false)
+    expect(requiresAdmin('GET', '/tournaments/:id/standings/export.csv')).toBe(false)
     expect(requiresAdmin('GET', '/registrations/tournament/:tournamentId')).toBe(true)
     expect(requiresAdmin('GET', '/tournaments/categories/:categoryId/registrations')).toBe(false)
   })

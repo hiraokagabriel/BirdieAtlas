@@ -1,8 +1,10 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 21/10/2026.
+> Atualizado em 31/10/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
+>
+> **Diretriz (31/10/2026):** o projeto roda localmente, em rede local. A autenticação Clerk (e tudo que depende de identidade: auditoria, usuários e papéis, notificações) é a **última** entrega e só existirá na build que rodar online.
 
 ## Redesign
 
@@ -119,7 +121,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | Dashboard com dados reais | ✅ | |
-| Relatórios exportáveis | 🟡 | CSV de inscritos por categoria (admin) e de entradas do ranking; falta o resto dos relatórios |
+| Relatórios exportáveis | ✅ | CSV de inscritos, entradas do ranking, resultados das partidas, classificação final e lista de atletas (admin) |
 | Notificações | ❌ | Dependem de provedor de e-mail/WhatsApp e de login |
 | Gestão de usuários e papéis | ❌ | Depende do Clerk |
 
@@ -128,9 +130,9 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | Testes unitários de domínio (Vitest) | ✅ | |
-| Testes E2E com Playwright | 🟡 | `apps/e2e`, `pnpm e2e`, job `e2e` no CI (verificado no GitHub). Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin (inscrições, sorteio, resultados, encerrar, `TOURNAMENT_LOCKED`, reabrir), agenda automática, placar ao vivo com SSE, tema, guard de modo admin e a auditoria de acessibilidade (axe, teclado e foco). Falta: cadastros (atletas, clubes, duplas), importação de CSV, rankings e regras de pontos no admin, inscrições pela interface |
+| Testes E2E com Playwright | ✅ | `apps/e2e`, `pnpm e2e`, job `e2e` no CI. Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin, inscrições pela interface (inscrever, aprovar, recusar com motivo, reabrir, remover), cadastros (atletas, importação de CSV, clubes, duplas), rankings e regras de pontos no admin (criar, regra, vincular, recalcular, editar), relatórios CSV, agenda automática, placar ao vivo com SSE, tema, guard de modo admin e a auditoria de acessibilidade (axe, teclado e foco) |
 | PWA e push notifications | ❌ | |
-| Acessibilidade WCAG 2.1 AA | 🟡 | Auditoria automática com axe (WCAG A e AA) em 25 rotas e estados, em tema claro e escuro, em desktop e celular, mais 23 overlays abertos (diálogos, sheets, menus), e testes dirigidos de teclado, foco preso e devolvido, Escape, skip link, reflow, alvos de toque, movimento reduzido e `aria-live` (`apps/e2e/tests/wcag*.spec.ts`). Antes das correções o axe achou 185 grupos de violação (366 nós), sobretudo `color-contrast`, `button-name`, `label` e `select-name`; todos corrigidos, com 3 exceções documentadas em `ALLOWED_VIOLATIONS`. Pendente: passada manual com leitor de tela (o axe cobre cerca de um terço dos critérios), impressão e imagens de compartilhamento fora do axe |
+| Acessibilidade WCAG 2.1 AA | 🟡 | Auditoria automática com axe (WCAG A e AA) em 25 rotas e estados, em tema claro e escuro, em desktop e celular, mais 23 overlays abertos (diálogos, sheets, menus), e testes dirigidos de teclado, foco preso e devolvido, Escape, skip link, reflow, alvos de toque, movimento reduzido e `aria-live` (`apps/e2e/tests/wcag*.spec.ts`). Antes das correções o axe achou 185 grupos de violação (366 nós), sobretudo `color-contrast`, `button-name`, `label` e `select-name`; todos corrigidos, com 3 exceções documentadas em `ALLOWED_VIOLATIONS`. Impressão (`@media print`) passa pelo axe e as imagens de compartilhamento têm checagem de PNG (`wcag-print.spec.ts`). Pendente só a passada manual com leitor de tela (o axe cobre cerca de um terço dos critérios), que não dá para automatizar |
 
 ## Dívidas técnicas
 
