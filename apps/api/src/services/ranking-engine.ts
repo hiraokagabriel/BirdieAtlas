@@ -9,6 +9,7 @@ import {
 import { isDoublesDiscipline, isGenderCompatible, normalizePair } from '../domain/eligibility.js'
 import { computePlacements } from '../domain/placements.js'
 import { findRule, resolvePoints } from '../domain/points.js'
+import { sortRankingEntries } from '../domain/ranking-order.js'
 
 // ---------------------------------------------------------------------------
 // Motor único de ranking. Toda pontuação sai de `point_rules`; distribuir pontos de um
@@ -143,7 +144,10 @@ export async function recalculateRanking(rankingId: string) {
     }
   }
 
-  const final: { athleteId: string; athlete2Id: string | null; totalPoints: number; tournamentsCount: number; resultsDetail: TournamentResult[] }[] = []
+  const final: {
+    athleteId: string; athlete2Id: string | null; totalPoints: number; tournamentsCount: number
+    resultsDetail: TournamentResult[]; counted: TournamentResult[]
+  }[] = []
 
   for (const entry of acc.values()) {
     const allResults = [...entry.resultsByTournament.values()]
@@ -161,10 +165,12 @@ export async function recalculateRanking(rankingId: string) {
       totalPoints: resultsToCount.reduce((sum, r) => sum + r.points, 0),
       tournamentsCount,
       resultsDetail: [...allResults].sort((a, b) => b.points - a.points),
+      counted: resultsToCount,
     })
   }
 
-  const sorted = final.sort((a, b) => b.totalPoints - a.totalPoints)
+  // Desempate: ver domain/ranking-order.ts.
+  const sorted = sortRankingEntries(final)
 
   if (sorted.length) {
     await db.insert(rankingEntries).values(

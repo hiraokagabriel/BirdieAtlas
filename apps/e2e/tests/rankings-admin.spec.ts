@@ -110,8 +110,13 @@ test.describe('rankings no admin', () => {
     await expect(table).toBeVisible()
     await expect(table.getByRole('row')).toHaveCount(5) // cabeçalho + 4 atletas
 
-    const entries = await api.get<{ data: { position: number }[] }>(`/rankings/${ranking.id}/entries`)
+    const entries = await api.get<{ data: { position: number; athleteId: string }[] }>(`/rankings/${ranking.id}/entries`)
     expect(entries.data).toHaveLength(4)
+    // Os dois semifinalistas eliminados empatam em pontos; o desempate dá posições distintas e estáveis.
+    expect(entries.data.map((e) => e.position)).toEqual([1, 2, 3, 4])
+    await api.post(`/rankings/${ranking.id}/recalculate`)
+    const again = await api.get<{ data: { athleteId: string }[] }>(`/rankings/${ranking.id}/entries`)
+    expect(again.data.map((e) => e.athleteId)).toEqual(entries.data.map((e) => e.athleteId))
 
     await page.getByRole('tab', { name: /^Torneios/ }).click()
     await page.getByRole('button', { name: `Desvincular ${prepared.tournament.name}` }).click()
