@@ -64,6 +64,13 @@
       "when": 1793471834539,
       "tag": "0008_double_elimination",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793484812802,
+      "tag": "0009_tournament_kind",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { Calendar, MapPin } from 'lucide-react'
 import type { TournamentSummary } from '@/lib/home-data'
 import { formatDateRange } from '@/lib/format'
 import { LevelBadge } from './level-badge'
+import { KindBadge } from '@/components/shared/kind-badge'
 import { StatusBadge } from './status-badge'
 
 export function TournamentCard({ tournament: t }: { tournament: TournamentSummary }) {
@@ -15,6 +16,7 @@ export function TournamentCard({ tournament: t }: { tournament: TournamentSummar
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusBadge status={t.status} />
         <LevelBadge level={t.level} />
+        <KindBadge kind={(t as { kind?: string }).kind} />
       </div>
       <p className="font-heading text-xl font-semibold leading-tight">{t.name}</p>
       <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">

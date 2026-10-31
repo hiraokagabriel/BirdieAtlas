@@ -51,6 +51,9 @@ export const tournamentStatusEnum = pgEnum('tournament_status', [
   'in_progress', 'completed', 'cancelled',
 ])
 
+// Oficial pontua nos rankings; amistoso guarda tudo (chaves, resultados, colocação) mas nunca pontua.
+export const tournamentKindEnum = pgEnum('tournament_kind', ['official', 'friendly'])
+
 export const tournamentLevelEnum = pgEnum('tournament_level', [
   'local', 'regional', 'state', 'national', 'international',
 ])
@@ -151,6 +154,7 @@ export const tournaments = pgTable('tournaments', {
   slug: text('slug').notNull(),
   status: tournamentStatusEnum('status').notNull().default('draft'),
   level: tournamentLevelEnum('level').notNull().default('state'),
+  kind: tournamentKindEnum('kind').notNull().default('official'),
   startDate: date('start_date').notNull(),
   endDate: date('end_date').notNull(),
   location: text('location'),

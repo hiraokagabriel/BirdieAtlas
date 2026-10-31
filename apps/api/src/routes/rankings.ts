@@ -116,6 +116,9 @@ export async function rankingsRoutes(app: FastifyInstance) {
     if (!ranking) return reply.status(404).send({ error: 'Ranking not found' })
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found' })
+    if (tournament.kind === 'friendly') {
+      return reply.status(422).send({ error: 'Torneio amistoso não pode ser vinculado a um ranking.', code: 'FRIENDLY_TOURNAMENT' })
+    }
     const existing = await db.select().from(rankingTournaments)
       .where(and(eq(rankingTournaments.rankingId, rankingId), eq(rankingTournaments.tournamentId, tournamentId)))
     if (existing.length) return existing[0]

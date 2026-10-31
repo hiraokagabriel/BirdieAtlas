@@ -199,6 +199,12 @@ Soft delete (`deletedAt`) vale para atletas, clubes, torneios, categorias, inscr
 - Um atleta tem no máximo um clube ativo por vez (`409 ACTIVE_AFFILIATION_EXISTS`). Afiliações são históricas: encerram com `endedAt`.
 - Gênero por disciplina: `MS`/`MD` só masculino, `WS`/`WD` só feminino, `XD` um de cada. A API de inscrição valida a regra (`422 GENDER_INCOMPATIBLE`), a interface filtra os atletas, e `award-points` e o ranking continuam ignorando combinações incompatíveis. A regra mora em `apps/api/src/domain/eligibility.ts`.
 
+### Torneio oficial e amistoso
+
+- `tournaments.kind` (migration `0009`, enum `tournament_kind`): `official` (padrão) ou `friendly`. O amistoso guarda tudo (categorias, formatos de chave, inscrições, resultados, agenda, colocação final no encerramento), mas **nunca pontua**: `award-points` responde `422 FRIENDLY_TOURNAMENT`, o vínculo manual com ranking (`POST /rankings/:id/tournaments/:tournamentId`) também, e o motor de ranking ignora torneios amistosos (inclusive nos rankings `autoInclude`).
+- **Virar oficial depois:** `PUT /tournaments/:id` com `kind: 'official'` (Configurações > Tipo). Se o torneio já está encerrado, basta distribuir os pontos em seguida. **Voltar para amistoso** só é possível se os pontos ainda não foram distribuídos (`409 POINTS_ALREADY_AWARDED`; reabrir o torneio tira os pontos).
+- **Criação pela tela:** botão "Novo torneio" em `/admin/tournaments` (`CreateTournamentDialog`): tipo (oficial ou amistoso), nome, endereço (slug, derivado do nome e editável), nível, datas, cidade, estado e local. Slug repetido: `409 SLUG_TAKEN`. Ao criar, abre o torneio em rascunho para configurar categorias (disciplina, formato de chave e limite de inscrições), inscrições e o resto. O selo "Amistoso" aparece na lista, no cabeçalho e no portal público.
+
 ### Ciclo de vida do torneio
 
 ```
