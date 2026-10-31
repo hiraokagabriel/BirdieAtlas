@@ -133,7 +133,7 @@ test.describe('interface', () => {
     await expect(page.getByText('Rascunho', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Abrir inscrições' }).click()
 
-    await expect(page.getByText('Não foi possível mudar o status')).toBeVisible()
+    await expect(page.getByText('Não foi possível mudar o status', { exact: true })).toBeVisible()
     await expect(page.getByText(DENIED_MESSAGE, { exact: true })).toBeVisible()
     await expect(page.getByText('Rascunho', { exact: true })).toBeVisible()
 
