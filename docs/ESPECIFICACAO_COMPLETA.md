@@ -140,7 +140,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Torneios | `GET/POST /tournaments`, `GET/PUT/DELETE /tournaments/:id`, `GET /tournaments/by-slug/:slug`, `GET /tournaments/:id/public-summary`, `POST /tournaments/:id/transition`, `POST /tournaments/:id/finalize`, `POST /tournaments/:id/reopen` |
 | Categorias | `GET/POST /tournaments/:id/categories` |
 | Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público; inclui `finalPlacement`, preenchida só com o torneio encerrado), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `GET /tournaments/:id/registrations/export.csv` (admin, CSV), `GET /tournaments/:id/results/export.csv` e `GET /tournaments/:id/standings/export.csv` (públicos, CSV), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
-| Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
+| Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `GET /draws/:drawId/standings` (público), `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Agenda automática | `POST /tournaments/:id/schedule/auto` |
 | Placar ao vivo | `GET /tournaments/:id/live` (SSE, público), `GET /tournaments/:id/live/matches` (público), `GET /tournaments/:id/live/queue` (público), `POST /draws/matches/:matchId/live/start`, `.../live/point`, `.../live/undo`, `.../live/finish`, `.../live/cancel` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `GET /rankings/:rankingId/entries/export.csv` (público, CSV), `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
@@ -179,7 +179,7 @@ Tabelas:
 | `tournament_categories` | Categoria de um torneio: disciplina, formato, limite de inscrições, número de cabeças de chave |
 | `tournament_registrations` | Inscrição numa categoria: `athleteId` (simples) XOR `pairId` (duplas, constraint `registrations_athlete_xor_pair`), seed, `status` e `notes`. Índices únicos parciais impedem o mesmo atleta ou dupla duas vezes na categoria (recusadas e excluídas não ocupam a vaga) |
 | `draws` | Chave de uma categoria; `published` bloqueia o ressorteio |
-| `matches` | Partida: `round`, `position`, duas inscrições, `nextMatchId`, status, agenda e quadra |
+| `matches` | Partida: `round`, `position`, duas inscrições, `nextMatchId`, status, agenda, quadra e `round_label` opcional |
 | `match_results` | Um registro por set; só resultado oficial |
 | `match_live_states` | Placar provisório de uma partida em andamento: sequência de pontos (`points`, jsonb de 1 ou 2) e `version`; uma linha por partida (índice único em `match_id`) |
 | `rankings` | Ranking de um tenant por disciplina e ano, com `countBestResults` e `minTournamentsRequired`; slug único por tenant |
@@ -220,11 +220,14 @@ draft → registration_open → registration_closed → in_progress → complete
 
 ### Chaves
 
-- Só eliminação simples está implementada. A chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
+- O formato vem da categoria (`tournament_categories.draw_type`, escolhido ao criar a categoria): `single_elimination` (padrão) ou `round_robin`. Eliminação simples: a chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
 - Modos de sorteio: aleatório e com cabeças de chave (cabeças 1 e 2 em extremos opostos, 3 e 4 sorteadas entre as metades, 5 a 8 entre os quartos).
 - **Rodadas contam até a final:** a rodada de número mais alto é a primeira fase e a rodada 1 é a final. Cada partida aponta para a seguinte por `nextMatchId`; a vencedora da posição `p` ocupa o slot 1 (se `p` for ímpar) ou 2 (se par) da posição `ceil(p/2)` na rodada seguinte. O gerador fica em `apps/api/src/domain/bracket.ts` e é usado pela API e pelo seed.
 - Bye é uma partida da primeira fase com um único inscrito e status `walkover`; o inscrito avança na hora.
 - Chave publicada não pode ser ressorteada (`409 DRAW_PUBLISHED`). Ressortear limpa os resultados em cascata.
+- **Rótulo da fase:** `matches.round_label` (nullable, migration `0005`) guarda o nome da fase quando não é o da eliminação simples. Nulo: o nome sai da rodada ("Final", "Semifinal"...). Todas as telas e rotas que mostram a fase usam `round_label ?? nome pela rodada` (`matchRoundLabel` na API, `matchTitle` no web).
+- **Todos contra todos** (`round_robin`, `domain/round-robin.ts`): método do círculo, cada inscrição aprovada enfrenta todas as outras uma vez; com número ímpar quem folga não gera partida. A convenção de `round` é a mesma da eliminação (maior = jogada antes), para o agendador e a fila ao vivo continuarem funcionando; a 1ª rodada jogada tem o maior número, o texto fica em `round_label` ("Rodada 1"...). Não há `nextMatchId`. Com cabeças de chave, elas ficam nas primeiras posições do círculo. Resultados, agenda, placar ao vivo e relatórios usam as mesmas rotas da eliminação.
+- **Classificação do todos contra todos:** vitórias; empate entre inscrições com as mesmas vitórias: vitórias no confronto entre as empatadas (com duas, o confronto direto), saldo de sets, saldo de pontos, id. `GET /draws/:drawId/standings` (público) devolve `{ rows: [{ position, registrationId, played, wins, losses, setsFor, setsAgainst, pointsFor, pointsAgainst }] }` (vazio em outros formatos). A colocação final é a posição na classificação (`computeDrawPlacements` em `domain/placements.ts`); `finalize`, `award-points` e o ranking usam a mesma função.
 
 ### Resultados
 
@@ -500,7 +503,7 @@ Uma entrega só está pronta quando:
 O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`](../PROGRESS.md).
 
 - **Autenticação (por último):** o projeto roda localmente, em rede local, com o modo admin de desenvolvimento. O Clerk só entra junto com a build que roda online; tudo o que depende de identidade (auditoria de aprovação e de resultados, gestão de usuários e papéis, notificações) espera por ele. Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
-- **Formatos de chave:** eliminação dupla, round robin, grupos + eliminatória e sistema suíço.
+- **Formatos de chave:** eliminação dupla, grupos + eliminatória e sistema suíço.
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora).
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.

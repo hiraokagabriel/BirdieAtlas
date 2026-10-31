@@ -91,7 +91,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Byes como W.O. na primeira fase | ✅ | |
 | Publicação com bloqueio de ressorteio | ✅ | `409 DRAW_PUBLISHED` |
 | Ressorteio com reset em cascata | ✅ | |
-| Eliminação dupla, round robin, grupos + eliminatória, suíço | ❌ | `draw_type` já prevê os três primeiros |
+| Todos contra todos (round robin) | ✅ | Formato por categoria; classificação com desempate, colocação pela classificação, `GET /draws/:drawId/standings` |
+| Eliminação dupla, grupos + eliminatória, suíço | ❌ | |
 
 ## Phase 5 — Partidas
 

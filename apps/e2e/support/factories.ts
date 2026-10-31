@@ -171,11 +171,12 @@ export function transition(tournamentId: string, to: TournamentStatus): Promise<
 
 export function createCategory(
   tournamentId: string,
-  options: { name?: string; discipline?: Discipline } = {},
+  options: { name?: string; discipline?: Discipline; drawType?: 'single_elimination' | 'round_robin' } = {},
 ): Promise<Category> {
   return api.post<Category>(`/tournaments/${tournamentId}/categories`, {
     name: options.name ?? 'Simples Masculino',
     discipline: options.discipline ?? 'MS',
+    ...(options.drawType ? { drawType: options.drawType } : {}),
   })
 }
 
@@ -272,6 +273,7 @@ export async function prepareTournament(
     status?: 'registration_open' | 'registration_closed' | 'in_progress'
     /** Atletas já criados (por exemplo, com nomes acentuados); o padrão cria `athleteCount` atletas. */
     athletes?: Athlete[]
+    drawType?: 'single_elimination' | 'round_robin'
   } = {},
 ): Promise<PreparedTournament> {
   const tournament = await createTournament({
@@ -281,7 +283,7 @@ export async function prepareTournament(
     ...(options.startDate ? { startDate: options.startDate } : {}),
     ...(options.endDate ? { endDate: options.endDate } : {}),
   })
-  const category = await createCategory(tournament.id)
+  const category = await createCategory(tournament.id, options.drawType ? { drawType: options.drawType } : {})
   const athletes = options.athletes ?? (await createAthletes(options.athleteCount ?? 4, { gender: 'M' }))
   const registrations = await registerApproved(category.id, athletes)
   const draw = await generateDraw(category.id, 'random')

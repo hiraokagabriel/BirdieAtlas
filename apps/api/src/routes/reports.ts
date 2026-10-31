@@ -54,7 +54,7 @@ export async function reportsRoutes(app: FastifyInstance) {
             const winnerId = pickWinner(slot, m.registration1Id, m.registration2Id)
             return [
               category.name,
-              roundLabel(m.round),
+              m.roundLabel ?? roundLabel(m.round),
               m.position,
               m.registration1Id ? (sideName.get(m.registration1Id) ?? '') : '',
               m.registration2Id ? (sideName.get(m.registration2Id) ?? '') : '',

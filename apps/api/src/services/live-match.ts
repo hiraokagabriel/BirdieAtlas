@@ -4,7 +4,7 @@ import {
   athletes, draws, matches, matchLiveStates, tournamentCategories, tournamentRegistrations,
 } from '../db/schema.js'
 import { selectRegistrations } from '../db/registrations.js'
-import { roundLabel } from '../domain/schedule.js'
+import { matchRoundLabel } from '../domain/schedule.js'
 import { computeLiveScore, type Side } from '../domain/live-score.js'
 import { LiveBus } from './live-bus.js'
 
@@ -148,7 +148,7 @@ export async function toLiveViews(ex: Reader, contexts: MatchWithContext[]): Pro
       discipline,
       drawId: match.drawId,
       round: match.round,
-      roundLabel: roundLabel(match.round),
+      roundLabel: matchRoundLabel(match),
       position: match.position,
       courtNumber: match.courtNumber,
       scheduledAt: match.scheduledAt ? match.scheduledAt.toISOString() : null,
@@ -203,7 +203,7 @@ export async function listQueue(ex: Reader, tournamentId: string): Promise<Queue
     discipline,
     drawId: match.drawId,
     round: match.round,
-    roundLabel: roundLabel(match.round),
+    roundLabel: matchRoundLabel(match),
     position: match.position,
     courtNumber: match.courtNumber,
     scheduledAt: match.scheduledAt ? match.scheduledAt.toISOString() : null,

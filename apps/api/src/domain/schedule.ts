@@ -94,6 +94,11 @@ export function roundLabel(round: number): string {
   return `Rodada ${round}`
 }
 
+/** Rótulo da partida: o gravado (todos contra todos, grupos...) ou o da eliminação simples pela rodada. */
+export function matchRoundLabel(match: { round: number; roundLabel?: string | null }): string {
+  return match.roundLabel ?? roundLabel(match.round)
+}
+
 export interface DayWindowMinutes {
   startMin: number
   endMin: number

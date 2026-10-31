@@ -19,7 +19,7 @@ const statusLabel: Record<string, { label: string; dot: string }> = {
 
 type Category = { id: string; name: string; discipline: string }
 type Match = {
-  id: string; drawId: string; round: number; position: number; status: string
+  id: string; drawId: string; round: number; roundLabel?: string | null; position: number; status: string
   registration1Id: string | null; registration2Id: string | null
   scheduledAt: string | null; courtNumber: number | null; nextMatchId: string | null
 }
@@ -169,7 +169,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                       <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${disciplineColor}`}>
                         {match.category.name}
                       </span>
-                      <p className="text-xs text-muted-foreground">{getRoundLabel(match.round)}</p>
+                      <p className="text-xs text-muted-foreground">{match.roundLabel ?? getRoundLabel(match.round)}</p>
                     </div>
 
                     <div className="flex-1 min-w-0">

@@ -12,6 +12,8 @@ export type MatchDef = {
   registration2Id: string | null
   nextMatchId: string | null
   status: 'pending' | 'walkover'
+  /** Rótulo da fase quando não é o padrão de eliminação simples (ver roundLabel em schedule.ts). */
+  roundLabel?: string | null
 }
 
 export function getSlotForPosition(position: number): 'registration1Id' | 'registration2Id' {

@@ -7,7 +7,7 @@ import {
   tournamentCategories, tournamentRegistrations, tournaments,
 } from '../db/schema.js'
 import { isDoublesDiscipline, isGenderCompatible, normalizePair } from '../domain/eligibility.js'
-import { computePlacements } from '../domain/placements.js'
+import { computeDrawPlacements } from '../domain/placements.js'
 import { findRule, resolvePoints } from '../domain/points.js'
 import { sortRankingEntries } from '../domain/ranking-order.js'
 
@@ -98,7 +98,7 @@ export async function recalculateRanking(rankingId: string) {
         if (match.registration1Id === null && match.registration2Id === null) continue
         setsByMatchId.set(match.id, await db.select().from(matchResults).where(eq(matchResults.matchId, match.id)))
       }
-      const placementByReg = computePlacements(allMatches, setsByMatchId)
+      const placementByReg = computeDrawPlacements(category.drawType, allMatches, setsByMatchId)
 
       const regIds = [...placementByReg.keys()]
       if (!regIds.length) continue

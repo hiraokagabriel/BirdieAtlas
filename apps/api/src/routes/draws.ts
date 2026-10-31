@@ -4,7 +4,8 @@ import { draws, matches, matchLiveStates, matchResults, tournamentCategories, to
 import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
-import { buildMatchDefs, buildSlots } from '../domain/bracket.js'
+import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
+import { buildRoundRobinMatchDefs, computeRoundRobinStandings } from '../domain/round-robin.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { saveMatchResult } from '../services/match-result.js'
@@ -19,6 +20,24 @@ const scheduleMatchSchema = z.object({
   scheduledAt: z.string().nullable(),
   courtNumber: z.number().nullable(),
 })
+
+/** Monta as partidas conforme o formato da categoria (eliminação simples ou todos contra todos). */
+async function buildCategoryMatchDefs(
+  drawId: string,
+  categoryId: string,
+  confirmed: { id: string; seed: number | null }[],
+  mode: 'random' | 'seeded',
+): Promise<MatchDef[]> {
+  const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
+  if (category?.drawType === 'round_robin') {
+    // Ordem de saída do círculo: sorteada; com cabeças de chave, elas ficam nas primeiras posições (por ordem).
+    const ordered = mode === 'seeded'
+      ? [...confirmed].sort((a, b) => (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER))
+      : [...confirmed].sort(() => Math.random() - 0.5)
+    return buildRoundRobinMatchDefs(drawId, ordered.map((r) => r.id))
+  }
+  return buildMatchDefs(drawId, buildSlots(confirmed, mode))
+}
 
 const generateDrawSchema = z.object({
   mode: z.enum(['random', 'seeded']).default('seeded'),
@@ -37,9 +56,8 @@ export async function drawsRoutes(app: FastifyInstance) {
     const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, categoryId), eq(tournamentRegistrations.status, 'approved')))
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
-    const slots      = buildSlots(confirmed, mode)
     const [draw]     = await db.insert(draws).values({ id: randomUUID(), categoryId, drawMode: mode }).returning()
-    const matchDefs  = buildMatchDefs(draw.id, slots)
+    const matchDefs  = await buildCategoryMatchDefs(draw.id, categoryId, confirmed, mode)
 
     await db.insert(matches).values(matchDefs)
     return reply.status(201).send({ draw, matchCount: matchDefs.length, mode })
@@ -64,8 +82,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, draw.categoryId), eq(tournamentRegistrations.status, 'approved')))
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
-    const slots     = buildSlots(confirmed, mode)
-    const matchDefs = buildMatchDefs(drawId, slots)
+    const matchDefs = await buildCategoryMatchDefs(drawId, draw.categoryId, confirmed, mode)
 
     // Apagar a chave antiga e gravar a nova é uma operação só: ou troca inteira, ou nada.
     let liveMatchIds: string[] = []
@@ -99,6 +116,8 @@ export async function drawsRoutes(app: FastifyInstance) {
   app.post('/draws/:drawId/migrate-next-match-id', async (request) => {
     const { drawId } = request.params as { drawId: string }
     const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    // Só vale para chaves de eliminação simples: outros formatos (round_label gravado) não encadeiam partidas.
+    if (allMatches.some((m) => m.roundLabel !== null)) return { updated: 0, total: allMatches.length }
     let updated = 0
     for (const match of allMatches) {
       if (match.round === 1) continue
@@ -109,6 +128,25 @@ export async function drawsRoutes(app: FastifyInstance) {
       }
     }
     return { updated, total: allMatches.length }
+  })
+
+  // Classificação do todos contra todos (público). Em outros formatos devolve lista vazia.
+  app.get('/draws/:drawId/standings', async (request, reply) => {
+    const { drawId } = request.params as { drawId: string }
+    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
+    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
+    const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
+    if (category?.drawType !== 'round_robin') return { rows: [] }
+
+    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const setRows = drawMatches.length
+      ? await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+      : []
+    const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
+    for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
+    const regIds = [...new Set(drawMatches.flatMap((m) => [m.registration1Id, m.registration2Id]).filter((v): v is string => v !== null))]
+    const rows = computeRoundRobinStandings(regIds, drawMatches, setsByMatchId).map((row, i) => ({ position: i + 1, ...row }))
+    return { rows }
   })
 
   app.get('/draws/:drawId/matches', async (request) => {

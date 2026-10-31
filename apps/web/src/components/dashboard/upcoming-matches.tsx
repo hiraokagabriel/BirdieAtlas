@@ -13,6 +13,7 @@ type UpcomingMatch = {
   categoryName: string
   discipline: string
   round: number
+  roundLabel?: string | null
   player1: string
   player2: string
   scheduledAt: string | null
@@ -66,7 +67,7 @@ export function UpcomingMatches() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${DISCIPLINE_PILL[match.discipline]}`}>
                       {match.discipline}
                     </span>
-                    <span className="text-xs text-muted-foreground">{roundLabel(match.round)}</span>
+                    <span className="text-xs text-muted-foreground">{match.roundLabel ?? roundLabel(match.round)}</span>
                   </div>
                   <Badge className={status.className} variant="secondary">
                     {match.status === 'in_progress' && <span aria-hidden="true" className="size-1.5 rounded-full bg-background motion-safe:animate-pulse" />}

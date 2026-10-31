@@ -1,3 +1,5 @@
+import { computeRoundRobinPlacements } from './round-robin.js'
+
 // Colocação final de uma chave, derivada das partidas. Regra única: o motor de ranking e o
 // encerramento do torneio usam esta função.
 
@@ -65,4 +67,16 @@ export function computePlacements(
   }
 
   return placementByReg
+}
+
+export type DrawFormat = 'single_elimination' | 'round_robin' | 'group_then_elimination'
+
+/** Colocação conforme o formato da categoria. Eliminação: pela rodada de saída; todos contra todos: pela classificação. */
+export function computeDrawPlacements(
+  format: DrawFormat,
+  matches: PlacementMatch[],
+  setsByMatchId: Map<string, PlacementSet[]>,
+): Map<string, number> {
+  if (format === 'round_robin') return computeRoundRobinPlacements(matches, setsByMatchId)
+  return computePlacements(matches, setsByMatchId)
 }

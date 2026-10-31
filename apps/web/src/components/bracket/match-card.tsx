@@ -148,7 +148,7 @@ export function MatchCard({ match, title, maxRound, entries, sets, onSelect, lin
   const liveScore = live ? formatLiveScore(live) : ''
   const label = live ? `${baseLabel}, ao vivo${liveScore ? `, placar ${liveScore}` : ''}` : baseLabel
   const actionable = !!onSelect && !bye && slot1.kind === 'athlete' && slot2.kind === 'athlete'
-  const isFinal = match.round === 1
+  const isFinal = match.round === 1 && !match.roundLabel
 
   // Ao vivo: sets encerrados do placar provisório e, por último, o set em disputa.
   const rows = live
