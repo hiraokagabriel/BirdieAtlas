@@ -143,7 +143,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 | Torneios | `GET/POST /tournaments`, `GET/PUT/DELETE /tournaments/:id`, `GET /tournaments/by-slug/:slug`, `GET /tournaments/:id/public-summary`, `POST /tournaments/:id/transition`, `POST /tournaments/:id/finalize`, `POST /tournaments/:id/reopen` |
 | Categorias | `GET/POST /tournaments/:id/categories` |
 | Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público; inclui `finalPlacement`, preenchida só com o torneio encerrado), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `GET /tournaments/:id/registrations/export.csv` (admin, CSV), `GET /tournaments/:id/results/export.csv` e `GET /tournaments/:id/standings/export.csv` (públicos, CSV), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
-| Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `GET /draws/:drawId/standings` (público), `POST /draws/:drawId/knockout`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
+| Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `GET /draws/:drawId/standings` (público), `POST /draws/:drawId/knockout`, `POST /draws/:drawId/swiss/next-round`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Agenda automática | `POST /tournaments/:id/schedule/auto` |
 | Placar ao vivo | `GET /tournaments/:id/live` (SSE, público), `GET /tournaments/:id/live/matches` (público), `GET /tournaments/:id/live/queue` (público), `POST /draws/matches/:matchId/live/start`, `.../live/point`, `.../live/undo`, `.../live/finish`, `.../live/cancel` |
 | Pontos e rankings | `POST /tournaments/:tournamentId/award-points`, `GET/POST /rankings`, `GET/PUT/DELETE /rankings/:rankingId`, `GET /rankings/:rankingId/entries`, `GET /rankings/:rankingId/entries/export.csv` (público, CSV), `POST /rankings/:rankingId/recalculate`, `GET /rankings/:rankingId/tournaments`, `POST/DELETE /rankings/:rankingId/tournaments/:tournamentId`, `GET/POST /rankings/:rankingId/point-rules`, `POST /rankings/:rankingId/point-rules/bulk`, `PUT/DELETE /rankings/:rankingId/point-rules/:ruleId` |
@@ -223,7 +223,7 @@ draft → registration_open → registration_closed → in_progress → complete
 
 ### Chaves
 
-- O formato vem da categoria (`tournament_categories.draw_type`, escolhido ao criar a categoria): `single_elimination` (padrão), `round_robin` ou `group_then_elimination`. Eliminação simples: a chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
+- O formato vem da categoria (`tournament_categories.draw_type`, escolhido ao criar a categoria): `single_elimination` (padrão), `round_robin`, `group_then_elimination` ou `swiss`. Eliminação simples: a chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
 - Modos de sorteio: aleatório e com cabeças de chave (cabeças 1 e 2 em extremos opostos, 3 e 4 sorteadas entre as metades, 5 a 8 entre os quartos).
 - **Rodadas contam até a final:** a rodada de número mais alto é a primeira fase e a rodada 1 é a final. Cada partida aponta para a seguinte por `nextMatchId`; a vencedora da posição `p` ocupa o slot 1 (se `p` for ímpar) ou 2 (se par) da posição `ceil(p/2)` na rodada seguinte. O gerador fica em `apps/api/src/domain/bracket.ts` e é usado pela API e pelo seed.
 - Bye é uma partida da primeira fase com um único inscrito e status `walkover`; o inscrito avança na hora.
@@ -238,6 +238,14 @@ draft → registration_open → registration_closed → in_progress → complete
   - **Encerrar e pontuar** exigem a eliminatória criada e jogada (`isDrawFinished`); sem ela, `finalize` responde `INCOMPLETE_DRAWS` com "eliminatória ainda não gerada".
   - **Colocação:** a eliminatória decide como na eliminação simples (1º, 2º, 3º, 5º, 9º...); quem caiu nos grupos fica em `bracketSize + 1`, empatado (como quem perde a primeira fase de uma chave desse tamanho).
   - `GET /draws/:drawId/standings` devolve `{ rows, groups }`: `groups` = `[{ key, rows }]` com a classificação de cada grupo (mesmos critérios do todos contra todos).
+- **Suíço** (`swiss`, `domain/swiss.ts`, migration `0007` adiciona o valor ao enum `draw_type`): todos jogam o mesmo número de rodadas, geradas **uma a uma**.
+  - **Configuração:** `swissRounds` em `POST /draws/generate/:categoryId` e `POST /draws/:drawId/redraw` (padrão ⌈log₂ inscritos⌉; mínimo 1; máximo inscritos − 1; pelo menos 3 inscritos). Inválido: `422 INVALID_SWISS_CONFIG`. Guardado em `draws.config` (`{ rounds }`).
+  - **Rodada 1:** cabeças de chave contra a outra metade da lista (`seeded`) ou sorteio. As demais saem de `POST /draws/:drawId/swiss/next-round` (admin), só depois que a atual termina (`409 ROUND_NOT_FINISHED`; `409 SWISS_ROUNDS_COMPLETE` quando todas existem). Pareamento pela classificação, unindo os mais próximos e sem repetir adversário (com retrocesso); se não houver pareamento limpo, aceita o mínimo de repetições (`rematches` na resposta).
+  - **Folga (bye):** com número ímpar, a pessoa pior colocada que ainda não folgou. A folga é uma partida de um lado só, já `walkover`, e conta como vitória. Ninguém folga duas vezes enquanto houver quem ainda não folgou.
+  - **Rodadas:** `round = total - k + 1` (a rodada jogada 1 tem o maior número, como nas outras chaves); rótulo "Rodada k"; `stage = 'swiss'`.
+  - **Classificação:** vitórias; depois Buchholz (soma das vitórias dos adversários), saldo de sets, saldo de pontos, id. `GET /draws/:drawId/standings` devolve `rows` (com `buchholz` e `byes`) e `rounds: { generated, total }`. A colocação final é a posição na classificação.
+  - **Trava:** com a rodada seguinte gerada, o resultado de rodadas anteriores não muda (`409 ROUND_LOCKED`); refazer a chave apaga tudo.
+  - **Encerrar e pontuar** exigem todas as rodadas geradas e jogadas.
 - **Classificação do todos contra todos:** vitórias; empate entre inscrições com as mesmas vitórias: vitórias no confronto entre as empatadas (com duas, o confronto direto), saldo de sets, saldo de pontos, id. `GET /draws/:drawId/standings` (público) devolve `{ rows: [{ position, registrationId, played, wins, losses, setsFor, setsAgainst, pointsFor, pointsAgainst }] }` (vazio em outros formatos). A colocação final é a posição na classificação (`computeDrawPlacements` em `domain/placements.ts`); `finalize`, `award-points` e o ranking usam a mesma função.
 
 ### Resultados
@@ -530,7 +538,7 @@ Uma entrega só está pronta quando:
 O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`](../PROGRESS.md).
 
 - **Autenticação (por último):** o projeto roda localmente, em rede local, com o modo admin de desenvolvimento. O Clerk só entra junto com a build que roda online; tudo o que depende de identidade (auditoria de aprovação e de resultados, gestão de usuários e papéis, notificações) espera por ele. Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
-- **Formatos de chave:** eliminação dupla e sistema suíço.
+- **Formatos de chave:** eliminação dupla.
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora).
 - **Admin:** relatórios exportáveis além dos CSVs atuais (inscritos, ranking, resultados, classificação, atletas), notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.

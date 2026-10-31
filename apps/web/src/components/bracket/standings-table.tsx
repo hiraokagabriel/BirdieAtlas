@@ -10,6 +10,8 @@ export type StandingRow = {
   setsAgainst: number
   pointsFor: number
   pointsAgainst: number
+  /** Só no suíço. */
+  buchholz?: number
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n))
@@ -28,6 +30,7 @@ export function StandingsTable({
   /** Quantas primeiras posições destacar (classificados do grupo). */
   highlightTop?: number
 }) {
+  const showBuchholz = rows.some((r) => r.buchholz !== undefined)
   return (
     <div tabIndex={0} role="region" aria-label={label} className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
@@ -41,6 +44,7 @@ export function StandingsTable({
             <th scope="col" className="px-3 py-2 text-right">J</th>
             <th scope="col" className="px-3 py-2 text-right">V</th>
             <th scope="col" className="px-3 py-2 text-right">D</th>
+            {showBuchholz && <th scope="col" className="px-3 py-2 text-right">Buchholz</th>}
             <th scope="col" className="px-3 py-2 text-right">Sets</th>
             <th scope="col" className="px-3 py-2 text-right">Pontos</th>
           </tr>
@@ -56,6 +60,7 @@ export function StandingsTable({
               <td className="px-3 py-2 text-right tabular-nums">{row.played}</td>
               <td className="px-3 py-2 text-right tabular-nums">{row.wins}</td>
               <td className="px-3 py-2 text-right tabular-nums">{row.losses}</td>
+              {showBuchholz && <td className="px-3 py-2 text-right tabular-nums">{row.buchholz ?? 0}</td>}
               <td className="px-3 py-2 text-right tabular-nums">{signed(row.setsFor - row.setsAgainst)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{signed(row.pointsFor - row.pointsAgainst)}</td>
             </tr>

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, lt } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
   draws, matches, matchLiveStates, matchResults, tournamentCategories, tournaments,
@@ -78,6 +78,15 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
       .where(and(eq(matches.drawId, match.drawId), eq(matches.stage, 'knockout'))).limit(1)
     if (knockout) {
       return { ok: false, status: 409, error: 'A eliminatória já foi gerada. Refaça a chave para alterar resultados dos grupos.', code: 'GROUPS_LOCKED' }
+    }
+  }
+
+  // Suíço: depois que a rodada seguinte existe, mudar uma anterior desmancharia os pareamentos.
+  if (match.stage === 'swiss') {
+    const [later] = await ex.select({ id: matches.id }).from(matches)
+      .where(and(eq(matches.drawId, match.drawId), lt(matches.round, match.round))).limit(1)
+    if (later) {
+      return { ok: false, status: 409, error: 'A próxima rodada já foi gerada. Refaça a chave para alterar resultados de rodadas anteriores.', code: 'ROUND_LOCKED' }
     }
   }
 

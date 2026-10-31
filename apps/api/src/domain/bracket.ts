@@ -16,7 +16,7 @@ export type MatchDef = {
   roundLabel?: string | null
   /** Grupos + eliminatória: letra do grupo e fase da partida. */
   groupKey?: string | null
-  stage?: 'group' | 'knockout' | null
+  stage?: 'group' | 'knockout' | 'swiss' | null
 }
 
 export function getSlotForPosition(position: number): 'registration1Id' | 'registration2Id' {

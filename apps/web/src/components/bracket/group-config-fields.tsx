@@ -77,3 +77,34 @@ export function GroupConfigFields({ value, onChange }: { value: GroupConfigForm;
     </fieldset>
   )
 }
+
+/** Suíço: número de rodadas (vazio = ⌈log₂ inscritos⌉). */
+export function SwissConfigFields({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  return (
+    <fieldset className="w-full space-y-3 rounded-xl border border-border p-4">
+      <legend className="px-1 text-sm font-semibold">Suíço</legend>
+      <p className="text-xs text-muted-foreground">
+        Deixe em branco para o padrão: ⌈log₂ do número de inscritos⌉ rodadas. Cada rodada é gerada depois que a anterior termina.
+      </p>
+      <Field label="Número de rodadas" muted>
+        {(props) => (
+          <input
+            {...props}
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="automático"
+            className={FIELD_CONTROL_CLASS}
+          />
+        )}
+      </Field>
+    </fieldset>
+  )
+}
+
+export function swissConfigBody(rounds: string): Record<string, number> {
+  const n = Number(rounds)
+  return rounds.trim() && Number.isInteger(n) ? { swissRounds: n } : {}
+}

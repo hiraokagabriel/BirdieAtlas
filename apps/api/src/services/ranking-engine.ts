@@ -92,7 +92,7 @@ export async function recalculateRanking(rankingId: string) {
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0]!.id))
 
-      if (allMatches.some(isPendingMatch) || !isDrawFinished(category.drawType, allMatches)) continue
+      if (allMatches.some(isPendingMatch) || !isDrawFinished(category.drawType, allMatches, drawList[0]!.config)) continue
 
       const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
       for (const match of allMatches) {
@@ -240,7 +240,9 @@ export async function awardTournamentPoints(tournament: TournamentRow): Promise<
     const pending = drawMatches.filter(isPendingMatch).length
     if (!drawMatches.length) unfinished.push(`${category.name}: chave vazia`)
     else if (pending > 0) unfinished.push(`${category.name}: ${pending} partida(s) pendente(s)`)
-    else if (!isDrawFinished(category.drawType, drawMatches)) unfinished.push(`${category.name}: eliminatória ainda não gerada`)
+    else if (!isDrawFinished(category.drawType, drawMatches, draw.config)) {
+      unfinished.push(`${category.name}: ${category.drawType === 'swiss' ? 'faltam rodadas do suíço' : 'eliminatória ainda não gerada'}`)
+    }
   }
   if (!categories.length || unfinished.length) {
     return {

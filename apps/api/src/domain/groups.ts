@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from './bracket.js'
+import { swissProgress } from './swiss.js'
 import { computePlacements, type PlacementMatch, type PlacementSet } from './placements.js'
 import { buildRoundRobinMatchDefs, computeRoundRobinStandings, type RoundRobinRow } from './round-robin.js'
 
@@ -224,11 +225,18 @@ function isPending(m: { status: string; registration1Id: string | null; registra
 /** A chave está pronta para encerrar? Grupos + eliminatória exige a eliminatória criada e toda jogada. */
 export function isDrawFinished(
   format: string,
-  matches: readonly { status: string; stage?: string | null; registration1Id: string | null; registration2Id: string | null }[],
+  matches: readonly { status: string; round?: number; stage?: string | null; registration1Id: string | null; registration2Id: string | null }[],
+  config?: unknown,
 ): boolean {
   if (matches.length === 0) return false
   if (matches.some(isPending)) return false
   if (format === 'group_then_elimination') return matches.some((m) => m.stage === 'knockout')
+  if (format === 'swiss') {
+    // Suíço: todas as rodadas configuradas precisam ter sido geradas (e jogadas).
+    const total = (config as { rounds?: number } | null | undefined)?.rounds
+    if (!total) return false
+    return swissProgress(matches.map((m) => ({ round: m.round ?? 0 })), total).generated >= total
+  }
   return true
 }
 

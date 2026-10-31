@@ -6,6 +6,7 @@ import type { LiveMatch } from '@/lib/live'
 import { BracketTree } from './bracket-tree'
 import { RoundRobinDraw } from './round-robin-draw'
 import { GroupKnockoutDraw } from './group-knockout-draw'
+import { SwissDraw } from './swiss-draw'
 import { MatchResultDialog } from './match-result-dialog'
 
 type Category = { id: string; name: string; discipline: string }
@@ -22,6 +23,8 @@ type Props = {
   advancePerGroup?: number
   /** Admin: chamado depois de gerar a eliminatória. */
   onKnockoutGenerated?: () => void
+  /** Admin (suíço): chamado depois de gerar a próxima rodada. */
+  onRoundGenerated?: () => void
   /** Público: sem diálogo de resultado, com links para o perfil dos atletas. */
   readonly?: boolean
   /** Placar ao vivo por id da partida (público). */
@@ -29,7 +32,7 @@ type Props = {
 }
 
 /** Chave de uma categoria. No admin abre o diálogo de resultado; no público é só leitura. */
-export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, advancePerGroup, onKnockoutGenerated, readonly = false, live }: Props) {
+export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, advancePerGroup, onKnockoutGenerated, onRoundGenerated, readonly = false, live }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null)
 
   const entries = indexEntries(registrations)
@@ -37,7 +40,19 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
 
   return (
     <>
-      {drawType === 'group_then_elimination' ? (
+      {drawType === 'swiss' ? (
+        <SwissDraw
+          drawId={drawId}
+          matches={matches}
+          entries={registrations}
+          results={results}
+          categoryName={activeCategory?.name}
+          onSelectMatch={readonly ? undefined : setSelectedMatch}
+          linkAthletes={readonly}
+          live={live}
+          onRoundGenerated={readonly ? undefined : onRoundGenerated}
+        />
+      ) : drawType === 'group_then_elimination' ? (
         <GroupKnockoutDraw
           drawId={drawId}
           matches={matches}
