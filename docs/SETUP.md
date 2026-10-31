@@ -34,7 +34,7 @@ Confira cada uma e instale só o que faltar.
 | Node.js | `node --version` | ver abaixo |
 | Docker | `docker --version` e `docker compose version` | **pergunte antes:** `winget install --id Docker.DockerDesktop -e --accept-package-agreements --accept-source-agreements` |
 
-**Node.js:** use a mesma versão maior do CI (`node-version` em `.github/workflows/ci.yml`). Se a instalada for diferente, instale a certa com `winget install --id OpenJS.NodeJS.<versão> -e` (ex.: `OpenJS.NodeJS.20`) ou, se o usuário usa `nvm`/`fnm`, por eles.
+**Node.js:** o requisito é o Node 20 (a versão maior do CI, `node-version` em `.github/workflows/ci.yml`). Versões mais novas costumam funcionar, mas o CI roda no 20: prefira o 20, e use o 20 para reproduzir uma falha do CI. Se a instalada for diferente, instale a certa com `winget install --id OpenJS.NodeJS.<versão> -e` (ex.: `OpenJS.NodeJS.20`) ou, se o usuário usa `nvm`/`fnm`, por eles.
 
 **Docker Desktop** exige WSL 2 e costuma pedir reinício. Depois de instalar: peça ao usuário para abrir o Docker Desktop, aceitar os termos e reiniciar se for pedido; espere `docker info` responder sem erro antes de seguir.
 
@@ -91,7 +91,7 @@ Confira que `apps/api/.env` tem `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=t
 
 ## 6. Banco de dados
 
-1. Confira se a porta 5432 está livre (`netstat -ano | findstr :5432` no Windows; `lsof -i :5432` no macOS/Linux). Ocupada por outro Postgres: **pare e pergunte**.
+1. Confira se a porta 5432 está livre (`netstat -ano | findstr :5432` no Windows; `lsof -i :5432` no macOS/Linux). Ocupada por outro Postgres: **pare e pergunte** (nunca pare o Postgres que já está lá). Se o usuário preferir manter o outro Postgres, use o Docker na 5433, ver "Porta 5432 ocupada" abaixo.
 2. Suba o container e espere ficar pronto:
 
 ```bash
@@ -100,6 +100,22 @@ docker compose exec postgres pg_isready -U postgres
 ```
 
 Repita o `pg_isready` a cada poucos segundos (até ~60 s) até responder `accepting connections`.
+
+**Porta 5432 ocupada (outro Postgres nativo).** Com o aval do usuário, publique o container na 5433 sem mexer no `docker-compose.yml` versionado:
+
+1. Crie `docker-compose.override.yml` na raiz:
+
+   ```yaml
+   services:
+     postgres:
+       ports: !override
+         - "5433:5432"
+   ```
+
+   O `!override` é necessário: sem ele o Compose soma as portas e a 5432 continua pedida.
+2. Liste o arquivo em `.git/info/exclude` (`docker-compose.override.yml`), para ele não entrar em commit.
+3. Em `apps/api/.env`, aponte `DATABASE_URL` para a 5433: `postgresql://postgres:postgres@127.0.0.1:5433/birdie_atlas`.
+4. `docker compose up -d` e `pg_isready` como acima. Para o E2E, ver o passo 9.
 
 ## 7. Dependências e build inicial
 
@@ -143,6 +159,8 @@ Se o banco local já existia com dados velhos ou migrations divergentes, use `pn
    pnpm e2e
    ```
 
+   Postgres fora da 5432 (caso da 5433 acima): copie `apps/e2e/.env.example` para `apps/e2e/.env` (ignorado pelo Git). O E2E lê esse arquivo e usa o `E2E_DATABASE_URL` dele, sem precisar exportar a variável; uma variável já exportada tem prioridade. O nome do banco precisa continuar com "e2e". Exige Node 20.12 ou mais novo.
+
    Linux: se o Chromium reclamar de bibliotecas, use `pnpm --filter @birdie-atlas/e2e exec playwright install --with-deps chromium`.
 
 ## 10. Claude Code e relatório
@@ -156,7 +174,7 @@ O projeto traz o próprio ferramental do Claude Code; nada disso é instalado à
 Requisitos de plugins específicos:
 
 - **`security-guidance`** precisa de Python 3.8+ no `PATH` (`python --version` ou `py -3 --version`). Faltando no Windows: `winget install --id Python.Python.3.12 -e --accept-package-agreements --accept-source-agreements`. Só os avisos por padrão (regex, sem custo) ficam ligados: as revisões por LLM (fim de turno, commit e push) estão desligadas pelo projeto com `ENABLE_CODE_SECURITY_REVIEW=0` em `.claude/settings.json`, e com elas o plugin também não instala o Agent SDK. Para religar quando o projeto for para a internet, apague essa variável do `env` do `settings.json`.
-- **`context7`** conecta a um servidor MCP remoto e pode pedir autenticação no primeiro uso: o usuário faz pelo navegador.
+- **`context7`** conecta a um servidor MCP remoto e exige autenticação no primeiro uso: o usuário faz pelo navegador (o agente só chama `authenticate` e entrega o link; quem conclui é o usuário).
 - **`playwright-cli`** não precisa de instalação: vem com o `@playwright/test` de `apps/e2e`. Confira com `pnpm --filter @birdie-atlas/e2e exec playwright cli --version` (deve mostrar a versão do `@playwright/test`).
 - **`typescript-lsp`** precisa do servidor de linguagem global. Confira com `typescript-language-server --version`; faltando: `npm install -g typescript-language-server typescript`.
 
