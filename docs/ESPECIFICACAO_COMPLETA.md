@@ -345,6 +345,7 @@ Um comentário `: heartbeat` sai a cada 15 s. Ao desconectar (`close` da requisi
 - `POST /tournaments/:id/reopen` desfaz os vínculos e recalcula todo ranking que contava o torneio (por vínculo ou `autoInclude`), então os pontos dos outros torneios permanecem.
 - O recálculo do ranking resolve os pontos pela regra mais específica (nível + disciplina), depois a genérica (só nível). Sem regra para o nível, a colocação vale 0 pontos.
 - `countBestResults` limita a soma aos melhores resultados; `minTournamentsRequired` exclui quem jogou menos torneios.
+- **Desempate** (`domain/ranking-order.ts`, `sortRankingEntries`), nesta ordem: mais pontos; mais títulos (1º lugar) entre os resultados que contam; mais 2º lugares; mais 3º lugares; maior pontuação individual num torneio; menos torneios jogados; id do atleta (só para estabilidade). Não há posições empatadas: cada atleta ou dupla ocupa uma posição própria. Os resultados considerados são os que entram na soma (depois do corte de `countBestResults`).
 
 ## Compartilhamento e exportações
 
@@ -501,7 +502,7 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Autenticação (por último):** o projeto roda localmente, em rede local, com o modo admin de desenvolvimento. O Clerk só entra junto com a build que roda online; tudo o que depende de identidade (auditoria de aprovação e de resultados, gestão de usuários e papéis, notificações) espera por ele. Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
 - **Formatos de chave:** eliminação dupla, round robin, grupos + eliminatória e sistema suíço.
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
-- **Ranking:** cache (Redis, TTL de 1 hora), critérios de desempate.
+- **Ranking:** cache (Redis, TTL de 1 hora).
 - **Portal público:** estatísticas e histórico de atletas, head-to-head.
 - **Admin:** relatórios exportáveis além dos CSVs atuais (inscritos, ranking, resultados, classificação, atletas), notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.

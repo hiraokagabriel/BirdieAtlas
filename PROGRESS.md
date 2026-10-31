@@ -80,7 +80,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Telas de ranking e regras de pontos | ✅ | `/admin/rankings` |
 | Página pública de rankings (`/r/[tenantSlug]`) | ✅ | |
 | Remoção de `pointsTables` | ✅ | Linhas convertidas em regras genéricas pela migration; tabela, rotas e telas removidas |
-| Critérios de desempate | ❌ | |
+| Critérios de desempate | ✅ | Pontos, títulos, 2º, 3º, melhor resultado, menos torneios, id (`domain/ranking-order.ts`, com testes); posições sempre distintas |
 | Cache Redis (TTL 1h) | ❌ | |
 
 ## Phase 4 — Chaves
