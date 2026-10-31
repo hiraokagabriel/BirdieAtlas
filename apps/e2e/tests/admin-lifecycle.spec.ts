@@ -261,9 +261,10 @@ test.describe('encerramento com chaves incompletas', () => {
     await registerApproved(c.id, a)
     await api.post(`/draws/generate/${c.id}`, { mode: 'random' })
 
-    const result = await apiCall<{ error: string; incomplete?: string[] }>('POST', `/tournaments/${t.id}/finalize`)
+    const result = await apiCall<{ error: string; code?: string; details?: { incomplete?: string[] } }>('POST', `/tournaments/${t.id}/finalize`)
     expect(result.status).toBe(400)
-    expect(result.body.incomplete?.[0]).toContain('partida(s) pendente(s)')
+    expect(result.body.code).toBe('INCOMPLETE_DRAWS')
+    expect(result.body.details?.incomplete?.[0]).toContain('partida(s) pendente(s)')
   })
 
   test('o modal de encerramento explica o que falta', async ({ page }) => {
@@ -276,7 +277,9 @@ test.describe('encerramento com chaves incompletas', () => {
     await page.goto(`/admin/tournaments/${t.id}`)
     await page.getByRole('button', { name: 'Encerrar campeonato' }).click()
     await page.getByRole('button', { name: 'Confirmar encerramento' }).click()
-    // A mensagem da API precisa chegar à pessoa (hoje o modal lê `error` de um ApiError, que só tem `message`).
-    await expect(page.getByText('Nao e possivel encerrar: existem chaves incompletas.')).toBeVisible()
+    // A mensagem e a lista de pendências (`details.incomplete`) precisam chegar à pessoa.
+    const alert = page.getByRole('alert')
+    await expect(alert.getByText('Não é possível encerrar: existem chaves incompletas.')).toBeVisible()
+    await expect(alert.getByRole('listitem').first()).toContainText('partida(s) pendente(s)')
   })
 })

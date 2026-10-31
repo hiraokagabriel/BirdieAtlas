@@ -205,7 +205,7 @@ draft → registration_open → registration_closed → in_progress → complete
 - `cancelled` pode ser alcançado de qualquer estado antes de `completed`.
 - A tabela de transições é única, em `packages/validators/src/tournament.ts`, usada pela API e pelo web. O status só muda pelo ciclo de vida, nunca por edição direta.
 - `POST /tournaments/:id/transition { to }` faz as transições simples, com compare-and-set no status (`409 TOURNAMENT_STATUS_CHANGED` em corrida).
-- Encerrar é `POST /finalize` (exige `in_progress` e gera o pódio). Reabrir é `POST /reopen` (`completed → in_progress`, reverte os pontos). A rota de transição responde `409 USE_DEDICATED_ENDPOINT` para esses dois casos.
+- Encerrar é `POST /finalize` (exige `in_progress` e gera o pódio). Com chaves incompletas responde `400 INCOMPLETE_DRAWS` com `details: { incomplete: string[] }` (uma linha por categoria pendente); sem categorias, `400 NO_CATEGORIES`. Reabrir é `POST /reopen` (`completed → in_progress`, reverte os pontos). A rota de transição responde `409 USE_DEDICATED_ENDPOINT` para esses dois casos.
 - Torneio encerrado ou cancelado recusa inscrições novas (`409 TOURNAMENT_LOCKED`).
 
 ### Inscrições

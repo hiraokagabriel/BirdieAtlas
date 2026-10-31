@@ -100,7 +100,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Lançamento de resultado por sets | ✅ | Inclui W.O. e desistência |
 | Avanço automático do vencedor | ✅ | Troca de vencedor desfaz as partidas seguintes |
 | Agenda: quadra e horário por partida | ✅ | Aba Agenda do torneio |
-| Agenda automática por quadra e horário | ✅ | `POST /tournaments/:id/schedule/auto` com pré-visualização; sem mudança de schema; a janela diária (`dayStartsAt`, `dayEndsAt`) só existe na API, não na tela |
+| Agenda automática por quadra e horário | ✅ | `POST /tournaments/:id/schedule/auto` com pré-visualização; sem mudança de schema; a janela diária (`dayStartsAt`, `dayEndsAt`) tem campos "Início do dia" e "Fim do dia" no diálogo |
 | Auditoria de resultados (quem e quando) | ❌ | |
 | Placar ao vivo por quadra | ✅ | Tela do operador `/admin/live`, API de início, ponto, desfazer e encerramento, stream SSE público e seção "Ao vivo agora" em `/t/[slug]`. Barramento em memória: uma instância de API (ver especificação) |
 
@@ -138,7 +138,4 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 
 | Item | Prioridade | Detalhe |
 |---|---|---|
-| Tela do operador troca de quadra ao cancelar o início | Baixa | Em `/admin/live`, cancelar a partida da quadra 2 volta para a quadra 1: a partida some das "ao vivo" antes de a fila recarregar e a quadra deixa de existir por um instante. `test.fixme` em `apps/e2e/tests/live.spec.ts` |
-| Página pública do ranking sem link para o CSV | Baixa | O CSV só existe na API e no botão do admin. `test.fixme` em `apps/e2e/tests/public.spec.ts` |
-| `finalize` fora do contrato de erro | Baixa | `POST /tournaments/:id/finalize` devolve `{ error, incomplete }` sem `code` nem `details`; o modal só mostra `error` e perde a lista `incomplete` |
 | Revisões por LLM do `security-guidance` desligadas | Baixa | `ENABLE_CODE_SECURITY_REVIEW=0` em `.claude/settings.json` para não gastar uso enquanto o projeto roda só localmente; só os avisos por padrão ficam ativos. Religar (apagar a variável) antes de colocar o projeto na internet |

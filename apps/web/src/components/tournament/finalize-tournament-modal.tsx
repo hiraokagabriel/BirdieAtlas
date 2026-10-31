@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { AlertTriangle, Trophy, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -33,6 +33,12 @@ type FinalizeError = {
   incomplete?: string[]
 }
 
+function readIncomplete(details: unknown): string[] | undefined {
+  if (typeof details !== 'object' || details === null) return undefined
+  const list = (details as { incomplete?: unknown }).incomplete
+  return Array.isArray(list) && list.every((v) => typeof v === 'string') ? list : undefined
+}
+
 interface Props {
   tournamentId: string
   tournamentName: string
@@ -61,7 +67,12 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
     },
     // `apiFetch` lança `ApiError`, que guarda o texto da API em `message` (não em `error`).
     onError: (err: unknown) => {
-      setApiError({ error: err instanceof Error ? err.message : 'Erro desconhecido ao encerrar campeonato.' })
+      // Contrato { error, code, details }: a lista de pendências vem em `details.incomplete`.
+      const incomplete = err instanceof ApiError ? readIncomplete(err.details) : undefined
+      setApiError({
+        error: err instanceof Error ? err.message : 'Erro desconhecido ao encerrar campeonato.',
+        ...(incomplete ? { incomplete } : {}),
+      })
     },
   })
 

@@ -375,14 +375,13 @@ test.describe('ranking público', () => {
     expect(res.status()).toBe(404)
   })
 
-  test.fixme(
-    'a página pública do ranking tem um link para baixar o CSV',
-    // Hoje o CSV só existe na API pública e no botão do admin; a página /r/[tenantSlug] não o oferece.
-    async ({ page }) => {
-      await page.goto(`/r/${TENANT_SLUG}`)
-      await expect(page.getByRole('link', { name: /CSV/ })).toBeVisible()
-    },
-  )
+  test('a página pública do ranking baixa o CSV pelo botão "Exportar CSV"', async ({ page }) => {
+    await page.goto(`/r/${TENANT_SLUG}`)
+    await expect(page.getByRole('link', { name: champion.name })).toBeVisible()
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Exportar CSV' }).click()
+    expect((await downloadPromise).suggestedFilename()).toMatch(/\.csv$/)
+  })
 })
 
 test.describe('compartilhar', () => {

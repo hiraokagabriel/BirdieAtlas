@@ -7,6 +7,7 @@ import { Trophy, ChevronLeft, ChevronRight, Users, User } from 'lucide-react'
 import Link from 'next/link'
 import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
 import { PrintButton } from '@/components/shared/print-button'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ShareControl } from '@/components/shared/share-control'
 import { ChoiceGroup } from '@/components/ui/choice-group'
 import { buildShareText, rankingDisplayName, shareImageFilename, shareImagePath, truncateText } from '@/lib/share'
@@ -99,6 +100,9 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
             ]}
           />
           {data?.data.length ? <PrintButton /> : null}
+          {data?.data.length && activeRankingId ? (
+            <ExportCsvButton path={`/rankings/${activeRankingId}/entries/export.csv`} fallbackName="ranking.csv" className="print:hidden" />
+          ) : null}
         </div>
       </div>
 

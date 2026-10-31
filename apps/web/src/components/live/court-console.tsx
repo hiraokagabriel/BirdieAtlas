@@ -394,7 +394,15 @@ function CourtPanel({ tournamentId }: { tournamentId: string }) {
   const queue = useMemo(() => queueQuery.data ?? [], [queueQuery.data])
   const courts = useMemo(() => knownCourts(live, queue), [live, queue])
   const hasUnassigned = live.some((m) => m.courtNumber === null) || queue.some((m) => m.courtNumber === null)
-  const tabs = useMemo(() => [...courts.map(String), ...(hasUnassigned ? [NO_COURT] : [])], [courts, hasUnassigned])
+  // A quadra escolhida fica nas abas mesmo se a lista ao vivo ficar sem ela por um instante (ex.: cancelar o
+  // início tira a partida de `live` antes de a fila recarregar); senão o efeito abaixo trocaria para a primeira.
+  const tabs = useMemo(() => {
+    const picked = court !== null && court !== NO_COURT ? Number(court) : null
+    const numbers = picked !== null && Number.isInteger(picked) && !courts.includes(picked)
+      ? [...courts, picked].sort((a, b) => a - b)
+      : courts
+    return [...numbers.map(String), ...(hasUnassigned ? [NO_COURT] : [])]
+  }, [courts, hasUnassigned, court])
 
   // Lembra a quadra e, na primeira carga, escolhe a que já tem partida ao vivo (ou a primeira).
   useEffect(() => {
