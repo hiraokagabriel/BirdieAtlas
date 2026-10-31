@@ -1,0 +1,1 @@
+ALTER TYPE "public"."draw_type" ADD VALUE 'swiss';

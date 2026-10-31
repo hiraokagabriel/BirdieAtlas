@@ -42,7 +42,7 @@ type PublicSummary = {
   categories: CategorySummary[]
   stats: { totalCategories: number; totalAthletes: number; totalMatches: number; completedMatches: number }
 }
-type Draw   = { id: string; published: boolean; config?: { groupCount: number; advancePerGroup: number } | null }
+type Draw   = { id: string; published: boolean; config?: { groupCount?: number; advancePerGroup?: number; rounds?: number } | null }
 type Match  = {
   id: string; round: number; position: number; status: string
   registration1Id: string | null; registration2Id: string | null

@@ -7,6 +7,9 @@ import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
 import { buildRoundRobinMatchDefs, computeRoundRobinStandings } from '../domain/round-robin.js'
 import {
+  buildSwissRoundDefs, computeSwissStandings, pairFirstRound, pairKey, pairSwissRound, planSwiss, swissProgress,
+} from '../domain/swiss.js'
+import {
   buildGroupMatchDefs, buildKnockoutMatchDefs, computeGroupStandings, distributeToGroups, pickQualifiers, planGroups, type GroupConfig,
 } from '../domain/groups.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
@@ -25,27 +28,39 @@ const scheduleMatchSchema = z.object({
 })
 
 type BuiltDraw =
-  | { ok: true; defs: MatchDef[]; config: GroupConfig | null }
-  | { ok: false; error: string }
+  | { ok: true; defs: MatchDef[]; config: GroupConfig | { rounds: number } | null }
+  | { ok: false; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' }
 
 /** Monta as partidas conforme o formato da categoria (eliminação simples, todos contra todos ou fase de grupos). */
 async function buildCategoryMatchDefs(
   drawId: string,
   categoryId: string,
   confirmed: { id: string; seed: number | null }[],
-  options: { mode: 'random' | 'seeded'; groupCount?: number | undefined; groupSize?: number | undefined; advancePerGroup?: number | undefined },
+  options: {
+    mode: 'random' | 'seeded'
+    groupCount?: number | undefined
+    groupSize?: number | undefined
+    advancePerGroup?: number | undefined
+    swissRounds?: number | undefined
+  },
 ): Promise<BuiltDraw> {
   const { mode } = options
   const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
   if (category?.drawType === 'group_then_elimination') {
     const planned = planGroups({ entries: confirmed.length, groupCount: options.groupCount, groupSize: options.groupSize, advancePerGroup: options.advancePerGroup })
-    if (!planned.ok) return { ok: false, error: planned.error }
+    if (!planned.ok) return { ok: false, error: planned.error, code: 'INVALID_GROUP_CONFIG' }
     const groups = distributeToGroups(confirmed, planned.plan.sizes, mode)
     return {
       ok: true,
       defs: buildGroupMatchDefs(drawId, groups, planned.plan.knockoutRounds),
       config: { groupCount: planned.plan.groupCount, advancePerGroup: planned.plan.advancePerGroup },
     }
+  }
+  if (category?.drawType === 'swiss') {
+    const planned = planSwiss({ entries: confirmed.length, rounds: options.swissRounds })
+    if (!planned.ok) return { ok: false, error: planned.error, code: 'INVALID_SWISS_CONFIG' }
+    // Só a rodada 1 existe; as seguintes saem de POST /draws/:drawId/swiss/next-round.
+    return { ok: true, defs: buildSwissRoundDefs(drawId, planned.rounds, 1, pairFirstRound(confirmed, mode)), config: { rounds: planned.rounds } }
   }
   if (category?.drawType === 'round_robin') {
     // Ordem de saída do círculo: sorteada; com cabeças de chave, elas ficam nas primeiras posições (por ordem).
@@ -63,6 +78,8 @@ const generateDrawSchema = z.object({
   groupCount: z.number().int().optional(),
   groupSize: z.number().int().optional(),
   advancePerGroup: z.number().int().optional(),
+  // Suíço (ignorado nos outros formatos): número de rodadas (padrão ⌈log₂ inscritos⌉).
+  swissRounds: z.number().int().optional(),
 })
 
 export async function drawsRoutes(app: FastifyInstance) {
@@ -81,7 +98,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     const drawId = randomUUID()
     const built = await buildCategoryMatchDefs(drawId, categoryId, confirmed, body)
-    if (!built.ok) return reply.status(422).send({ error: built.error, code: 'INVALID_GROUP_CONFIG' })
+    if (!built.ok) return reply.status(422).send({ error: built.error, code: built.code })
 
     const draw = await db.transaction(async (tx) => {
       const [row] = await tx.insert(draws).values({ id: drawId, categoryId, drawMode: mode, config: built.config }).returning()
@@ -112,7 +129,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
     const built = await buildCategoryMatchDefs(drawId, draw.categoryId, confirmed, body)
-    if (!built.ok) return reply.status(422).send({ error: built.error, code: 'INVALID_GROUP_CONFIG' })
+    if (!built.ok) return reply.status(422).send({ error: built.error, code: built.code })
     const matchDefs = built.defs
 
     // Apagar a chave antiga e gravar a nova é uma operação só: ou troca inteira, ou nada.
@@ -167,7 +184,9 @@ export async function drawsRoutes(app: FastifyInstance) {
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
     const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
-    if (category?.drawType !== 'round_robin' && category?.drawType !== 'group_then_elimination') return { rows: [], groups: [] }
+    if (category?.drawType !== 'round_robin' && category?.drawType !== 'group_then_elimination' && category?.drawType !== 'swiss') {
+      return { rows: [], groups: [] }
+    }
 
     const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
     const setRows = drawMatches.length
@@ -180,6 +199,11 @@ export async function drawsRoutes(app: FastifyInstance) {
       return { rows: [], groups: computeGroupStandings(drawMatches, setsByMatchId) }
     }
     const regIds = [...new Set(drawMatches.flatMap((m) => [m.registration1Id, m.registration2Id]).filter((v): v is string => v !== null))]
+    if (category.drawType === 'swiss') {
+      const swissRows = computeSwissStandings(regIds, drawMatches, setsByMatchId).map((row, i) => ({ position: i + 1, ...row }))
+      const total = (draw.config as { rounds?: number } | null)?.rounds ?? 0
+      return { rows: swissRows, groups: [], rounds: swissProgress(drawMatches, total) }
+    }
     const rows = computeRoundRobinStandings(regIds, drawMatches, setsByMatchId).map((row, i) => ({ position: i + 1, ...row }))
     return { rows, groups: [] }
   })
@@ -219,6 +243,50 @@ export async function drawsRoutes(app: FastifyInstance) {
     const defs = buildKnockoutMatchDefs(drawId, qualifiers)
     await db.insert(matches).values(defs)
     return reply.status(201).send({ matchCount: defs.length, qualifiers: qualifiers.length })
+  })
+
+  // Suíço: gera a próxima rodada, pareando por classificação sem repetir adversário, quando a atual termina.
+  app.post('/draws/:drawId/swiss/next-round', async (request, reply) => {
+    const { drawId } = request.params as { drawId: string }
+    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
+    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
+    const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
+    if (category?.drawType !== 'swiss') return reply.status(409).send({ error: 'Esta categoria não é suíço.', code: 'NOT_SWISS_FORMAT' })
+    const total = (draw.config as { rounds?: number } | null)?.rounds
+    if (!total) return reply.status(409).send({ error: 'A chave não tem número de rodadas. Sorteie de novo.', code: 'MISSING_SWISS_CONFIG' })
+
+    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const progress = swissProgress(drawMatches, total)
+    if (progress.generated >= total) {
+      return reply.status(409).send({ error: 'Todas as rodadas já foram geradas.', code: 'SWISS_ROUNDS_COMPLETE' })
+    }
+    const pending = drawMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && m.registration1Id && m.registration2Id)
+    if (pending.length > 0) {
+      return reply.status(409).send({
+        error: `Ainda há ${pending.length} partida(s) da rodada ${progress.generated} sem resultado.`,
+        code: 'ROUND_NOT_FINISHED',
+        details: { pending: pending.length },
+      })
+    }
+
+    const setRows = await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+    const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
+    for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
+
+    const regIds = [...new Set(drawMatches.flatMap((m) => [m.registration1Id, m.registration2Id]).filter((v): v is string => v !== null))]
+    const ranked = computeSwissStandings(regIds, drawMatches, setsByMatchId).map((r) => r.registrationId)
+    const played = new Set(drawMatches.filter((m) => m.registration1Id && m.registration2Id).map((m) => pairKey(m.registration1Id!, m.registration2Id!)))
+    const byeHistory = new Set(drawMatches.filter((m) => (m.registration1Id === null) !== (m.registration2Id === null)).map((m) => (m.registration1Id ?? m.registration2Id)!))
+
+    const pairing = pairSwissRound(ranked, played, byeHistory)
+    const defs = buildSwissRoundDefs(drawId, total, progress.generated + 1, pairing)
+    await db.insert(matches).values(defs)
+    return reply.status(201).send({
+      round: progress.generated + 1,
+      matchCount: defs.length,
+      bye: pairing.bye,
+      rematches: pairing.rematches,
+    })
   })
 
   app.get('/draws/:drawId/matches', async (request) => {

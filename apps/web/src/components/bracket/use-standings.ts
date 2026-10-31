@@ -6,7 +6,7 @@ import type { BracketMatch, SetScore } from '@/lib/bracket'
 import type { StandingRow } from './standings-table'
 
 export type GroupStandings = { key: string; rows: StandingRow[] }
-type StandingsResponse = { rows: StandingRow[]; groups: GroupStandings[] }
+type StandingsResponse = { rows: StandingRow[]; groups: GroupStandings[]; rounds?: { generated: number; total: number } }
 
 /** Busca `GET /draws/:drawId/standings` e refaz a busca quando uma partida ou um placar muda. */
 export function useStandings(drawId: string, matches: readonly BracketMatch[], results: readonly SetScore[]) {

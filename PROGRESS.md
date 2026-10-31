@@ -93,7 +93,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Ressorteio com reset em cascata | ✅ | |
 | Todos contra todos (round robin) | ✅ | Formato por categoria; classificação com desempate, colocação pela classificação, `GET /draws/:drawId/standings` |
 | Grupos + eliminatória | ✅ | Grupos, pessoas por grupo e classificados configuráveis; eliminatória gerada ao fim dos grupos; migration `0006` |
-| Eliminação dupla, suíço | ❌ | |
+| Suíço | ✅ | Rodadas configuráveis, geradas uma a uma, pareamento sem repetir, folga, Buchholz; migration `0007` |
+| Eliminação dupla | ❌ | |
 
 ## Phase 5 — Partidas
 

@@ -42,7 +42,7 @@ const createCategorySchema = z.object({
   name: z.string().min(1),
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   maxEntries: z.number().int().optional(),
-  drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination']).optional(),
+  drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination', 'swiss']).optional(),
 })
 
 export async function tournamentsRoutes(app: FastifyInstance) {
@@ -229,7 +229,9 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
       const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
       if (pending.length > 0) incomplete.push(`${cat.name}: ${pending.length} partida(s) pendente(s)`)
-      else if (!isDrawFinished(cat.drawType, allMatches)) incomplete.push(`${cat.name}: eliminatória ainda não gerada`)
+      else if (!isDrawFinished(cat.drawType, allMatches, drawList[0].config)) {
+        incomplete.push(`${cat.name}: ${cat.drawType === 'swiss' ? 'faltam rodadas do suíço' : 'eliminatória ainda não gerada'}`)
+      }
     }
     if (incomplete.length > 0) {
       return reply.status(400).send({

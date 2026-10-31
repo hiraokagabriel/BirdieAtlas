@@ -39,7 +39,7 @@ export const disciplineEnum = pgEnum('discipline', [
 ])
 
 export const drawTypeEnum = pgEnum('draw_type', [
-  'single_elimination', 'round_robin', 'group_then_elimination',
+  'single_elimination', 'round_robin', 'group_then_elimination', 'swiss',
 ])
 
 export const matchStatusEnum = pgEnum('match_status', [

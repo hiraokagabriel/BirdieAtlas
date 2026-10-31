@@ -1,5 +1,6 @@
 import { computeRoundRobinPlacements } from './round-robin.js'
 import { computeGroupKnockoutPlacements } from './groups.js'
+import { computeSwissPlacements } from './swiss.js'
 
 // Colocação final de uma chave, derivada das partidas. Regra única: o motor de ranking e o
 // encerramento do torneio usam esta função.
@@ -72,7 +73,7 @@ export function computePlacements(
   return placementByReg
 }
 
-export type DrawFormat = 'single_elimination' | 'round_robin' | 'group_then_elimination'
+export type DrawFormat = 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss'
 
 /** Colocação conforme o formato da categoria. Eliminação: pela rodada de saída; todos contra todos: pela classificação. */
 export function computeDrawPlacements(
@@ -82,5 +83,6 @@ export function computeDrawPlacements(
 ): Map<string, number> {
   if (format === 'round_robin') return computeRoundRobinPlacements(matches, setsByMatchId)
   if (format === 'group_then_elimination') return computeGroupKnockoutPlacements(matches, setsByMatchId)
+  if (format === 'swiss') return computeSwissPlacements(matches.map((m) => ({ ...m, status: '' })), setsByMatchId)
   return computePlacements(matches, setsByMatchId)
 }
