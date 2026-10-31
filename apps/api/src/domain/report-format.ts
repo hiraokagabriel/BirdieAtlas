@@ -1,12 +1,7 @@
 // Formatação das exportações de relatório (resultados e classificação). Funções puras.
 
-/** Na chave, a rodada 1 é a final e a de número mais alto é a primeira fase. */
-export function roundLabel(round: number): string {
-  if (round === 1) return 'Final'
-  if (round === 2) return 'Semifinal'
-  if (round === 3) return 'Quartas de final'
-  return `Rodada ${round}`
-}
+// O nome da fase pela rodada (Final, Semifinal...) vive em schedule.ts; a exportação usa o mesmo.
+export { roundLabel, matchRoundLabel } from './schedule.js'
 
 export function formatScore(sets: { score1: number; score2: number }[]): string {
   return sets.map((s) => `${s.score1}-${s.score2}`).join(' ')

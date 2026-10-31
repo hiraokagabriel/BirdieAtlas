@@ -125,7 +125,7 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
 
   if (match.nextMatchId) {
     // `nextSlot` guardado (eliminação dupla); sem ele, vale a regra da eliminação simples (posição ímpar = slot 1).
-    const column = slotColumn(match.nextSlot, getSlotForPosition(match.position) === 'registration1Id' ? 1 : 2)
+    const column = slotColumn(match.nextSlot, legacySlotOf(match.position))
     await ex.update(matches).set({ [column]: newWinnerRegId, updatedAt: new Date() }).where(eq(matches.id, match.nextMatchId))
   }
   if (match.loserNextMatchId && newLoserRegId) {
@@ -134,6 +134,11 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
   if (match.stage === 'grand_final') await syncGrandFinalReset(ex, match, newWinner, resetMatchIds)
 
   return { ok: true, match: { ...match, status: body.status }, results, tournamentId: owner?.id ?? null, resetMatchIds }
+}
+
+/** Eliminação simples: posição ímpar ocupa o slot 1 da partida seguinte, par o slot 2. */
+function legacySlotOf(position: number): 1 | 2 {
+  return getSlotForPosition(position) === 'registration1Id' ? 1 : 2
 }
 
 function slotColumn(slot: number | null | undefined, fallback: 1 | 2): 'registration1Id' | 'registration2Id' {

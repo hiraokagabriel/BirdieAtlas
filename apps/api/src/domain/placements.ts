@@ -74,7 +74,9 @@ export function computePlacements(
   return placementByReg
 }
 
-export type DrawFormat = 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss' | 'double_elimination'
+/** Formatos de chave, na mesma ordem do enum `draw_type` (db/schema.ts). Fonte única para validação e colocação. */
+export const DRAW_FORMATS = ['single_elimination', 'round_robin', 'group_then_elimination', 'swiss', 'double_elimination'] as const
+export type DrawFormat = (typeof DRAW_FORMATS)[number]
 
 /** Colocação conforme o formato da categoria. Eliminação: pela rodada de saída; todos contra todos: pela classificação. */
 export function computeDrawPlacements(
@@ -85,6 +87,6 @@ export function computeDrawPlacements(
   if (format === 'round_robin') return computeRoundRobinPlacements(matches, setsByMatchId)
   if (format === 'group_then_elimination') return computeGroupKnockoutPlacements(matches, setsByMatchId)
   if (format === 'double_elimination') return computeDoubleEliminationPlacements(matches, setsByMatchId)
-  if (format === 'swiss') return computeSwissPlacements(matches.map((m) => ({ ...m, status: '' })), setsByMatchId)
+  if (format === 'swiss') return computeSwissPlacements(matches, setsByMatchId)
   return computePlacements(matches, setsByMatchId)
 }

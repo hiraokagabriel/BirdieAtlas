@@ -92,14 +92,19 @@ const generateDrawSchema = z.object({
   doubleEliminationReset: z.boolean().optional(),
 })
 
+const drawIdParams = z.object({ drawId: z.string().trim().min(1) })
+const categoryIdParams = z.object({ categoryId: z.string().trim().min(1) })
+const matchIdParams = z.object({ matchId: z.string().trim().min(1) })
+const tournamentIdParams = z.object({ tournamentId: z.string().trim().min(1) })
+
 export async function drawsRoutes(app: FastifyInstance) {
   app.get('/tournaments/categories/:categoryId/draws', async (request) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParams.parse(request.params)
     return db.select().from(draws).where(eq(draws.categoryId, categoryId))
   })
 
   app.post('/draws/generate/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParams.parse(request.params)
     const body = generateDrawSchema.parse(request.body ?? {})
     const { mode } = body
 
@@ -119,7 +124,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.post('/draws/:drawId/redraw', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const body       = generateDrawSchema.parse(request.body ?? {})
     const { mode }   = body
 
@@ -172,7 +177,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.post('/draws/:drawId/migrate-next-match-id', async (request) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
     // Só vale para chaves de eliminação simples: outros formatos (round_label gravado) não encadeiam partidas.
     if (allMatches.some((m) => m.roundLabel !== null)) return { updated: 0, total: allMatches.length }
@@ -190,7 +195,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Classificação do todos contra todos e dos grupos (público). Eliminação simples: lista vazia.
   app.get('/draws/:drawId/standings', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
     const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
@@ -220,7 +225,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Grupos + eliminatória: cria a eliminatória com os classificados, quando os grupos terminam.
   app.post('/draws/:drawId/knockout', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     // Uma transação com a chave travada (FOR UPDATE): dois cliques ou um retry não geram a fase duas vezes.
     const result = await db.transaction(async (tx) => {
         const [draw] = await tx.select().from(draws).where(eq(draws.id, drawId)).for('update')
@@ -265,7 +270,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Suíço: gera a próxima rodada, pareando por classificação sem repetir adversário, quando a atual termina.
   app.post('/draws/:drawId/swiss/next-round', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     // Uma transação com a chave travada (FOR UPDATE): dois cliques ou um retry não geram a fase duas vezes.
     const result = await db.transaction(async (tx) => {
         const [draw] = await tx.select().from(draws).where(eq(draws.id, drawId)).for('update')
@@ -316,12 +321,12 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.get('/draws/:drawId/matches', async (request) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     return db.select().from(matches).where(eq(matches.drawId, drawId))
   })
 
   app.post('/draws/:drawId/publish', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found' })
     const [updated] = await db.update(draws).set({ published: true, updatedAt: new Date() }).where(eq(draws.id, drawId)).returning()
@@ -329,7 +334,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.post('/draws/:drawId/unpublish', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found' })
     const [updated] = await db.update(draws).set({ published: false, updatedAt: new Date() }).where(eq(draws.id, drawId)).returning()
@@ -338,7 +343,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Distribui os pontos do torneio pelas regras de pontos dos rankings (ver services/ranking-engine.ts)
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
-    const { tournamentId } = request.params as { tournamentId: string }
+    const { tournamentId } = tournamentIdParams.parse(request.params)
 
     const [tournament] = await db.select().from(tournaments).where(and(eq(tournaments.id, tournamentId), isNull(tournaments.deletedAt)))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' })
@@ -354,7 +359,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     return { awarded: result.awarded, rankings: result.rankings, skipped: result.skipped }
   })
   app.patch('/draws/matches/:matchId/schedule', async (request, reply) => {
-    const { matchId } = request.params as { matchId: string }
+    const { matchId } = matchIdParams.parse(request.params)
     const body = scheduleMatchSchema.parse(request.body)
     const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
     if (!match) return reply.status(404).send({ error: 'Match not found' })
@@ -371,7 +376,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // A lógica vive em services/match-result.ts: a mesma função encerra partidas ao vivo (routes/live.ts).
   app.post('/draws/matches/:matchId/result', async (request, reply) => {
-    const { matchId } = request.params as { matchId: string }
+    const { matchId } = matchIdParams.parse(request.params)
     const body = upsertMatchResultSchema.parse(request.body)
 
     const saved = await db.transaction((tx) => saveMatchResult(tx, matchId, body))
@@ -386,7 +391,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.get('/draws/matches/:matchId/result', async (request) => {
-    const { matchId } = request.params as { matchId: string }
+    const { matchId } = matchIdParams.parse(request.params)
     return db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
   })
 }

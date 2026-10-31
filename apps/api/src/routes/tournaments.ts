@@ -17,7 +17,7 @@ import {
 } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
-import { computeDrawPlacements } from '../domain/placements.js'
+import { computeDrawPlacements, DRAW_FORMATS } from '../domain/placements.js'
 import { isDrawFinished } from '../domain/groups.js'
 import { revokeTournamentPoints } from '../services/ranking-engine.js'
 import { getDefaultTenantId } from '../tenant.js'
@@ -42,7 +42,7 @@ const createCategorySchema = z.object({
   name: z.string().min(1),
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   maxEntries: z.number().int().optional(),
-  drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination', 'swiss', 'double_elimination']).optional(),
+  drawType: z.enum(DRAW_FORMATS).optional(),
 })
 
 export async function tournamentsRoutes(app: FastifyInstance) {
