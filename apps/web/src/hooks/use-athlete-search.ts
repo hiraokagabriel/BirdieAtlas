@@ -12,6 +12,11 @@ export interface AthleteOption {
   clubName: string | null
 }
 
+/** Texto do atleta nos seletores: o clube desambigua nomes iguais ("Sem clube" quando não há afiliação atual). */
+export function athleteOptionLabel(a: Pick<AthleteOption, 'name' | 'clubName'>): string {
+  return `${a.name} · ${a.clubName ?? 'Sem clube'}`
+}
+
 /** Máximo que a API devolve por página; pickers pedem para refinar a busca além disso. */
 export const ATHLETE_SEARCH_LIMIT = 100
 

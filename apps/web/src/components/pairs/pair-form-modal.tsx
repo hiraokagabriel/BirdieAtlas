@@ -131,7 +131,10 @@ function AthleteSelector({
                         >
                           {initials(a.name)}
                         </span>
-                        <span className="flex-1 truncate">{a.name}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{a.name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{a.clubName ?? 'Sem clube'}</span>
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           <span className="sr-only">Gênero </span>
                           {a.gender === 'M' ? 'M' : 'F'}

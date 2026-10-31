@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Paginated } from '@birdie-atlas/types'
 import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
-import { ATHLETE_SEARCH_LIMIT, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
+import { ATHLETE_SEARCH_LIMIT, athleteOptionLabel, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
 import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
@@ -278,7 +278,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                   >
                     <option value="">Selecionar...</option>
                     {athletesForSlot1.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
+                      <option key={a.id} value={a.id}>{athleteOptionLabel(a)}</option>
                     ))}
                   </select>
                 )}
@@ -298,7 +298,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                         {discipline === 'XD' && !athleteId ? 'Selecione o atleta 1 primeiro' : 'Selecionar...'}
                       </option>
                       {athletesForSlot2.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
+                        <option key={a.id} value={a.id}>{athleteOptionLabel(a)}</option>
                       ))}
                     </select>
                   )}
