@@ -219,7 +219,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       })
     }
     const categories = await db.select().from(tournamentCategories).where(and(eq(tournamentCategories.tournamentId, id), isNull(tournamentCategories.deletedAt)))
-    if (!categories.length) return reply.status(400).send({ error: 'No categories found' })
+    if (!categories.length) return reply.status(400).send({ error: 'O torneio não tem categorias.', code: 'NO_CATEGORIES' })
     const incomplete: string[] = []
     for (const cat of categories) {
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
@@ -229,7 +229,11 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       if (pending.length > 0) incomplete.push(`${cat.name}: ${pending.length} partida(s) pendente(s)`)
     }
     if (incomplete.length > 0) {
-      return reply.status(400).send({ error: 'Nao e possivel encerrar: existem chaves incompletas.', incomplete })
+      return reply.status(400).send({
+        error: 'Não é possível encerrar: existem chaves incompletas.',
+        code: 'INCOMPLETE_DRAWS',
+        details: { incomplete },
+      })
     }
     const report: {
       categoryId: string; categoryName: string; discipline: string

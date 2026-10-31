@@ -33,7 +33,7 @@ function initialForm(defaultStartDate?: string): AutoScheduleForm {
   const day = defaultStartDate && /^\d{4}-\d{2}-\d{2}$/.test(defaultStartDate) ? defaultStartDate : null
   const today = new Date()
   const fallback = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  return { courts: '2', startAt: `${day ?? fallback}T09:00`, matchMinutes: '40', restMinutes: '15', reschedule: false }
+  return { courts: '2', startAt: `${day ?? fallback}T09:00`, matchMinutes: '40', restMinutes: '15', dayStartsAt: '', dayEndsAt: '', reschedule: false }
 }
 
 function matchLabel(a: { participant1: string | null; participant2: string | null }): string {
@@ -204,6 +204,28 @@ export function AutoScheduleDialog({ tournamentId, defaultStartDate, open, onClo
               {...fieldProps('restMinutes')}
             />
             {fieldError('restMinutes')}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="auto-schedule-day-start">Início do dia (opcional)</Label>
+            <Input
+              id="auto-schedule-day-start"
+              type="time"
+              value={form.dayStartsAt}
+              onChange={(e) => update('dayStartsAt', e.target.value)}
+              {...fieldProps('dayStartsAt')}
+            />
+            {fieldError('dayStartsAt')}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="auto-schedule-day-end">Fim do dia (opcional)</Label>
+            <Input
+              id="auto-schedule-day-end"
+              type="time"
+              value={form.dayEndsAt}
+              onChange={(e) => update('dayEndsAt', e.target.value)}
+              {...fieldProps('dayEndsAt')}
+            />
+            {fieldError('dayEndsAt')}
           </div>
           <div className="sm:col-span-2 lg:col-span-4 flex items-center gap-2">
             <input

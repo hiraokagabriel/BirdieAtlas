@@ -8,7 +8,7 @@ import {
   type AutoScheduleForm,
 } from './auto-schedule'
 
-const form: AutoScheduleForm = { courts: '2', startAt: '2026-10-24T09:00', matchMinutes: '40', restMinutes: '15', reschedule: false }
+const form: AutoScheduleForm = { courts: '2', startAt: '2026-10-24T09:00', matchMinutes: '40', restMinutes: '15', dayStartsAt: '', dayEndsAt: '', reschedule: false }
 
 function assignment(id: string, scheduledAt: string, courtNumber: number): AutoScheduleAssignment {
   return {
@@ -81,5 +81,23 @@ describe('groupAssignmentsByDay', () => {
 
   it('vazio devolve nenhum dia', () => {
     expect(groupAssignmentsByDay([])).toEqual([])
+  })
+})
+
+describe('janela diária', () => {
+  it('vazia: não entra no corpo; preenchida: vai como HH:mm', () => {
+    expect(buildAutoScheduleRequest(form, true)).not.toHaveProperty('dayStartsAt')
+    const req = buildAutoScheduleRequest({ ...form, dayStartsAt: '09:00', dayEndsAt: '18:00' }, true)
+    expect(req.dayStartsAt).toBe('09:00')
+    expect(req.dayEndsAt).toBe('18:00')
+  })
+
+  it('valida formato e ordem', () => {
+    expect(validateAutoScheduleForm({ ...form, dayStartsAt: '09:00', dayEndsAt: '18:00' })).toEqual({})
+    expect(validateAutoScheduleForm({ ...form, dayStartsAt: '25:00' }).dayStartsAt).toBe('Use o formato HH:mm.')
+    expect(validateAutoScheduleForm({ ...form, dayStartsAt: '18:00', dayEndsAt: '09:00' }).dayEndsAt).toBe(
+      'O fim do dia deve ser depois do início.',
+    )
+    expect(validateAutoScheduleForm({ ...form, dayEndsAt: '18:00' })).toEqual({})
   })
 })

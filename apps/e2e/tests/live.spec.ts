@@ -149,11 +149,8 @@ test.describe('operador no celular e público em tempo real', () => {
 test.describe('operador no celular: quadra selecionada', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
-  test.fixme(
+  test(
     'cancelar o início mantém a quadra selecionada pelo operador',
-    // BUG (components/live/court-console.tsx): ao cancelar, a partida some das ao vivo antes de a fila ser recarregada,
-    // a quadra deixa de existir em `tabs` por um instante e o efeito de seleção troca para a primeira quadra.
-    // Repro: Quadra 2 > Iniciar > Cancelar início da partida: a tela volta na Quadra 1.
     async ({ page }) => {
       await page.goto('/admin/live')
       await page.getByLabel('Torneio').selectOption({ label: prepared.tournament.name })

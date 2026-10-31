@@ -150,6 +150,28 @@ test('valida os parâmetros do formulário antes de chamar a API', async ({ page
   await expect(dialog.getByText(/partidas planejadas/)).toHaveCount(0)
 })
 
+test('a janela diária da tela (início e fim do dia) é validada e enviada à API', async ({ page }) => {
+  await page.goto(`/admin/tournaments/${prepared.tournament.id}`)
+  await page.getByRole('tab', { name: 'Agenda', exact: true }).click()
+  await page.getByRole('button', { name: 'Gerar agenda automática' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Gerar agenda automática' })
+
+  await dialog.getByLabel('Início do dia (opcional)').fill('18:00')
+  await dialog.getByLabel('Fim do dia (opcional)').fill('09:00')
+  await dialog.getByRole('button', { name: 'Pré-visualizar' }).click()
+  await expect(dialog.getByText('O fim do dia deve ser depois do início.')).toBeVisible()
+  await expect(dialog.getByLabel('Fim do dia (opcional)')).toHaveAttribute('aria-invalid', 'true')
+
+  await dialog.getByLabel('Início do dia (opcional)').fill('09:00')
+  await dialog.getByLabel('Fim do dia (opcional)').fill('18:00')
+  const request = page.waitForRequest((r) => r.url().includes('/schedule/auto') && r.method() === 'POST')
+  await dialog.getByRole('button', { name: 'Pré-visualizar' }).click()
+  const body = (await request).postDataJSON() as { dayStartsAt?: string; dayEndsAt?: string }
+  expect(body.dayStartsAt).toBe('09:00')
+  expect(body.dayEndsAt).toBe('18:00')
+  await expect(dialog.getByText(/partidas planejadas/)).toBeVisible()
+})
+
 test('abrir a aba Agenda antes de as categorias chegarem não deixa a lista vazia', async ({ page }) => {
   // As categorias vêm numa segunda chamada; atrasá-la reproduz o clique rápido na aba (a lista ficava vazia para sempre).
   const own = await prepareTournament({ athleteCount: 4, name: `Agenda Tardia ${Date.now().toString(36)}` })

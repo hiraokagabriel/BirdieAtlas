@@ -7,10 +7,13 @@ export interface AutoScheduleForm {
   startAt: string
   matchMinutes: string
   restMinutes: string
+  /** "HH:mm" ou vazio (sem janela): as partidas do dia ficam entre início e fim. */
+  dayStartsAt: string
+  dayEndsAt: string
   reschedule: boolean
 }
 
-export type AutoScheduleField = 'courts' | 'startAt' | 'matchMinutes' | 'restMinutes'
+export type AutoScheduleField = 'courts' | 'startAt' | 'matchMinutes' | 'restMinutes' | 'dayStartsAt' | 'dayEndsAt'
 export type AutoScheduleFormErrors = Partial<Record<AutoScheduleField, string>>
 
 export interface AutoScheduleRequest {
@@ -18,6 +21,8 @@ export interface AutoScheduleRequest {
   startAt: string
   matchMinutes: number
   restMinutes: number
+  dayStartsAt?: string
+  dayEndsAt?: string
   reschedule: boolean
   dryRun: boolean
 }
@@ -74,6 +79,14 @@ export function validateAutoScheduleForm(form: AutoScheduleForm): AutoScheduleFo
   if (rest) errors.restMinutes = rest
   if (!form.startAt) errors.startAt = 'Informe a data e a hora de início.'
   else if (Number.isNaN(new Date(form.startAt).getTime())) errors.startAt = 'Data e hora inválidas.'
+  const timeOfDay = /^([01]\d|2[0-3]):[0-5]\d$/
+  const starts = form.dayStartsAt.trim()
+  const ends = form.dayEndsAt.trim()
+  if (starts && !timeOfDay.test(starts)) errors.dayStartsAt = 'Use o formato HH:mm.'
+  if (ends && !timeOfDay.test(ends)) errors.dayEndsAt = 'Use o formato HH:mm.'
+  if (starts && ends && !errors.dayStartsAt && !errors.dayEndsAt && ends <= starts) {
+    errors.dayEndsAt = 'O fim do dia deve ser depois do início.'
+  }
   return errors
 }
 
@@ -95,6 +108,8 @@ export function buildAutoScheduleRequest(form: AutoScheduleForm, dryRun: boolean
     startAt: toOffsetIso(form.startAt),
     matchMinutes: Number(form.matchMinutes),
     restMinutes: Number(form.restMinutes),
+    ...(form.dayStartsAt.trim() ? { dayStartsAt: form.dayStartsAt.trim() } : {}),
+    ...(form.dayEndsAt.trim() ? { dayEndsAt: form.dayEndsAt.trim() } : {}),
     reschedule: form.reschedule,
     dryRun,
   }
