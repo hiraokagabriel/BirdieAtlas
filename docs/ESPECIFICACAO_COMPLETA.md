@@ -84,6 +84,8 @@ Público, identificando por slug:
 | `/r/[tenantSlug]/share-image` | PNG do top 10 de um ranking |
 | `/a/[athleteId]` | Perfil do atleta, com estatísticas de partidas e busca de adversário |
 | `/a/[athleteId]/vs/[opponentId]` | Confronto direto entre dois atletas |
+| `/offline` | Página mostrada pelo service worker quando a navegação falha por falta de rede |
+| `/manifest.webmanifest`, `/pwa-icon/[kind]` | Manifesto do app instalável e seus ícones (192, 512, 180 e maskable) |
 | `/a/[athleteId]/share-image` | PNG do cartão do atleta |
 | `/c/[clubSlug]` | Clube |
 
@@ -359,6 +361,14 @@ Um comentário `: heartbeat` sai a cada 15 s. Ao desconectar (`close` da requisi
 - `countBestResults` limita a soma aos melhores resultados; `minTournamentsRequired` exclui quem jogou menos torneios.
 - **Desempate** (`domain/ranking-order.ts`, `sortRankingEntries`), nesta ordem: mais pontos; mais títulos (1º lugar) entre os resultados que contam; mais 2º lugares; mais 3º lugares; maior pontuação individual num torneio; menos torneios jogados; id do atleta (só para estabilidade). Não há posições empatadas: cada atleta ou dupla ocupa uma posição própria. Os resultados considerados são os que entram na soma (depois do corte de `countBestResults`).
 
+## App instalável (PWA)
+
+- `app/manifest.ts` (nome, cores da marca, `display: standalone`, ícones), ícones PNG gerados em `app/pwa-icon/[kind]/route.tsx` (`ImageResponse`), `viewport.themeColor` e `appleWebApp` no layout raiz.
+- `public/sw.js`, registrado por `ServiceWorkerRegister` **só em produção**. Estratégia deliberadamente mínima: navegação vai à rede e, se falhar, mostra `/offline` (pré-cacheada); `/_next/static/*` e `/pwa-icon/*` ficam em cache (cache primeiro); todo o resto (outra origem, API, POST, páginas, admin) passa direto. Nenhuma página nem resposta da API é guardada, porque placar ao vivo e dados do admin precisam estar sempre frescos. Subir a constante `VERSION` descarta os caches antigos. `sw.js` é servido com `Cache-Control: no-cache` (`next.config.ts`).
+- **HTTPS:** navegadores só registram service worker e oferecem a instalação em contexto seguro (`https` ou `localhost`). Na rede local por IP (`http://192.168.x.x`) o site funciona normalmente, mas não instala. Para instalar no celular é preciso servir por HTTPS (por exemplo, um túnel ou certificado local).
+- **Push notifications: não implementado.** Exigem HTTPS, chaves VAPID, tabela de assinaturas e um disparador (ex.: partida começou). Entram junto com a build online e as notificações, que dependem de identidade (Clerk).
+- Testes: `apps/e2e/tests/pwa.spec.ts` (manifesto, ícones PNG, `sw.js`, registro e conteúdo do cache). O fallback offline em si não é automatizado: o Playwright não derruba a rede do próprio service worker; conferir à mão desligando o servidor com o app aberto.
+
 ## Compartilhamento e exportações
 
 Nada depende de serviço externo nem de biblioteca nova: imagens vêm de `next/og` (`ImageResponse`), o PDF vem do "Salvar como PDF" do navegador e o CSV é montado pela API.
@@ -517,4 +527,4 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Ranking:** cache (Redis, TTL de 1 hora).
 - **Admin:** relatórios exportáveis além dos CSVs atuais (inscritos, ranking, resultados, classificação, atletas), notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
-- **Qualidade:** PWA, passada manual de acessibilidade com leitores de tela (a automatizada já cobre WCAG 2.1 AA).
+- **Qualidade:** push notifications (dependem de HTTPS e da build online), passada manual de acessibilidade com leitores de tela (a automatizada já cobre WCAG 2.1 AA).

@@ -132,7 +132,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 |---|---|---|
 | Testes unitários de domínio (Vitest) | ✅ | |
 | Testes E2E com Playwright | ✅ | `apps/e2e`, `pnpm e2e`, job `e2e` no CI. Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin, inscrições pela interface (inscrever, aprovar, recusar com motivo, reabrir, remover), cadastros (atletas, importação de CSV, clubes, duplas), rankings e regras de pontos no admin (criar, regra, vincular, recalcular, editar), relatórios CSV, agenda automática, placar ao vivo com SSE, tema, guard de modo admin e a auditoria de acessibilidade (axe, teclado e foco) |
-| PWA e push notifications | ❌ | |
+| PWA (instalável, página sem conexão) | ✅ | Manifesto, ícones, service worker mínimo; instalar exige HTTPS ou localhost |
+| Push notifications | ❌ | Exigem HTTPS, VAPID, assinaturas no banco e disparador; entram com a build online |
 | Acessibilidade WCAG 2.1 AA | 🟡 | Auditoria automática com axe (WCAG A e AA) em 25 rotas e estados, em tema claro e escuro, em desktop e celular, mais 23 overlays abertos (diálogos, sheets, menus), e testes dirigidos de teclado, foco preso e devolvido, Escape, skip link, reflow, alvos de toque, movimento reduzido e `aria-live` (`apps/e2e/tests/wcag*.spec.ts`). Antes das correções o axe achou 185 grupos de violação (366 nós), sobretudo `color-contrast`, `button-name`, `label` e `select-name`; todos corrigidos, com 3 exceções documentadas em `ALLOWED_VIOLATIONS`. Impressão (`@media print`) passa pelo axe e as imagens de compartilhamento têm checagem de PNG (`wcag-print.spec.ts`). Pendente só a passada manual com leitor de tela (o axe cobre cerca de um terço dos critérios), que não dá para automatizar |
 
 ## Dívidas técnicas
