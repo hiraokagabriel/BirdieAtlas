@@ -21,14 +21,14 @@ import { checkRegistrationEligibility } from '../domain/eligibility.js'
 import { paginate } from '../domain/pagination.js'
 import { canEditRegistration, validateRegistrationStatusChange } from '../domain/registration-rules.js'
 
-async function athleteNames(ids: string[]): Promise<Map<string, string>> {
+export async function athleteNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()
   const rows = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, ids))
   return new Map(rows.map((a) => [a.id, a.name]))
 }
 
 /** Clube atual (afiliação sem data de término) de cada atleta. */
-async function currentClubNames(ids: string[]): Promise<Map<string, string>> {
+export async function currentClubNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()
   const rows = await db
     .select({ athleteId: athleteAffiliations.athleteId, clubName: clubs.name })

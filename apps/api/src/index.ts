@@ -17,6 +17,7 @@ import { tenantsRoutes } from './routes/tenants.js'
 import { pointRulesRoutes } from './routes/point-rules.js'
 import { pairsRoutes } from './routes/pairs.js'
 import { registrationsRoutes } from './routes/registrations.js'
+import { reportsRoutes } from './routes/reports.js'
 
 const app = Fastify({ logger: true })
 
@@ -47,6 +48,7 @@ await app.register(tenantsRoutes)
 await app.register(pointRulesRoutes)
 await app.register(pairsRoutes)
 await app.register(registrationsRoutes)
+await app.register(reportsRoutes)
 
 const port = Number(process.env.PORT ?? 3001)
 await app.listen({ port, host: '0.0.0.0' })

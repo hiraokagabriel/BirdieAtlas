@@ -121,7 +121,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | Dashboard com dados reais | ✅ | |
-| Relatórios exportáveis | 🟡 | CSV de inscritos por categoria (admin) e de entradas do ranking; falta o resto dos relatórios |
+| Relatórios exportáveis | ✅ | CSV de inscritos, entradas do ranking, resultados das partidas, classificação final e lista de atletas (admin) |
 | Notificações | ❌ | Dependem de provedor de e-mail/WhatsApp e de login |
 | Gestão de usuários e papéis | ❌ | Depende do Clerk |
 

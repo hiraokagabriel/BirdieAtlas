@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { AthletesTable, type GenderFilter } from '@/components/athlete/athletes-table'
 import { Pager } from '@/components/shared/pager'
 import { ErrorNotice } from '@/components/public/notices'
@@ -59,7 +60,8 @@ export function AthletesView() {
           <h2 className="text-2xl font-bold tracking-tight">Atletas</h2>
           <p className="text-muted-foreground">Gerencie os atletas filiados à federação.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-start gap-2">
+          <ExportCsvButton path="/athletes/export.csv" fallbackName="atletas.csv" label="Exportar atletas" />
           <button
             type="button"
             onClick={() => setImportOpen(true)}

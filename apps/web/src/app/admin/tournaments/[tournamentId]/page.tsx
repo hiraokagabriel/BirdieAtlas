@@ -7,6 +7,7 @@ import { BracketView } from '@/components/bracket/bracket-view'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { RegistrationsTab } from '@/components/tournament/registrations-tab'
 import { FinalizeTournamentModal } from '@/components/tournament/finalize-tournament-modal'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { TournamentSetupTab } from '@/components/tournament/tournament-setup-tab'
 import { TournamentStatusActions } from '@/components/tournament/tournament-status-actions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -112,6 +113,10 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <ExportCsvButton path={`/tournaments/${tournament.id}/results/export.csv`} fallbackName="resultados.csv" label="Exportar resultados" />
+          {isCompleted && (
+            <ExportCsvButton path={`/tournaments/${tournament.id}/standings/export.csv`} fallbackName="classificacao.csv" label="Exportar classificação" />
+          )}
           <TournamentStatusActions tournamentId={tournament.id} status={tournament.status} onChanged={fetchTournament} />
           {isCompleted && (
             <button
