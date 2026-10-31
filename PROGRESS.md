@@ -114,8 +114,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Imagens de compartilhamento (Open Graph 1200x630 e "story" 1080x1350 do pódio) | ✅ |
 | Compartilhar e baixar imagem (torneio, atleta e ranking) | ✅ |
 | Impressão / PDF da chave e do ranking (`@media print`) | ✅ |
-| Estatísticas e histórico de atletas | ❌ |
-| Head-to-head | ❌ |
+| Estatísticas e histórico de atletas | ✅ |
+| Head-to-head | ✅ |
 
 ## Phase 7 — Admin
 

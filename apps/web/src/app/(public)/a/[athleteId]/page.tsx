@@ -3,11 +3,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { Award, Calendar, Globe, MapPin, Trophy, Users } from 'lucide-react'
-import { fetchAthleteProfile } from '@/lib/public-athlete'
+import { fetchAthleteProfile, fetchAthleteStats } from '@/lib/public-athlete'
 import { summarizeAthlete } from '@/lib/athlete-stats'
 import { countryName, formatDate, formatPoints } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
 import { AthleteAvatar } from '@/components/public/athlete-avatar'
+import { AthleteStatsSection } from '@/components/public/athlete-stats-section'
+import { HeadToHeadPicker } from '@/components/public/head-to-head-picker'
 import { LevelBadge } from '@/components/public/level-badge'
 import { EmptyNotice } from '@/components/public/notices'
 import { PlacementBadge } from '@/components/public/placement-badge'
@@ -44,7 +46,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicAthletePage({ params }: PageProps) {
   const { athleteId } = await params
-  const { athlete, currentClub, rankingPositions, tournamentHistory } = await loadProfile(athleteId)
+  const [{ athlete, currentClub, rankingPositions, tournamentHistory }, matchStats] = await Promise.all([
+    loadProfile(athleteId),
+    fetchAthleteStats(athleteId),
+  ])
 
   const summary = summarizeAthlete(tournamentHistory, rankingPositions)
   const rankings = [...rankingPositions].sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity))
@@ -137,6 +142,10 @@ export default async function PublicAthletePage({ params }: PageProps) {
           />
         </dl>
       </section>
+
+      <AthleteStatsSection stats={matchStats} />
+
+      <HeadToHeadPicker athleteId={athlete.id} />
 
       <section aria-labelledby="rankings-title" className="space-y-4">
         <h2 id="rankings-title" className="text-2xl">
