@@ -138,6 +138,24 @@ describe('isDrawFinished', () => {
   })
 })
 
+describe('isDrawFinished: eliminação dupla e suíço', () => {
+  const done = { status: 'completed', registration1Id: 'a', registration2Id: 'b' }
+  it('eliminação dupla: a grande final precisa ter sido jogada; o reset vazio não bloqueia', () => {
+    const empty = { status: 'pending', stage: 'grand_final_reset', registration1Id: null, registration2Id: null }
+    expect(isDrawFinished('double_elimination', [{ ...done, stage: 'winners' }, { ...done, stage: 'grand_final' }, empty])).toBe(true)
+    expect(isDrawFinished('double_elimination', [{ ...done, stage: 'winners' }, { ...done, stage: 'grand_final', status: 'pending', registration2Id: null }])).toBe(false)
+    expect(isDrawFinished('double_elimination', [{ ...done, stage: 'winners' }])).toBe(false)
+    // Reset preenchido e ainda não jogado bloqueia.
+    expect(isDrawFinished('double_elimination', [{ ...done, stage: 'grand_final' }, { ...done, stage: 'grand_final_reset', status: 'pending' }])).toBe(false)
+  })
+  it('suíço: todas as rodadas configuradas precisam existir', () => {
+    const rounds = [{ ...done, round: 3 }, { ...done, round: 2 }]
+    expect(isDrawFinished('swiss', rounds, { rounds: 3 })).toBe(false)
+    expect(isDrawFinished('swiss', [...rounds, { ...done, round: 1 }], { rounds: 3 })).toBe(true)
+    expect(isDrawFinished('swiss', rounds, null)).toBe(false)
+  })
+})
+
 describe('computeGroupKnockoutPlacements', () => {
   it('eliminatória decide o pódio e quem caiu nos grupos fica em bracketSize + 1', () => {
     const groupDefs = buildGroupMatchDefs('d', [['a1', 'a2', 'a3'], ['b1', 'b2', 'b3']], 1)

@@ -112,6 +112,7 @@ async function runAutoSchedule(ex: Executor, tournamentId: string, body: AutoSch
     registration1Id: m.registration1Id,
     registration2Id: m.registration2Id,
     nextMatchId: m.nextMatchId,
+    loserNextMatchId: m.loserNextMatchId,
     scheduledAt: m.scheduledAt,
     courtNumber: m.courtNumber,
   }))

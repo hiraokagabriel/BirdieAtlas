@@ -25,6 +25,7 @@ export function HeadToHeadPicker({ athleteId }: { athleteId: string }) {
     }
     let cancelled = false
     setState('loading')
+    setHits([])
     const timer = setTimeout(() => {
       apiFetch<{ data: Hit[] }>(`/athletes/search?q=${encodeURIComponent(text)}&pageSize=6`)
         .then((res) => {
@@ -61,6 +62,7 @@ export function HeadToHeadPicker({ athleteId }: { athleteId: string }) {
         )}
       </Field>
       <div aria-live="polite">
+        {state === 'loading' && <p className="text-sm text-muted-foreground">Buscando...</p>}
         {state === 'error' && <p className="text-sm text-destructive">Não foi possível buscar agora.</p>}
         {state === 'idle' && query.trim().length >= MIN_LENGTH && hits.length === 0 && (
           <p className="text-sm text-muted-foreground">Nenhum atleta encontrado.</p>

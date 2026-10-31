@@ -125,6 +125,8 @@ export function BracketTree({
 
   const rounds = buildRounds(matches)
   const maxRound = rounds[0].round
+  // A última rodada (a final) não tem conector; na eliminação simples é a rodada 1.
+  const lastRound = rounds[rounds.length - 1]!.round
   const entryMap = indexEntries(entries)
   const podium = computePodium(matches, results)
   const champion = podium ? describeSlot(podium.champion, entryMap, false) : null
@@ -168,7 +170,7 @@ export function BracketTree({
                         live={live?.get(match.id)}
                       />
                     </div>
-                    {round > 1 && <Connector position={match.position} />}
+                    {round > lastRound && <Connector position={match.position} />}
                   </li>
                 ))}
               </ol>

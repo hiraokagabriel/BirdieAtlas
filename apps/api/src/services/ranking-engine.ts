@@ -241,7 +241,7 @@ export async function awardTournamentPoints(tournament: TournamentRow): Promise<
     if (!drawMatches.length) unfinished.push(`${category.name}: chave vazia`)
     else if (pending > 0) unfinished.push(`${category.name}: ${pending} partida(s) pendente(s)`)
     else if (!isDrawFinished(category.drawType, drawMatches, draw.config)) {
-      unfinished.push(`${category.name}: ${category.drawType === 'swiss' ? 'faltam rodadas do suíço' : 'eliminatória ainda não gerada'}`)
+      unfinished.push(`${category.name}: ${category.drawType === 'swiss' ? 'faltam rodadas do suíço' : category.drawType === 'double_elimination' ? 'a grande final ainda não foi jogada' : 'eliminatória ainda não gerada'}`)
     }
   }
   if (!categories.length || unfinished.length) {

@@ -5,7 +5,7 @@ import { db } from '../db/index.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { athletes, draws, matchResults, matches, tournamentCategories, tournaments } from '../db/schema.js'
 import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
-import { GENDER_LABELS, MATCH_STATUS_LABELS, formatScore, joinClubs, pickWinner, roundLabel, sortByPlacement, sortMatchesForReport } from '../domain/report-format.js'
+import { GENDER_LABELS, MATCH_STATUS_LABELS, formatScore, joinClubs, matchRoundLabel, pickWinner, sortByPlacement, sortMatchesForReport } from '../domain/report-format.js'
 import { getWinnerSlot } from '../services/match-result.js'
 import { athleteNames, currentClubNames } from './registrations.js'
 
@@ -54,7 +54,7 @@ export async function reportsRoutes(app: FastifyInstance) {
             const winnerId = pickWinner(slot, m.registration1Id, m.registration2Id)
             return [
               category.name,
-              m.roundLabel ?? roundLabel(m.round),
+              matchRoundLabel(m),
               m.position,
               m.registration1Id ? (sideName.get(m.registration1Id) ?? '') : '',
               m.registration2Id ? (sideName.get(m.registration2Id) ?? '') : '',

@@ -171,7 +171,7 @@ export function transition(tournamentId: string, to: TournamentStatus): Promise<
 
 export function createCategory(
   tournamentId: string,
-  options: { name?: string; discipline?: Discipline; drawType?: 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss' } = {},
+  options: { name?: string; discipline?: Discipline; drawType?: 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss' | 'double_elimination' } = {},
 ): Promise<Category> {
   return api.post<Category>(`/tournaments/${tournamentId}/categories`, {
     name: options.name ?? 'Simples Masculino',
@@ -273,7 +273,7 @@ export async function prepareTournament(
     status?: 'registration_open' | 'registration_closed' | 'in_progress'
     /** Atletas já criados (por exemplo, com nomes acentuados); o padrão cria `athleteCount` atletas. */
     athletes?: Athlete[]
-    drawType?: 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss'
+    drawType?: 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss' | 'double_elimination'
   } = {},
 ): Promise<PreparedTournament> {
   const tournament = await createTournament({

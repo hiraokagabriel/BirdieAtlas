@@ -72,6 +72,11 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
     return { ok: false, status: 409, error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' }
   }
 
+  // Grupos e suíço: trava a chave (a mesma trava da geração da fase seguinte) antes de checar as travas abaixo.
+  if (match.stage === 'group' || match.stage === 'swiss') {
+    await ex.select({ id: draws.id }).from(draws).where(eq(draws.id, match.drawId)).for('update')
+  }
+
   // Grupos + eliminatória: depois que a eliminatória existe, mudar um resultado dos grupos desatualizaria os classificados.
   if (match.stage === 'group') {
     const [knockout] = await ex.select({ id: matches.id }).from(matches)
@@ -94,13 +99,20 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
   if (!newWinner) return { ok: false, status: 400, error: 'Cannot determine winner from sets' }
   const newWinnerRegId = newWinner === 1 ? match.registration1Id : match.registration2Id
 
+  const newLoserRegId = newWinner === 1 ? match.registration2Id : match.registration1Id
+
   const prevResults = await ex.select().from(matchResults).where(eq(matchResults.matchId, matchId))
   const prevWinner = prevResults.length ? getWinnerSlot(prevResults) : null
   const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
+  const prevLoserRegId = prevWinner === 1 ? match.registration2Id : match.registration1Id
   const winnerChanged = prevResults.length > 0 && prevWinnerRegId !== newWinnerRegId
 
   const resetMatchIds: string[] = []
-  if (winnerChanged && match.nextMatchId) await cascadeReset(ex, match.nextMatchId, prevWinnerRegId, resetMatchIds)
+  if (winnerChanged) {
+    if (match.nextMatchId) await cascadeReset(ex, match.nextMatchId, prevWinnerRegId, resetMatchIds)
+    // Eliminação dupla: o perdedor anterior também sai da partida para onde tinha caído.
+    if (match.loserNextMatchId) await cascadeReset(ex, match.loserNextMatchId, prevLoserRegId, resetMatchIds)
+  }
   if (prevResults.length) await ex.delete(matchResults).where(eq(matchResults.matchId, matchId))
 
   // Um resultado oficial substitui qualquer placar provisório da partida.
@@ -112,11 +124,54 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
   ).returning()
 
   if (match.nextMatchId) {
-    const slot = getSlotForPosition(match.position)
-    await ex.update(matches).set({ [slot]: newWinnerRegId, updatedAt: new Date() }).where(eq(matches.id, match.nextMatchId))
+    // `nextSlot` guardado (eliminação dupla); sem ele, vale a regra da eliminação simples (posição ímpar = slot 1).
+    const column = slotColumn(match.nextSlot, legacySlotOf(match.position))
+    await ex.update(matches).set({ [column]: newWinnerRegId, updatedAt: new Date() }).where(eq(matches.id, match.nextMatchId))
   }
+  if (match.loserNextMatchId && newLoserRegId) {
+    await ex.update(matches).set({ [slotColumn(match.loserNextSlot, 1)]: newLoserRegId, updatedAt: new Date() }).where(eq(matches.id, match.loserNextMatchId))
+  }
+  if (match.stage === 'grand_final') await syncGrandFinalReset(ex, match, newWinner, resetMatchIds)
 
   return { ok: true, match: { ...match, status: body.status }, results, tournamentId: owner?.id ?? null, resetMatchIds }
+}
+
+/** Eliminação simples: posição ímpar ocupa o slot 1 da partida seguinte, par o slot 2. */
+function legacySlotOf(position: number): 1 | 2 {
+  return getSlotForPosition(position) === 'registration1Id' ? 1 : 2
+}
+
+function slotColumn(slot: number | null | undefined, fallback: 1 | 2): 'registration1Id' | 'registration2Id' {
+  return (slot ?? fallback) === 1 ? 'registration1Id' : 'registration2Id'
+}
+
+/** Limpa a partida de reset da grande final (resultado, placar provisório e participantes). */
+async function clearResetMatch(ex: Executor, drawId: string, resetMatchIds: string[]): Promise<void> {
+  const [reset] = await ex.select().from(matches).where(and(eq(matches.drawId, drawId), eq(matches.stage, 'grand_final_reset')))
+  if (!reset || (reset.registration1Id === null && reset.registration2Id === null)) return
+  await ex.delete(matchResults).where(eq(matchResults.matchId, reset.id))
+  await ex.delete(matchLiveStates).where(eq(matchLiveStates.matchId, reset.id))
+  await ex.update(matches).set({ registration1Id: null, registration2Id: null, status: 'pending', updatedAt: new Date() }).where(eq(matches.id, reset.id))
+  resetMatchIds.push(reset.id)
+}
+
+/**
+ * Grande final com reset: se quem veio da chave dos perdedores (lado 2) vence, os dois jogam de novo na partida de
+ * reset; se o campeão dos vencedores vence, não há reset. Mudar o resultado desfaz o que dependia dele.
+ */
+async function syncGrandFinalReset(ex: Executor, final: MatchRow, winnerSlot: 1 | 2, resetMatchIds: string[]): Promise<void> {
+  const [reset] = await ex.select().from(matches).where(and(eq(matches.drawId, final.drawId), eq(matches.stage, 'grand_final_reset')))
+  if (!reset) return
+  if (winnerSlot !== 2) {
+    await clearResetMatch(ex, final.drawId, resetMatchIds)
+    return
+  }
+  const same = reset.registration1Id === final.registration1Id && reset.registration2Id === final.registration2Id
+  if (same) return
+  await clearResetMatch(ex, final.drawId, resetMatchIds)
+  await ex.update(matches)
+    .set({ registration1Id: final.registration1Id, registration2Id: final.registration2Id, status: 'pending', updatedAt: new Date() })
+    .where(eq(matches.id, reset.id))
 }
 
 async function cascadeReset(ex: Executor, matchId: string, regIdToRemove: string | null, resetMatchIds: string[]): Promise<void> {
@@ -128,6 +183,7 @@ async function cascadeReset(ex: Executor, matchId: string, regIdToRemove: string
   const prevResults = await ex.select().from(matchResults).where(eq(matchResults.matchId, matchId))
   const prevWinner = prevResults.length ? getWinnerSlot(prevResults) : null
   const prevWinnerRegId = prevWinner === 1 ? match.registration1Id : match.registration2Id
+  const prevLoserRegId = prevWinner === 1 ? match.registration2Id : match.registration1Id
   await ex.delete(matchResults).where(eq(matchResults.matchId, matchId))
   // Partida seguinte que estava ao vivo perde o adversário: o placar provisório deixa de valer.
   await ex.delete(matchLiveStates).where(eq(matchLiveStates.matchId, matchId))
@@ -136,4 +192,7 @@ async function cascadeReset(ex: Executor, matchId: string, regIdToRemove: string
     .where(eq(matches.id, matchId))
   resetMatchIds.push(matchId)
   if (match.nextMatchId && prevWinnerRegId) await cascadeReset(ex, match.nextMatchId, prevWinnerRegId, resetMatchIds)
+  if (match.loserNextMatchId && prevLoserRegId && prevResults.length) await cascadeReset(ex, match.loserNextMatchId, prevLoserRegId, resetMatchIds)
+  // A grande final perdeu um participante: o reset (se existia) não vale mais.
+  if (match.stage === 'grand_final') await clearResetMatch(ex, match.drawId, resetMatchIds)
 }

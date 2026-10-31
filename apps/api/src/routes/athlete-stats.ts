@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db/index.js'
+import { publicAthleteColumns } from '../db/public-columns.js'
 import { selectRegistrations } from '../db/registrations.js'
 import {
   athletes, draws, matchResults, matches, pairs, tournamentCategories, tournamentRegistrations, tournaments,
@@ -29,9 +30,9 @@ interface PlayedMatch extends MatchRecord {
 }
 
 async function publicAthlete(id: string) {
-  const [athlete] = await db.select({ id: athletes.id, name: athletes.name }).from(athletes)
+  const [athlete] = await db.select(publicAthleteColumns).from(athletes)
     .where(and(eq(athletes.id, id), isNull(athletes.deletedAt)))
-  return athlete
+  return athlete ? { id: athlete.id, name: athlete.name } : undefined
 }
 
 /** Partidas encerradas do atleta (simples ou em qualquer dupla), da mais recente para a mais antiga. */
@@ -62,8 +63,10 @@ async function loadPlayedMatches(athleteId: string): Promise<{ played: PlayedMat
   const drawRows = await db.select().from(draws).where(inArray(draws.id, [...new Set(matchRows.map((m) => m.drawId))]))
   const categoryRows = await db.select().from(tournamentCategories)
     .where(inArray(tournamentCategories.id, [...new Set(drawRows.map((d) => d.categoryId))]))
-  const tournamentRows = await db.select().from(tournaments)
-    .where(inArray(tournaments.id, [...new Set(categoryRows.map((c) => c.tournamentId))]))
+  // Torneio excluído ou ainda em rascunho não é público.
+  const tournamentRows = (await db.select().from(tournaments)
+    .where(and(inArray(tournaments.id, [...new Set(categoryRows.map((c) => c.tournamentId))]), isNull(tournaments.deletedAt))))
+    .filter((t) => t.status !== 'draft')
   const drawById = new Map(drawRows.map((d) => [d.id, d]))
   const categoryById = new Map(categoryRows.map((c) => [c.id, c]))
   const tournamentById = new Map(tournamentRows.map((t) => [t.id, t]))

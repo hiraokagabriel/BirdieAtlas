@@ -50,7 +50,7 @@ export interface SwissMatch {
   id: string
   registration1Id: string | null
   registration2Id: string | null
-  status: string
+  status?: string
 }
 
 export interface SwissSet {

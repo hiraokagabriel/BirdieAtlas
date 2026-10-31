@@ -17,7 +17,7 @@ import {
 } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
-import { computeDrawPlacements } from '../domain/placements.js'
+import { computeDrawPlacements, DRAW_FORMATS } from '../domain/placements.js'
 import { isDrawFinished } from '../domain/groups.js'
 import { revokeTournamentPoints } from '../services/ranking-engine.js'
 import { getDefaultTenantId } from '../tenant.js'
@@ -42,7 +42,7 @@ const createCategorySchema = z.object({
   name: z.string().min(1),
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   maxEntries: z.number().int().optional(),
-  drawType: z.enum(['single_elimination', 'round_robin', 'group_then_elimination', 'swiss']).optional(),
+  drawType: z.enum(DRAW_FORMATS).optional(),
 })
 
 export async function tournamentsRoutes(app: FastifyInstance) {
@@ -227,10 +227,11 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       const drawList = await db.select().from(draws).where(eq(draws.categoryId, cat.id))
       if (!drawList.length) { incomplete.push(`${cat.name}: chave nao gerada`); continue }
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0].id))
-      const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status))
+      // O reset da grande final só existe se quem veio dos perdedores vencer: vazio, não é pendência.
+      const pending = allMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && !(m.stage === 'grand_final_reset' && m.registration1Id === null))
       if (pending.length > 0) incomplete.push(`${cat.name}: ${pending.length} partida(s) pendente(s)`)
       else if (!isDrawFinished(cat.drawType, allMatches, drawList[0].config)) {
-        incomplete.push(`${cat.name}: ${cat.drawType === 'swiss' ? 'faltam rodadas do suíço' : 'eliminatória ainda não gerada'}`)
+        incomplete.push(`${cat.name}: ${cat.drawType === 'swiss' ? 'faltam rodadas do suíço' : cat.drawType === 'double_elimination' ? 'a grande final ainda não foi jogada' : 'eliminatória ainda não gerada'}`)
       }
     }
     if (incomplete.length > 0) {

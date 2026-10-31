@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
 import { buildRoundRobinMatchDefs, computeRoundRobinStandings } from '../domain/round-robin.js'
+import { buildDoubleEliminationDefs, planDoubleElimination } from '../domain/double-elimination.js'
 import {
   buildSwissRoundDefs, computeSwissStandings, pairFirstRound, pairKey, pairSwissRound, planSwiss, swissProgress,
 } from '../domain/swiss.js'
@@ -14,7 +15,7 @@ import {
 } from '../domain/groups.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
 import { selectRegistrations } from '../db/registrations.js'
-import { saveMatchResult } from '../services/match-result.js'
+import { findOwnerTournament, isTournamentLocked, saveMatchResult, TOURNAMENT_LOCKED_MESSAGE } from '../services/match-result.js'
 import { getLiveMatchView, liveBus } from '../services/live-match.js'
 
 const upsertMatchResultSchema = z.object({
@@ -28,8 +29,8 @@ const scheduleMatchSchema = z.object({
 })
 
 type BuiltDraw =
-  | { ok: true; defs: MatchDef[]; config: GroupConfig | { rounds: number } | null }
-  | { ok: false; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' }
+  | { ok: true; defs: MatchDef[]; config: GroupConfig | { rounds: number } | { reset: boolean } | null }
+  | { ok: false; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' | 'INVALID_DOUBLE_ELIMINATION_CONFIG' }
 
 /** Monta as partidas conforme o formato da categoria (eliminação simples, todos contra todos ou fase de grupos). */
 async function buildCategoryMatchDefs(
@@ -42,6 +43,7 @@ async function buildCategoryMatchDefs(
     groupSize?: number | undefined
     advancePerGroup?: number | undefined
     swissRounds?: number | undefined
+    doubleEliminationReset?: boolean | undefined
   },
 ): Promise<BuiltDraw> {
   const { mode } = options
@@ -55,6 +57,12 @@ async function buildCategoryMatchDefs(
       defs: buildGroupMatchDefs(drawId, groups, planned.plan.knockoutRounds),
       config: { groupCount: planned.plan.groupCount, advancePerGroup: planned.plan.advancePerGroup },
     }
+  }
+  if (category?.drawType === 'double_elimination') {
+    const planned = planDoubleElimination(confirmed.length)
+    if (!planned.ok) return { ok: false, error: planned.error, code: 'INVALID_DOUBLE_ELIMINATION_CONFIG' }
+    const reset = options.doubleEliminationReset ?? true
+    return { ok: true, defs: buildDoubleEliminationDefs(drawId, confirmed, mode, reset), config: { reset } }
   }
   if (category?.drawType === 'swiss') {
     const planned = planSwiss({ entries: confirmed.length, rounds: options.swissRounds })
@@ -80,16 +88,23 @@ const generateDrawSchema = z.object({
   advancePerGroup: z.number().int().optional(),
   // Suíço (ignorado nos outros formatos): número de rodadas (padrão ⌈log₂ inscritos⌉).
   swissRounds: z.number().int().optional(),
+  // Eliminação dupla: se a grande final tem reset (padrão: sim).
+  doubleEliminationReset: z.boolean().optional(),
 })
+
+const drawIdParams = z.object({ drawId: z.string().trim().min(1) })
+const categoryIdParams = z.object({ categoryId: z.string().trim().min(1) })
+const matchIdParams = z.object({ matchId: z.string().trim().min(1) })
+const tournamentIdParams = z.object({ tournamentId: z.string().trim().min(1) })
 
 export async function drawsRoutes(app: FastifyInstance) {
   app.get('/tournaments/categories/:categoryId/draws', async (request) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParams.parse(request.params)
     return db.select().from(draws).where(eq(draws.categoryId, categoryId))
   })
 
   app.post('/draws/generate/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParams.parse(request.params)
     const body = generateDrawSchema.parse(request.body ?? {})
     const { mode } = body
 
@@ -109,7 +124,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.post('/draws/:drawId/redraw', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const body       = generateDrawSchema.parse(request.body ?? {})
     const { mode }   = body
 
@@ -162,7 +177,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.post('/draws/:drawId/migrate-next-match-id', async (request) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
     // Só vale para chaves de eliminação simples: outros formatos (round_label gravado) não encadeiam partidas.
     if (allMatches.some((m) => m.roundLabel !== null)) return { updated: 0, total: allMatches.length }
@@ -180,7 +195,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Classificação do todos contra todos e dos grupos (público). Eliminação simples: lista vazia.
   app.get('/draws/:drawId/standings', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
     const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
@@ -210,66 +225,80 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Grupos + eliminatória: cria a eliminatória com os classificados, quando os grupos terminam.
   app.post('/draws/:drawId/knockout', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
-    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
-    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
-    const [category] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
+    const { drawId } = drawIdParams.parse(request.params)
+    // Uma transação com a chave travada (FOR UPDATE): dois cliques ou um retry não geram a fase duas vezes.
+    const result = await db.transaction(async (tx) => {
+        const [draw] = await tx.select().from(draws).where(eq(draws.id, drawId)).for('update')
+    if (!draw) return { status: 404, body: { error: 'Draw not found', code: 'DRAW_NOT_FOUND' } }
+    const owner = await findOwnerTournament(tx, draw.id)
+    if (owner && isTournamentLocked(owner.status)) {
+      return { status: 409, body: { error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' } }
+    }
+    const [category] = await tx.select().from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
     if (category?.drawType !== 'group_then_elimination') {
-      return reply.status(409).send({ error: 'Esta categoria não tem fase de grupos.', code: 'NOT_GROUP_FORMAT' })
+      return { status: 409, body: { error: 'Esta categoria não tem fase de grupos.', code: 'NOT_GROUP_FORMAT' } }
     }
     const config = draw.config as GroupConfig | null
-    if (!config) return reply.status(409).send({ error: 'A chave não tem configuração de grupos. Sorteie de novo.', code: 'MISSING_GROUP_CONFIG' })
+    if (!config) return { status: 409, body: { error: 'A chave não tem configuração de grupos. Sorteie de novo.', code: 'MISSING_GROUP_CONFIG' } }
 
-    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const drawMatches = await tx.select().from(matches).where(eq(matches.drawId, drawId))
     if (drawMatches.some((m) => m.stage === 'knockout')) {
-      return reply.status(409).send({ error: 'A eliminatória já foi gerada.', code: 'KNOCKOUT_ALREADY_GENERATED' })
+      return { status: 409, body: { error: 'A eliminatória já foi gerada.', code: 'KNOCKOUT_ALREADY_GENERATED' } }
     }
     const pending = drawMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && m.registration1Id && m.registration2Id)
     if (pending.length > 0) {
-      return reply.status(409).send({
+      return { status: 409, body: {
         error: `Ainda há ${pending.length} partida(s) da fase de grupos sem resultado.`,
         code: 'GROUPS_NOT_FINISHED',
         details: { pending: pending.length },
-      })
+      } }
     }
 
-    const setRows = await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+    const setRows = await tx.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
     const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
     for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
 
     const qualifiers = pickQualifiers(computeGroupStandings(drawMatches, setsByMatchId), config.advancePerGroup)
-    if (qualifiers.length < 2) return reply.status(409).send({ error: 'Classificados insuficientes para a eliminatória.', code: 'NOT_ENOUGH_QUALIFIERS' })
+    if (qualifiers.length < 2) return { status: 409, body: { error: 'Classificados insuficientes para a eliminatória.', code: 'NOT_ENOUGH_QUALIFIERS' } }
 
     const defs = buildKnockoutMatchDefs(drawId, qualifiers)
-    await db.insert(matches).values(defs)
-    return reply.status(201).send({ matchCount: defs.length, qualifiers: qualifiers.length })
+    await tx.insert(matches).values(defs)
+    return { status: 201, body: { matchCount: defs.length, qualifiers: qualifiers.length } }
+    })
+    return reply.status(result.status).send(result.body)
   })
 
   // Suíço: gera a próxima rodada, pareando por classificação sem repetir adversário, quando a atual termina.
   app.post('/draws/:drawId/swiss/next-round', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
-    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
-    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
+    const { drawId } = drawIdParams.parse(request.params)
+    // Uma transação com a chave travada (FOR UPDATE): dois cliques ou um retry não geram a fase duas vezes.
+    const result = await db.transaction(async (tx) => {
+        const [draw] = await tx.select().from(draws).where(eq(draws.id, drawId)).for('update')
+    if (!draw) return { status: 404, body: { error: 'Draw not found', code: 'DRAW_NOT_FOUND' } }
+    const owner = await findOwnerTournament(tx, draw.id)
+    if (owner && isTournamentLocked(owner.status)) {
+      return { status: 409, body: { error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' } }
+    }
     const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
-    if (category?.drawType !== 'swiss') return reply.status(409).send({ error: 'Esta categoria não é suíço.', code: 'NOT_SWISS_FORMAT' })
+    if (category?.drawType !== 'swiss') return { status: 409, body: { error: 'Esta categoria não é suíço.', code: 'NOT_SWISS_FORMAT' } }
     const total = (draw.config as { rounds?: number } | null)?.rounds
-    if (!total) return reply.status(409).send({ error: 'A chave não tem número de rodadas. Sorteie de novo.', code: 'MISSING_SWISS_CONFIG' })
+    if (!total) return { status: 409, body: { error: 'A chave não tem número de rodadas. Sorteie de novo.', code: 'MISSING_SWISS_CONFIG' } }
 
-    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const drawMatches = await tx.select().from(matches).where(eq(matches.drawId, drawId))
     const progress = swissProgress(drawMatches, total)
     if (progress.generated >= total) {
-      return reply.status(409).send({ error: 'Todas as rodadas já foram geradas.', code: 'SWISS_ROUNDS_COMPLETE' })
+      return { status: 409, body: { error: 'Todas as rodadas já foram geradas.', code: 'SWISS_ROUNDS_COMPLETE' } }
     }
     const pending = drawMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && m.registration1Id && m.registration2Id)
     if (pending.length > 0) {
-      return reply.status(409).send({
+      return { status: 409, body: {
         error: `Ainda há ${pending.length} partida(s) da rodada ${progress.generated} sem resultado.`,
         code: 'ROUND_NOT_FINISHED',
         details: { pending: pending.length },
-      })
+      } }
     }
 
-    const setRows = await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+    const setRows = await tx.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
     const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
     for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
 
@@ -280,22 +309,24 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     const pairing = pairSwissRound(ranked, played, byeHistory)
     const defs = buildSwissRoundDefs(drawId, total, progress.generated + 1, pairing)
-    await db.insert(matches).values(defs)
-    return reply.status(201).send({
+    await tx.insert(matches).values(defs)
+    return { status: 201, body: {
       round: progress.generated + 1,
       matchCount: defs.length,
       bye: pairing.bye,
       rematches: pairing.rematches,
+    } }
     })
+    return reply.status(result.status).send(result.body)
   })
 
   app.get('/draws/:drawId/matches', async (request) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     return db.select().from(matches).where(eq(matches.drawId, drawId))
   })
 
   app.post('/draws/:drawId/publish', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found' })
     const [updated] = await db.update(draws).set({ published: true, updatedAt: new Date() }).where(eq(draws.id, drawId)).returning()
@@ -303,7 +334,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.post('/draws/:drawId/unpublish', async (request, reply) => {
-    const { drawId } = request.params as { drawId: string }
+    const { drawId } = drawIdParams.parse(request.params)
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found' })
     const [updated] = await db.update(draws).set({ published: false, updatedAt: new Date() }).where(eq(draws.id, drawId)).returning()
@@ -312,7 +343,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // Distribui os pontos do torneio pelas regras de pontos dos rankings (ver services/ranking-engine.ts)
   app.post('/tournaments/:tournamentId/award-points', async (request, reply) => {
-    const { tournamentId } = request.params as { tournamentId: string }
+    const { tournamentId } = tournamentIdParams.parse(request.params)
 
     const [tournament] = await db.select().from(tournaments).where(and(eq(tournaments.id, tournamentId), isNull(tournaments.deletedAt)))
     if (!tournament) return reply.status(404).send({ error: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' })
@@ -328,7 +359,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     return { awarded: result.awarded, rankings: result.rankings, skipped: result.skipped }
   })
   app.patch('/draws/matches/:matchId/schedule', async (request, reply) => {
-    const { matchId } = request.params as { matchId: string }
+    const { matchId } = matchIdParams.parse(request.params)
     const body = scheduleMatchSchema.parse(request.body)
     const [match] = await db.select().from(matches).where(eq(matches.id, matchId))
     if (!match) return reply.status(404).send({ error: 'Match not found' })
@@ -345,7 +376,7 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   // A lógica vive em services/match-result.ts: a mesma função encerra partidas ao vivo (routes/live.ts).
   app.post('/draws/matches/:matchId/result', async (request, reply) => {
-    const { matchId } = request.params as { matchId: string }
+    const { matchId } = matchIdParams.parse(request.params)
     const body = upsertMatchResultSchema.parse(request.body)
 
     const saved = await db.transaction((tx) => saveMatchResult(tx, matchId, body))
@@ -360,7 +391,7 @@ export async function drawsRoutes(app: FastifyInstance) {
   })
 
   app.get('/draws/matches/:matchId/result', async (request) => {
-    const { matchId } = request.params as { matchId: string }
+    const { matchId } = matchIdParams.parse(request.params)
     return db.select().from(matchResults).where(eq(matchResults.matchId, matchId))
   })
 }

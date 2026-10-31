@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from './bracket-draw'
-import { EMPTY_GROUP_CONFIG, GroupConfigFields, SwissConfigFields, groupConfigBody, swissConfigBody, type GroupConfigForm } from './group-config-fields'
+import { DoubleEliminationConfigFields, EMPTY_GROUP_CONFIG, GroupConfigFields, SwissConfigFields, groupConfigBody, swissConfigBody, type GroupConfigForm } from './group-config-fields'
 import { ErrorNotice } from '@/components/public/notices'
 import { BracketSkeleton } from './bracket-tree'
 import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
@@ -91,6 +91,7 @@ export function BracketView({
   const [redrawError,    setRedrawError]     = useState<string | null>(null)
   const [groupConfig,    setGroupConfig]     = useState<GroupConfigForm>(EMPTY_GROUP_CONFIG)
   const [swissRounds,    setSwissRounds]     = useState('')
+  const [deReset,        setDeReset]         = useState(true)
 
   const { data: draws, isLoading: loadingDraw, error: drawsError } = useQuery({
     queryKey: ['draws', activeCategoryId],
@@ -133,7 +134,10 @@ export function BracketView({
         const knockoutPending = cat.drawType === 'group_then_elimination' && !matchList.some((m) => m.stage === 'knockout')
         const swissRoundsTotal = drawList[0].config?.rounds ?? 0
         const swissPending = cat.drawType === 'swiss' && new Set(matchList.map((m) => m.round)).size < swissRoundsTotal
-        const done = matchList.length > 0 && !knockoutPending && !swissPending && matchList.every((m) => ['completed', 'walkover', 'retired'].includes(m.status))
+        // O reset da grande final fica vazio quando não é preciso: não conta como pendência.
+        const grandFinalPending = cat.drawType === 'double_elimination' && !matchList.some((m) => m.stage === 'grand_final' && ['completed', 'walkover', 'retired'].includes(m.status))
+        const done = matchList.length > 0 && !knockoutPending && !swissPending && !grandFinalPending &&
+          matchList.every((m) => ['completed', 'walkover', 'retired'].includes(m.status) || (m.stage === 'grand_final_reset' && m.registration1Id === null))
         results.push({ categoryId: cat.id, allDone: done })
       }
       return results
@@ -177,7 +181,7 @@ export function BracketView({
       const res = await fetch(`${API_URL}/draws/generate/${activeCategoryId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: selectedMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}) }),
+        body: JSON.stringify({ mode: selectedMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' ? { doubleEliminationReset: deReset } : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao gerar chaveamento') }
       return res.json()
@@ -192,7 +196,7 @@ export function BracketView({
       const res = await fetch(`${API_URL}/draws/${draw!.id}/redraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: redrawMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}) }),
+        body: JSON.stringify({ mode: redrawMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' ? { doubleEliminationReset: deReset } : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao ressortear') }
       return res.json()
@@ -295,6 +299,7 @@ export function BracketView({
             <GroupConfigFields value={groupConfig} onChange={setGroupConfig} />
           )}
           {activeCategory?.drawType === 'swiss' && <SwissConfigFields value={swissRounds} onChange={setSwissRounds} />}
+          {activeCategory?.drawType === 'double_elimination' && <DoubleEliminationConfigFields reset={deReset} onChange={setDeReset} />}
 
           {redrawError && (
             <div role="alert" className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
@@ -388,6 +393,7 @@ export function BracketView({
               <GroupConfigFields value={groupConfig} onChange={setGroupConfig} />
             )}
             {activeCategory?.drawType === 'swiss' && <SwissConfigFields value={swissRounds} onChange={setSwissRounds} />}
+            {activeCategory?.drawType === 'double_elimination' && <DoubleEliminationConfigFields reset={deReset} onChange={setDeReset} />}
             {generateError && (
               <div role="alert" className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />

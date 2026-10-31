@@ -16,7 +16,11 @@ export type MatchDef = {
   roundLabel?: string | null
   /** Grupos + eliminatória: letra do grupo e fase da partida. */
   groupKey?: string | null
-  stage?: 'group' | 'knockout' | 'swiss' | null
+  stage?: 'group' | 'knockout' | 'swiss' | 'winners' | 'losers' | 'grand_final' | 'grand_final_reset' | null
+  /** Eliminação dupla: slot (1 ou 2) que o vencedor ocupa em `nextMatchId`; e para onde cai o perdedor. */
+  nextSlot?: number | null
+  loserNextMatchId?: string | null
+  loserNextSlot?: number | null
 }
 
 export function getSlotForPosition(position: number): 'registration1Id' | 'registration2Id' {

@@ -39,7 +39,7 @@ export const disciplineEnum = pgEnum('discipline', [
 ])
 
 export const drawTypeEnum = pgEnum('draw_type', [
-  'single_elimination', 'round_robin', 'group_then_elimination', 'swiss',
+  'single_elimination', 'round_robin', 'group_then_elimination', 'swiss', 'double_elimination',
 ])
 
 export const matchStatusEnum = pgEnum('match_status', [
@@ -237,6 +237,10 @@ export const matches = pgTable('matches', {
   roundLabel: text('round_label'),
   // Grupos + eliminatória: letra do grupo e fase da partida ('group' | 'knockout'). Nulos nos outros formatos.
   groupKey: text('group_key'),
+  // Eliminação dupla: slot (1|2) do vencedor em next_match_id e destino do perdedor.
+  nextSlot: integer('next_slot'),
+  loserNextMatchId: text('loser_next_match_id'),
+  loserNextSlot: integer('loser_next_slot'),
   stage: text('stage'),
   ...timestamps,
 })

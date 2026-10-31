@@ -6,7 +6,8 @@ describe('roundLabel', () => {
     expect(roundLabel(1)).toBe('Final')
     expect(roundLabel(2)).toBe('Semifinal')
     expect(roundLabel(3)).toBe('Quartas de final')
-    expect(roundLabel(4)).toBe('Rodada 4')
+    expect(roundLabel(4)).toBe('Oitavas de final')
+    expect(roundLabel(5)).toBe('Rodada 5')
   })
 })
 

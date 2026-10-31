@@ -151,6 +151,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
                   {cat.drawType === 'round_robin' && <span className="ml-2 text-xs text-muted-foreground">· todos contra todos</span>}
                   {cat.drawType === 'group_then_elimination' && <span className="ml-2 text-xs text-muted-foreground">· grupos + eliminatória</span>}
                   {cat.drawType === 'swiss' && <span className="ml-2 text-xs text-muted-foreground">· suíço</span>}
+                  {cat.drawType === 'double_elimination' && <span className="ml-2 text-xs text-muted-foreground">· eliminação dupla</span>}
                   {cat.maxEntries && <span className="ml-2 text-xs text-muted-foreground">· máx {cat.maxEntries}</span>}
                 </div>
               </li>
@@ -178,6 +179,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
                   <option value="round_robin">Todos contra todos</option>
                   <option value="group_then_elimination">Grupos + eliminatória</option>
                   <option value="swiss">Suíço</option>
+                  <option value="double_elimination">Eliminação dupla</option>
                 </select>
               )}
             </Field>

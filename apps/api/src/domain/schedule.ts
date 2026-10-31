@@ -23,6 +23,8 @@ export interface ScheduleMatch {
   registration1Id: string | null
   registration2Id: string | null
   nextMatchId: string | null
+  /** Eliminação dupla: para onde cai o perdedor. */
+  loserNextMatchId?: string | null
   scheduledAt: Date | null
   courtNumber: number | null
 }
@@ -161,6 +163,9 @@ export function planSchedule(input: PlanScheduleInput): ScheduleResult {
     maxRoundByDraw.set(m.drawId, Math.max(maxRoundByDraw.get(m.drawId) ?? 0, m.round))
     if (m.nextMatchId && byId.has(m.nextMatchId)) {
       feedersOf.set(m.nextMatchId, [...(feedersOf.get(m.nextMatchId) ?? []), m])
+    }
+    if (m.loserNextMatchId && byId.has(m.loserNextMatchId)) {
+      feedersOf.set(m.loserNextMatchId, [...(feedersOf.get(m.loserNextMatchId) ?? []), m])
     }
   }
 
