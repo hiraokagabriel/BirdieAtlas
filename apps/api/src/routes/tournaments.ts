@@ -17,7 +17,7 @@ import {
 } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
-import { computePlacements } from '../domain/placements.js'
+import { computeDrawPlacements } from '../domain/placements.js'
 import { revokeTournamentPoints } from '../services/ranking-engine.js'
 import { getDefaultTenantId } from '../tenant.js'
 
@@ -41,6 +41,7 @@ const createCategorySchema = z.object({
   name: z.string().min(1),
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
   maxEntries: z.number().int().optional(),
+  drawType: z.enum(['single_elimination', 'round_robin']).optional(),
 })
 
 export async function tournamentsRoutes(app: FastifyInstance) {
@@ -248,7 +249,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
         if (match.registration1Id === null && match.registration2Id === null) continue
         setsByMatchId.set(match.id, await db.select().from(matchResults).where(eq(matchResults.matchId, match.id)))
       }
-      const placementByReg = computePlacements(allMatches, setsByMatchId)
+      const placementByReg = computeDrawPlacements(cat.drawType, allMatches, setsByMatchId)
       for (const [regId, placement] of placementByReg) allPlacements.set(regId, placement)
       const top4 = [...placementByReg.entries()].sort((a, b) => a[1] - b[1]).slice(0, 4)
       if (!top4.length) continue

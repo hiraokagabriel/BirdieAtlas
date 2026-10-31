@@ -11,6 +11,8 @@ export type BracketMatch = {
   nextMatchId?: string | null
   scheduledAt?: string | null
   courtNumber?: number | null
+  /** Rótulo gravado quando a fase não é de eliminação simples (ex.: "Rodada 2"). */
+  roundLabel?: string | null
 }
 
 export type BracketEntry = {
@@ -34,6 +36,11 @@ export function isFinishedStatus(status: string): boolean {
 }
 
 /** Título da fase a partir do número da rodada (1 = final). */
+/** Título da partida: o rótulo gravado (todos contra todos) ou o da eliminação pela rodada. */
+export function matchTitle(match: { round: number; roundLabel?: string | null }): string {
+  return match.roundLabel ?? roundTitle(match.round)
+}
+
 export function roundTitle(round: number): string {
   if (round <= 1) return 'Final'
   if (round === 2) return 'Semifinal'

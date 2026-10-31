@@ -433,6 +433,7 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
               results={results}
               activeCategory={activeCategory}
               drawId={draw.id}
+              drawType={activeCategory?.drawType}
               readonly
               live={liveByMatchId}
             />

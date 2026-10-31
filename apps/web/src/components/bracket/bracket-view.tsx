@@ -13,7 +13,7 @@ import { ChoiceGroup } from '@/components/ui/choice-group'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-type Category    = { id: string; name: string; discipline: string }
+type Category    = { id: string; name: string; discipline: string; drawType?: string }
 type Match       = BracketMatch
 type Registration = BracketEntry
 type Draw        = { id: string; published: boolean }
@@ -398,6 +398,7 @@ export function BracketView({
             results={allResults ?? []}
             activeCategory={activeCategory}
             drawId={draw.id}
+            drawType={activeCategory?.drawType}
           />
         )}
       </div>

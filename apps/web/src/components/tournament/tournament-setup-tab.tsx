@@ -13,7 +13,7 @@ type Tournament = {
   startDate: string; endDate: string; city: string | null; state: string | null
   location: string | null; tenantId: string; pointsAwarded: boolean
 }
-type Category = { id: string; name: string; discipline: string; maxEntries: number | null; seedCount: number }
+type Category = { id: string; name: string; discipline: string; maxEntries: number | null; seedCount: number; drawType?: string }
 
 const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 const DISCIPLINE_LABELS: Record<string, string> = {
@@ -58,7 +58,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
   })
 
   // ── Categorias ────────────────────────────────────────────────
-  const [newCat, setNewCat] = useState({ name: '', discipline: 'MS' as typeof DISCIPLINES[number], maxEntries: '' })
+  const [newCat, setNewCat] = useState({ name: '', discipline: 'MS' as typeof DISCIPLINES[number], maxEntries: '', drawType: 'single_elimination' })
   const [catSaving, setCatSaving] = useState(false)
   const [catError, setCatError] = useState('')
 
@@ -68,9 +68,9 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
     try {
       await apiFetch(`/tournaments/${tournament.id}/categories`, {
         method: 'POST',
-        json: { name: newCat.name.trim(), discipline: newCat.discipline, maxEntries: newCat.maxEntries ? Number(newCat.maxEntries) : undefined },
+        json: { name: newCat.name.trim(), discipline: newCat.discipline, drawType: newCat.drawType, maxEntries: newCat.maxEntries ? Number(newCat.maxEntries) : undefined },
       })
-      setNewCat({ name: '', discipline: 'MS', maxEntries: '' })
+      setNewCat({ name: '', discipline: 'MS', maxEntries: '', drawType: 'single_elimination' })
       onRefresh()
     } catch { setCatError('Erro ao criar categoria') }
     finally { setCatSaving(false) }
@@ -106,7 +106,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
               {(props) => <input {...props} type="date" value={general.endDate} onChange={(e) => setGeneral({ ...general, endDate: e.target.value })} className={inputCls} />}
             </Field>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Cidade">
               {(props) => <input {...props} value={general.city} onChange={(e) => setGeneral({ ...general, city: e.target.value })} className={inputCls} />}
             </Field>
@@ -148,6 +148,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
                 <div>
                   <span className="text-sm font-medium">{cat.name}</span>
                   <span className="ml-2 text-xs text-muted-foreground">{DISCIPLINE_LABELS[cat.discipline] ?? cat.discipline}</span>
+                  {cat.drawType === 'round_robin' && <span className="ml-2 text-xs text-muted-foreground">· todos contra todos</span>}
                   {cat.maxEntries && <span className="ml-2 text-xs text-muted-foreground">· máx {cat.maxEntries}</span>}
                 </div>
               </li>
@@ -167,6 +168,14 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
             </Field>
             <Field label="Nome da categoria" muted error={catError || undefined}>
               {(props) => <input {...props} value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} placeholder="ex: Simples Masc. A" className={inputCls} />}
+            </Field>
+            <Field label="Formato" muted>
+              {(props) => (
+                <select {...props} value={newCat.drawType} onChange={(e) => setNewCat({ ...newCat, drawType: e.target.value })} className={selectCls}>
+                  <option value="single_elimination">Eliminação simples</option>
+                  <option value="round_robin">Todos contra todos</option>
+                </select>
+              )}
             </Field>
             <Field label="Máx. inscrições" muted>
               {(props) => <input {...props} type="number" value={newCat.maxEntries} onChange={(e) => setNewCat({ ...newCat, maxEntries: e.target.value })} placeholder="ilimitado" className={inputCls} />}

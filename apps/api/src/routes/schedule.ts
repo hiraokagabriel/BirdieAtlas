@@ -4,7 +4,7 @@ import { autoScheduleBodySchema, utcOffsetMinutesFromIso, type AutoScheduleBody 
 import { db } from '../db/index.js'
 import { athletes, draws, matches, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
 import { selectRegistrations } from '../db/registrations.js'
-import { planSchedule, resolveDayWindowMinutes, roundLabel, type ScheduleMatch } from '../domain/schedule.js'
+import { planSchedule, resolveDayWindowMinutes, matchRoundLabel, type ScheduleMatch } from '../domain/schedule.js'
 
 // Agenda automática: propõe (dryRun) ou grava (dryRun: false) quadra e horário das partidas do
 // torneio. Não há mudança de schema: quadras, início, duração e descanso são parâmetros da chamada.
@@ -141,7 +141,7 @@ async function runAutoSchedule(ex: Executor, tournamentId: string, body: AutoSch
       discipline: category.discipline,
       drawId: match.drawId,
       round: match.round,
-      roundLabel: roundLabel(match.round),
+      roundLabel: matchRoundLabel(match),
       position: match.position,
       participant1: participantName(match.registration1Id),
       participant2: participantName(match.registration2Id),

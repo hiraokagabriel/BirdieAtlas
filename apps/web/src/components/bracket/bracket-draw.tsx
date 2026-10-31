@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { roundTitle, describeSlot, indexEntries, slotLabel, setsOf, type BracketEntry, type BracketMatch, type SetScore } from '@/lib/bracket'
+import { matchTitle, describeSlot, indexEntries, slotLabel, setsOf, type BracketEntry, type BracketMatch, type SetScore } from '@/lib/bracket'
 import type { LiveMatch } from '@/lib/live'
 import { BracketTree } from './bracket-tree'
+import { RoundRobinDraw } from './round-robin-draw'
 import { MatchResultDialog } from './match-result-dialog'
 
 type Category = { id: string; name: string; discipline: string }
@@ -14,6 +15,8 @@ type Props = {
   results: SetScore[]
   activeCategory?: Category
   drawId: string
+  /** Formato da categoria; sem ele, eliminação simples. */
+  drawType?: string
   /** Público: sem diálogo de resultado, com links para o perfil dos atletas. */
   readonly?: boolean
   /** Placar ao vivo por id da partida (público). */
@@ -21,7 +24,7 @@ type Props = {
 }
 
 /** Chave de uma categoria. No admin abre o diálogo de resultado; no público é só leitura. */
-export function BracketDraw({ matches, registrations, results, activeCategory, drawId, readonly = false, live }: Props) {
+export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, readonly = false, live }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null)
 
   const entries = indexEntries(registrations)
@@ -29,15 +32,28 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
 
   return (
     <>
-      <BracketTree
-        matches={matches}
-        entries={registrations}
-        results={results}
-        categoryName={activeCategory?.name}
-        onSelectMatch={readonly ? undefined : setSelectedMatch}
-        linkAthletes={readonly}
-        live={live}
-      />
+      {drawType === 'round_robin' ? (
+        <RoundRobinDraw
+          drawId={drawId}
+          matches={matches}
+          entries={registrations}
+          results={results}
+          categoryName={activeCategory?.name}
+          onSelectMatch={readonly ? undefined : setSelectedMatch}
+          linkAthletes={readonly}
+          live={live}
+        />
+      ) : (
+        <BracketTree
+          matches={matches}
+          entries={registrations}
+          results={results}
+          categoryName={activeCategory?.name}
+          onSelectMatch={readonly ? undefined : setSelectedMatch}
+          linkAthletes={readonly}
+          live={live}
+        />
+      )}
 
       {!readonly && (
         <MatchResultDialog
@@ -48,7 +64,7 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
           player2Name={slotName(selectedMatch?.registration2Id ?? null)}
           drawId={drawId}
           existingResults={selectedMatch ? setsOf(selectedMatch.id, results) : []}
-          roundLabel={selectedMatch ? roundTitle(selectedMatch.round) : ''}
+          roundLabel={selectedMatch ? matchTitle(selectedMatch) : ''}
         />
       )}
     </>

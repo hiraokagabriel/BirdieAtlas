@@ -13,6 +13,7 @@ type RecentMatch = {
   categoryName: string
   discipline: string
   round: number
+  roundLabel?: string | null
   winnerName: string
   loserName: string
   score: string
@@ -67,7 +68,7 @@ export function RecentResults() {
                       {r.discipline}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{roundLabel(r.round)}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{r.roundLabel ?? roundLabel(r.round)}</TableCell>
                   <TableCell className="font-medium">{r.winnerName}</TableCell>
                   <TableCell className="text-muted-foreground">{r.loserName}</TableCell>
                   <TableCell className="text-right font-mono text-sm">{r.score}</TableCell>

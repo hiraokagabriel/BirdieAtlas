@@ -13,6 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 type Match = {
   id: string
   round: number
+  roundLabel?: string | null
   scheduledAt: string | null
   courtNumber: number | null
 }
@@ -57,7 +58,8 @@ export function ScheduleDialog({ match, open, onClose, player1Name, player2Name,
     },
   })
 
-  const roundLabel = match?.round === 1 ? 'Final'
+  const roundLabel = match?.roundLabel ? match.roundLabel
+    : match?.round === 1 ? 'Final'
     : match?.round === 2 ? 'Semifinal'
     : match?.round === 3 ? 'Quartas de Final'
     : `Fase ${match?.round}`

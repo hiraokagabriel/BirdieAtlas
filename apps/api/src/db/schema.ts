@@ -231,6 +231,8 @@ export const matches = pgTable('matches', {
   status: matchStatusEnum('status').notNull().default('pending'),
   scheduledAt: timestamp('scheduled_at'),
   courtNumber: integer('court_number'),
+  // Rótulo da fase quando não é o padrão de eliminação simples (ex.: "Rodada 3" no todos contra todos).
+  roundLabel: text('round_label'),
   ...timestamps,
 })
 
