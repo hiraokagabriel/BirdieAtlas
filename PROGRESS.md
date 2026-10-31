@@ -92,7 +92,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Publicação com bloqueio de ressorteio | ✅ | `409 DRAW_PUBLISHED` |
 | Ressorteio com reset em cascata | ✅ | |
 | Todos contra todos (round robin) | ✅ | Formato por categoria; classificação com desempate, colocação pela classificação, `GET /draws/:drawId/standings` |
-| Eliminação dupla, grupos + eliminatória, suíço | ❌ | |
+| Grupos + eliminatória | ✅ | Grupos, pessoas por grupo e classificados configuráveis; eliminatória gerada ao fim dos grupos; migration `0006` |
+| Eliminação dupla, suíço | ❌ | |
 
 ## Phase 5 — Partidas
 

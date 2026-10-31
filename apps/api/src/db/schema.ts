@@ -214,6 +214,8 @@ export const draws = pgTable('draws', {
   generatedAt: timestamp('generated_at').defaultNow().notNull(),
   published: boolean('published').notNull().default(false),
   drawMode: text('draw_mode').notNull().default('random'),
+  // Configuração do formato (grupos + eliminatória: { groupCount, advancePerGroup }).
+  config: jsonb('config'),
   ...timestamps,
 })
 
@@ -233,6 +235,9 @@ export const matches = pgTable('matches', {
   courtNumber: integer('court_number'),
   // Rótulo da fase quando não é o padrão de eliminação simples (ex.: "Rodada 3" no todos contra todos).
   roundLabel: text('round_label'),
+  // Grupos + eliminatória: letra do grupo e fase da partida ('group' | 'knockout'). Nulos nos outros formatos.
+  groupKey: text('group_key'),
+  stage: text('stage'),
   ...timestamps,
 })
 

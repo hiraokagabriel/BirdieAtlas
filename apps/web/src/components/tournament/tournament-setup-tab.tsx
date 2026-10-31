@@ -149,6 +149,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
                   <span className="text-sm font-medium">{cat.name}</span>
                   <span className="ml-2 text-xs text-muted-foreground">{DISCIPLINE_LABELS[cat.discipline] ?? cat.discipline}</span>
                   {cat.drawType === 'round_robin' && <span className="ml-2 text-xs text-muted-foreground">· todos contra todos</span>}
+                  {cat.drawType === 'group_then_elimination' && <span className="ml-2 text-xs text-muted-foreground">· grupos + eliminatória</span>}
                   {cat.maxEntries && <span className="ml-2 text-xs text-muted-foreground">· máx {cat.maxEntries}</span>}
                 </div>
               </li>
@@ -174,6 +175,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
                 <select {...props} value={newCat.drawType} onChange={(e) => setNewCat({ ...newCat, drawType: e.target.value })} className={selectCls}>
                   <option value="single_elimination">Eliminação simples</option>
                   <option value="round_robin">Todos contra todos</option>
+                  <option value="group_then_elimination">Grupos + eliminatória</option>
                 </select>
               )}
             </Field>

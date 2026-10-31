@@ -5,6 +5,7 @@ import { matchTitle, describeSlot, indexEntries, slotLabel, setsOf, type Bracket
 import type { LiveMatch } from '@/lib/live'
 import { BracketTree } from './bracket-tree'
 import { RoundRobinDraw } from './round-robin-draw'
+import { GroupKnockoutDraw } from './group-knockout-draw'
 import { MatchResultDialog } from './match-result-dialog'
 
 type Category = { id: string; name: string; discipline: string }
@@ -17,6 +18,10 @@ type Props = {
   drawId: string
   /** Formato da categoria; sem ele, eliminação simples. */
   drawType?: string
+  /** Grupos + eliminatória: quantos de cada grupo avançam (destaca a tabela). */
+  advancePerGroup?: number
+  /** Admin: chamado depois de gerar a eliminatória. */
+  onKnockoutGenerated?: () => void
   /** Público: sem diálogo de resultado, com links para o perfil dos atletas. */
   readonly?: boolean
   /** Placar ao vivo por id da partida (público). */
@@ -24,7 +29,7 @@ type Props = {
 }
 
 /** Chave de uma categoria. No admin abre o diálogo de resultado; no público é só leitura. */
-export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, readonly = false, live }: Props) {
+export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, advancePerGroup, onKnockoutGenerated, readonly = false, live }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null)
 
   const entries = indexEntries(registrations)
@@ -32,7 +37,20 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
 
   return (
     <>
-      {drawType === 'round_robin' ? (
+      {drawType === 'group_then_elimination' ? (
+        <GroupKnockoutDraw
+          drawId={drawId}
+          matches={matches}
+          entries={registrations}
+          results={results}
+          categoryName={activeCategory?.name}
+          advancePerGroup={advancePerGroup}
+          onSelectMatch={readonly ? undefined : setSelectedMatch}
+          linkAthletes={readonly}
+          live={live}
+          onKnockoutGenerated={readonly ? undefined : onKnockoutGenerated}
+        />
+      ) : drawType === 'round_robin' ? (
         <RoundRobinDraw
           drawId={drawId}
           matches={matches}

@@ -13,6 +13,9 @@ export type BracketMatch = {
   courtNumber?: number | null
   /** Rótulo gravado quando a fase não é de eliminação simples (ex.: "Rodada 2"). */
   roundLabel?: string | null
+  /** Grupos + eliminatória: letra do grupo e fase ('group' | 'knockout'). */
+  groupKey?: string | null
+  stage?: string | null
 }
 
 export type BracketEntry = {

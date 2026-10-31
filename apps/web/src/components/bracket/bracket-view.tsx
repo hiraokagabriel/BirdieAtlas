@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from './bracket-draw'
+import { EMPTY_GROUP_CONFIG, GroupConfigFields, groupConfigBody, type GroupConfigForm } from './group-config-fields'
 import { ErrorNotice } from '@/components/public/notices'
 import { BracketSkeleton } from './bracket-tree'
 import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
@@ -16,7 +17,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 type Category    = { id: string; name: string; discipline: string; drawType?: string }
 type Match       = BracketMatch
 type Registration = BracketEntry
-type Draw        = { id: string; published: boolean }
+type Draw        = { id: string; published: boolean; config?: { groupCount: number; advancePerGroup: number } | null }
 type MatchResult = SetScore
 type DrawMode    = 'random' | 'seeded'
 
@@ -88,6 +89,7 @@ export function BracketView({
   const [showRedraw,     setShowRedraw]      = useState(false)
   const [redrawMode,     setRedrawMode]      = useState<DrawMode>('seeded')
   const [redrawError,    setRedrawError]     = useState<string | null>(null)
+  const [groupConfig,    setGroupConfig]     = useState<GroupConfigForm>(EMPTY_GROUP_CONFIG)
 
   const { data: draws, isLoading: loadingDraw, error: drawsError } = useQuery({
     queryKey: ['draws', activeCategoryId],
@@ -127,7 +129,8 @@ export function BracketView({
         const drawList = await apiFetch<Draw[]>(`/tournaments/categories/${cat.id}/draws`)
         if (!drawList.length) { results.push({ categoryId: cat.id, allDone: false }); continue }
         const matchList = await apiFetch<Match[]>(`/draws/${drawList[0].id}/matches`)
-        const done = matchList.length > 0 && matchList.every((m) => ['completed', 'walkover', 'retired'].includes(m.status))
+        const knockoutPending = cat.drawType === 'group_then_elimination' && !matchList.some((m) => m.stage === 'knockout')
+        const done = matchList.length > 0 && !knockoutPending && matchList.every((m) => ['completed', 'walkover', 'retired'].includes(m.status))
         results.push({ categoryId: cat.id, allDone: done })
       }
       return results
@@ -171,7 +174,7 @@ export function BracketView({
       const res = await fetch(`${API_URL}/draws/generate/${activeCategoryId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: selectedMode }),
+        body: JSON.stringify({ mode: selectedMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao gerar chaveamento') }
       return res.json()
@@ -186,7 +189,7 @@ export function BracketView({
       const res = await fetch(`${API_URL}/draws/${draw!.id}/redraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: redrawMode }),
+        body: JSON.stringify({ mode: redrawMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao ressortear') }
       return res.json()
@@ -285,6 +288,9 @@ export function BracketView({
           </div>
 
           <DrawModeGroup legend="Modo do novo sorteio" value={redrawMode} onChange={setRedrawMode} />
+          {activeCategory?.drawType === 'group_then_elimination' && (
+            <GroupConfigFields value={groupConfig} onChange={setGroupConfig} />
+          )}
 
           {redrawError && (
             <div role="alert" className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
@@ -374,6 +380,9 @@ export function BracketView({
               </p>
             </div>
             <DrawModeGroup legend="Modo de sorteio" value={selectedMode} onChange={setSelectedMode} />
+            {activeCategory?.drawType === 'group_then_elimination' && (
+              <GroupConfigFields value={groupConfig} onChange={setGroupConfig} />
+            )}
             {generateError && (
               <div role="alert" className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -399,6 +408,8 @@ export function BracketView({
             activeCategory={activeCategory}
             drawId={draw.id}
             drawType={activeCategory?.drawType}
+            {...(draw.config?.advancePerGroup ? { advancePerGroup: draw.config.advancePerGroup } : {})}
+            onKnockoutGenerated={invalidateAll}
           />
         )}
       </div>

@@ -10,6 +10,7 @@ import { isDoublesDiscipline, isGenderCompatible, normalizePair } from '../domai
 import { computeDrawPlacements } from '../domain/placements.js'
 import { findRule, resolvePoints } from '../domain/points.js'
 import { sortRankingEntries } from '../domain/ranking-order.js'
+import { isDrawFinished } from '../domain/groups.js'
 
 // ---------------------------------------------------------------------------
 // Motor único de ranking. Toda pontuação sai de `point_rules`; distribuir pontos de um
@@ -91,7 +92,7 @@ export async function recalculateRanking(rankingId: string) {
 
       const allMatches = await db.select().from(matches).where(eq(matches.drawId, drawList[0]!.id))
 
-      if (allMatches.some(isPendingMatch)) continue
+      if (allMatches.some(isPendingMatch) || !isDrawFinished(category.drawType, allMatches)) continue
 
       const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
       for (const match of allMatches) {
@@ -239,6 +240,7 @@ export async function awardTournamentPoints(tournament: TournamentRow): Promise<
     const pending = drawMatches.filter(isPendingMatch).length
     if (!drawMatches.length) unfinished.push(`${category.name}: chave vazia`)
     else if (pending > 0) unfinished.push(`${category.name}: ${pending} partida(s) pendente(s)`)
+    else if (!isDrawFinished(category.drawType, drawMatches)) unfinished.push(`${category.name}: eliminatória ainda não gerada`)
   }
   if (!categories.length || unfinished.length) {
     return {
