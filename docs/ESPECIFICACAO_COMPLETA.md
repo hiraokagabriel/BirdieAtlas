@@ -82,7 +82,8 @@ Público, identificando por slug:
 | `/t/[slug]/share-image` | PNG de compartilhamento do torneio (ver "Compartilhamento e exportações") |
 | `/r/[tenantSlug]` | Rankings da federação |
 | `/r/[tenantSlug]/share-image` | PNG do top 10 de um ranking |
-| `/a/[athleteId]` | Perfil do atleta |
+| `/a/[athleteId]` | Perfil do atleta, com estatísticas de partidas e busca de adversário |
+| `/a/[athleteId]/vs/[opponentId]` | Confronto direto entre dois atletas |
 | `/a/[athleteId]/share-image` | PNG do cartão do atleta |
 | `/c/[clubSlug]` | Clube |
 
@@ -133,7 +134,7 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 
 | Recurso | Endpoints |
 |---|---|
-| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/search` (público), `GET /athletes/:id/profile` (público), `GET /athletes/export.csv` (admin, CSV), `POST /athletes/import-csv` (por linha: `birthDate` no formato AAAA-MM-DD ou vazio; linha inválida entra em `errors` e as demais são criadas), `POST /import/athletes`, `GET /import/athletes/template-columns` |
+| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/search` (público), `GET /athletes/:id/profile` (público), `GET /athletes/:id/stats` (público), `GET /athletes/:id/head-to-head/:opponentId` (público), `GET /athletes/export.csv` (admin, CSV), `POST /athletes/import-csv` (por linha: `birthDate` no formato AAAA-MM-DD ou vazio; linha inválida entra em `errors` e as demais são criadas), `POST /import/athletes`, `GET /import/athletes/template-columns` |
 | Afiliações | `GET/POST /athletes/:athleteId/affiliations`, `PATCH/DELETE /affiliations/:id` |
 | Clubes | `GET/POST /clubs`, `GET/PUT/DELETE /clubs/:id`, `GET /clubs/by-slug/:slug`, `GET /clubs/:id/profile` |
 | Duplas | `GET/POST /pairs`, `GET/PUT/DELETE /pairs/:id` (desativar é `PUT { active: false }`) |
@@ -340,6 +341,14 @@ Um comentário `: heartbeat` sai a cada 15 s. Ao desconectar (`close` da requisi
 
 **Web.** O operador usa `/admin/live` (TanStack Query com polling de 3 s e atualização imediata pelas respostas): escolhe o torneio e a quadra, vê a partida em andamento ou a fila, inicia, marca pontos (botões grandes), desfaz e encerra com confirmação; erros da API aparecem na própria tela (inclui `TOURNAMENT_LOCKED` e `LIVE_VERSION_CONFLICT`). A página pública `/t/[slug]` mostra "Ao vivo agora" e o placar corrente nos cartões da chave quando o torneio está `in_progress`. Ela usa `EventSource` com reconexão por backoff exponencial com jitter (1 s a 30 s), mostra o estado da conexão (Conectando, Ao vivo, Reconectando, Atualizando a cada 5 s) e, depois de 4 falhas seguidas ou sem `EventSource`, cai para polling de `/live/matches` a cada 5 s, tentando voltar ao stream a cada 60 s. Uma região `aria-live="polite"` anuncia só início, fim de set, fim de jogo e partida encerrada; pontos soltos não são anunciados. A regra de eventos (reducer, backoff, anúncios) é pura, em `apps/web/src/lib/live.ts`. O layout de `app/admin` esconde a sidebar abaixo de `md` e mostra a mesma navegação (`ADMIN_NAV`) como faixa rolável.
 
+### Estatísticas e confronto direto
+
+`domain/athlete-stats.ts` (puro) e `routes/athlete-stats.ts`. Contam só partidas encerradas (`completed`, `walkover`, `retired`) com dois lados e um vencedor definido pelos sets; bye e partida sem sets decisivos ficam de fora. Valem para simples e duplas (o atleta conta pela inscrição em que joga, inclusive duplas excluídas). Somente nomes, torneios, placares e colocações: nada de dado pessoal.
+
+- `GET /athletes/:id/stats`: `summary` (`played`, `wins`, `losses`, `winRate` em % com uma casa, `setsWon`, `setsLost`, `pointsFor`, `pointsAgainst`), `longestWinStreak`, `titles`, `finals`, `podiums` (pela `finalPlacement`) e `recent` (as 5 últimas partidas, com adversários, placar do ponto de vista do atleta, torneio, categoria e fase).
+- `GET /athletes/:id/head-to-head/:opponentId`: `summary` do ponto de vista de `:id` e a lista de partidas entre os dois, da mais recente para a mais antiga (adversário = qualquer atleta do lado contrário; em duplas, `partners` lista os parceiros de `:id`). `400 SAME_ATHLETE` para o mesmo atleta; `404 ATHLETE_NOT_FOUND` se algum não existir.
+- Web: seção "Partidas" no perfil, busca "Comparar com outro atleta" (usa `GET /athletes/search`) e a página `/a/[athleteId]/vs/[opponentId]`.
+
 ### Pontos e ranking
 
 - A colocação é derivada da chave: o vencedor da final é 1º e o perdedor 2º; quem perde na rodada `r` fica em `2^(r-1) + 1` (3º nas semifinais, 5º nas quartas, 9º nas oitavas). `finalize` devolve o pódio, e `award-points` e o recálculo do ranking usam a mesma regra. A regra vive em `domain/placements.ts` (`computePlacements`). `finalize` grava `finalPlacement` em todas as inscrições que têm colocação, na mesma transação que muda o status para `completed`; `reopen` zera `finalPlacement` de todas as inscrições do torneio (inclusive removidas), porque os resultados podem mudar. O perfil público do atleta lê essa coluna (pódios e selo de colocação).
@@ -506,7 +515,6 @@ O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`]
 - **Formatos de chave:** eliminação dupla, grupos + eliminatória e sistema suíço.
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora).
-- **Portal público:** estatísticas e histórico de atletas, head-to-head.
 - **Admin:** relatórios exportáveis além dos CSVs atuais (inscritos, ranking, resultados, classificação, atletas), notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.
 - **Qualidade:** PWA, passada manual de acessibilidade com leitores de tela (a automatizada já cobre WCAG 2.1 AA).

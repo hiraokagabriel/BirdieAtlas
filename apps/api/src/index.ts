@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import { registerErrorHandling } from './http/errors.js'
 import { adminGuardHook, devAdminModeRoutes } from './middleware/admin-guard.js'
 import { athletesRoutes } from './routes/athletes.js'
+import { athleteStatsRoutes } from './routes/athlete-stats.js'
 import { clubsRoutes } from './routes/clubs.js'
 import { tournamentsRoutes } from './routes/tournaments.js'
 import { drawsRoutes } from './routes/draws.js'
@@ -35,6 +36,7 @@ app.addHook('onRequest', adminGuardHook)
 
 await app.register(devAdminModeRoutes)
 await app.register(athletesRoutes)
+await app.register(athleteStatsRoutes)
 await app.register(clubsRoutes)
 await app.register(tournamentsRoutes)
 await app.register(drawsRoutes)
