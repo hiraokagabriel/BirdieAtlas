@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Barlow_Condensed, Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -6,6 +6,8 @@ import { QueryProvider } from '@/providers/query-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import { getSiteUrl } from '@/lib/share'
+import { BRAND } from '@/lib/share-image/brand'
+import { ServiceWorkerRegister } from '@/components/shared/service-worker-register'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'], display: 'swap' })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'], display: 'swap' })
@@ -21,7 +23,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: 'BirdieAtlas',
   description: 'Sistema de gestão de federações de badminton',
+  applicationName: 'BirdieAtlas',
+  appleWebApp: { capable: true, title: 'BirdieAtlas', statusBarStyle: 'default' },
+  icons: { apple: '/pwa-icon/180' },
 }
+
+export const viewport: Viewport = { themeColor: BRAND.green }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster />
+          <ServiceWorkerRegister />
         </QueryProvider>
       </body>
     </html>
