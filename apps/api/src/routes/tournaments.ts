@@ -30,6 +30,7 @@ const createTournamentSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
   level: tournamentLevelSchema.default('state'),
+  kind: z.enum(['official', 'friendly']).default('official'),
   city: z.string().optional(),
   state: z.string().optional(),
   location: z.string().optional(),
@@ -157,8 +158,17 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   app.post('/tournaments', async (request, reply) => {
     const body = createTournamentSchema.parse(request.body)
     const tenantId = await getDefaultTenantId()
-    const [t] = await db.insert(tournaments).values({ id: randomUUID(), status: 'draft', tenantId, ...body }).returning()
-    return reply.status(201).send(t)
+    try {
+      const [t] = await db.insert(tournaments).values({ id: randomUUID(), status: 'draft', tenantId, ...body }).returning()
+      return reply.status(201).send(t)
+    } catch (err) {
+      // Índice único do slug (entre torneios não excluídos).
+      const code = (err as { code?: string; cause?: { code?: string } }).code ?? (err as { cause?: { code?: string } }).cause?.code
+      if (code === '23505') {
+        return reply.status(409).send({ error: 'Já existe um torneio com esse endereço (slug). Escolha outro.', code: 'SLUG_TAKEN' })
+      }
+      throw err
+    }
   })
 
   app.post('/tournaments/:id/categories', async (request, reply) => {
@@ -171,6 +181,13 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   app.put('/tournaments/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
     const body = createTournamentSchema.partial().parse(request.body)
+    // Oficial -> amistoso depois de distribuir pontos deixaria os rankings com pontos de um torneio que não pontua.
+    if (body.kind === 'friendly') {
+      const [current] = await db.select({ pointsAwarded: tournaments.pointsAwarded }).from(tournaments).where(and(eq(tournaments.id, id), isNull(tournaments.deletedAt)))
+      if (current?.pointsAwarded) {
+        return reply.status(409).send({ error: 'Os pontos deste torneio já foram distribuídos. Reabra o torneio para tirá-los antes de torná-lo amistoso.', code: 'POINTS_ALREADY_AWARDED' })
+      }
+    }
     const [t] = await db.update(tournaments).set({ ...body, updatedAt: new Date() }).where(and(eq(tournaments.id, id), isNull(tournaments.deletedAt))).returning()
     if (!t) return reply.status(404).send({ error: 'Tournament not found' })
     return t

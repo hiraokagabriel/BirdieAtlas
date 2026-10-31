@@ -3,6 +3,8 @@ import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { PagerLinks } from '@/components/shared/pager-links'
 import { Badge } from '@/components/ui/badge'
+import { KindBadge } from '@/components/shared/kind-badge'
+import { CreateTournamentDialog } from '@/components/tournament/create-tournament-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Calendar, MapPin, Trophy } from 'lucide-react'
 import Link from 'next/link'
@@ -13,6 +15,7 @@ type Tournament = {
   slug: string
   status: string
   level: string
+  kind?: string
   startDate: string
   endDate: string
   city: string
@@ -39,9 +42,12 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Torneios</h2>
-        <p className="text-muted-foreground">Gerencie todos os campeonatos da federação.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Torneios</h2>
+          <p className="text-muted-foreground">Gerencie todos os campeonatos da federação.</p>
+        </div>
+        <CreateTournamentDialog />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -62,6 +68,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
                   </div>
                   <div>
                     <h3 className="font-semibold text-base leading-tight">{t.name}</h3>
+                    <KindBadge kind={t.kind} className="mt-1.5" />
                   </div>
                   <div className="space-y-1.5 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">

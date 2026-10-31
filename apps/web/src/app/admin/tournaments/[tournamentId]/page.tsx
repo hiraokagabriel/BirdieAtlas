@@ -9,6 +9,7 @@ import { RegistrationsTab } from '@/components/tournament/registrations-tab'
 import { FinalizeTournamentModal } from '@/components/tournament/finalize-tournament-modal'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { TournamentSetupTab } from '@/components/tournament/tournament-setup-tab'
+import { KindBadge } from '@/components/shared/kind-badge'
 import { TournamentStatusActions } from '@/components/tournament/tournament-status-actions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -19,7 +20,7 @@ import { useRouter } from 'next/navigation'
 type Tournament = {
   id: string; name: string; slug: string; status: TournamentStatus; level: TournamentLevel
   startDate: string; endDate: string; city: string; state: string; location: string
-  pointsAwarded: boolean; tenantId: string
+  pointsAwarded: boolean; tenantId: string; kind: 'official' | 'friendly'
 }
 type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number; maxEntries: number | null }
 
@@ -97,6 +98,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight">{tournament.name}</h2>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${status.color}`}>{status.label}</span>
+            <KindBadge kind={tournament.kind} />
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1.5">
@@ -164,7 +166,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           <RegistrationsTab tournamentId={tournament.id} tournamentStatus={tournament.status} categories={categories} />
         </TabsContent>
         <TabsContent value="bracket">
-          <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} />
+          <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} friendly={tournament.kind === 'friendly'} />
         </TabsContent>
         <TabsContent value="schedule">
           <ScheduleView tournamentId={tournament.id} categories={categories} defaultStartDate={tournament.startDate} />

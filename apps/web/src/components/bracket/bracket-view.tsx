@@ -73,10 +73,13 @@ export function BracketView({
   tournamentId,
   categories,
   pointsAwarded = false,
+  friendly = false,
 }: {
   tournamentId: string
   categories: Category[]
   pointsAwarded?: boolean
+  /** Torneio amistoso: não pontua, então não oferece distribuir pontos. */
+  friendly?: boolean
 }) {
   const [selectedCategoryId, setActiveCategoryId] = useState<string>('')
   // As categorias chegam depois da primeira renderização: sem escolha explícita, usa a primeira
@@ -329,7 +332,14 @@ export function BracketView({
       )}
 
       {/* Award points banner */}
-      {allTournamentDone && (
+      {allTournamentDone && friendly && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          <Trophy className="h-4 w-4" aria-hidden="true" />
+          Todas as partidas encerradas. Torneio amistoso: não pontua em rankings. Para distribuir pontos, torne-o oficial em Configurações.
+        </div>
+      )}
+
+      {allTournamentDone && !friendly && (
         <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-lg border ${
           alreadyAwarded || awardResult ? 'bg-success/10 border-success/30' : 'bg-info/10 border-info/30'
         }`}>

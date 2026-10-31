@@ -11,7 +11,7 @@ import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: TournamentLevel
   startDate: string; endDate: string; city: string | null; state: string | null
-  location: string | null; tenantId: string; pointsAwarded: boolean
+  location: string | null; tenantId: string; pointsAwarded: boolean; kind?: 'official' | 'friendly'
 }
 type Category = { id: string; name: string; discipline: string; maxEntries: number | null; seedCount: number; drawType?: string }
 
@@ -35,6 +35,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
     name: tournament.name,
     slug: tournament.slug,
     level: tournament.level,
+    kind: (tournament.kind ?? 'official') as 'official' | 'friendly',
     startDate: tournament.startDate?.slice(0, 10) ?? '',
     endDate: tournament.endDate?.slice(0, 10) ?? '',
     city: tournament.city ?? '',
@@ -48,6 +49,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
       name: general.name.trim(),
       slug: general.slug.trim(),
       level: general.level,
+      kind: general.kind,
       startDate: general.startDate || undefined,
       endDate: general.endDate || undefined,
       city: general.city.trim() || undefined,
@@ -83,6 +85,17 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
       <section aria-labelledby="setup-general" className="space-y-4">
         <h3 id="setup-general" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Dados gerais</h3>
         <div className="grid grid-cols-1 gap-3">
+          <Field
+            label="Tipo"
+            hint={general.kind === 'friendly' ? 'Amistoso guarda chaves, resultados e colocação, mas não pontua em rankings.' : 'Oficial pontua nos rankings quando os pontos são distribuídos.'}
+          >
+            {(props) => (
+              <select {...props} value={general.kind} onChange={(e) => setGeneral({ ...general, kind: e.target.value as 'official' | 'friendly' })} className={selectCls}>
+                <option value="official">Oficial (pontua)</option>
+                <option value="friendly">Amistoso (não pontua)</option>
+              </select>
+            )}
+          </Field>
           <Field label="Nome">
             {(props) => <input {...props} value={general.name} onChange={(e) => setGeneral({ ...general, name: e.target.value })} className={inputCls} />}
           </Field>

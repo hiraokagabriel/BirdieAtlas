@@ -49,7 +49,7 @@ export async function recalculateRanking(rankingId: string) {
 
   if (ranking.autoInclude) {
     const allT = await db.select().from(tournaments)
-      .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true), isNull(tournaments.deletedAt)))
+      .where(and(eq(tournaments.tenantId, ranking.tenantId), eq(tournaments.pointsAwarded, true), eq(tournaments.kind, 'official'), isNull(tournaments.deletedAt)))
     tournamentLinks = allT.map((t) => ({ tournamentId: t.id, tournamentMultiplier: 1.0, levelOverride: null, isScoring: true }))
   } else {
     const links = await db.select().from(rankingTournaments)
@@ -76,7 +76,7 @@ export async function recalculateRanking(rankingId: string) {
     const { tournamentId, tournamentMultiplier, levelOverride } = link
 
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
-    if (!tournament) continue
+    if (!tournament || tournament.kind === 'friendly') continue
 
     const effectiveLevel = levelOverride ?? tournament.level
 
@@ -218,7 +218,7 @@ export type AwardResult =
     }
   | {
       ok: false
-      code: 'TOURNAMENT_NOT_FINISHED' | 'NO_RANKING' | 'NO_POINT_RULES'
+      code: 'TOURNAMENT_NOT_FINISHED' | 'NO_RANKING' | 'NO_POINT_RULES' | 'FRIENDLY_TOURNAMENT'
       message: string
       details?: unknown
     }
@@ -229,6 +229,9 @@ export type AwardResult =
  * Só vale quando todas as categorias têm chave e todas as partidas terminaram.
  */
 export async function awardTournamentPoints(tournament: TournamentRow): Promise<AwardResult> {
+  if (tournament.kind === 'friendly') {
+    return { ok: false, code: 'FRIENDLY_TOURNAMENT', message: 'Torneio amistoso não pontua. Torne-o oficial em Configurações para distribuir pontos.' }
+  }
   const categories = await db.select().from(tournamentCategories)
     .where(and(eq(tournamentCategories.tournamentId, tournament.id), isNull(tournamentCategories.deletedAt)))
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { LevelBadge } from '@/components/public/level-badge'
+import { KindBadge } from '@/components/shared/kind-badge'
 import { BracketDraw } from '@/components/bracket/bracket-draw'
 import { BracketSkeleton } from '@/components/bracket/bracket-tree'
 import { ErrorNotice, EmptyNotice } from '@/components/public/notices'
@@ -304,6 +305,7 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <LevelBadge level={tournament.level} />
+            <KindBadge kind={(tournament as { kind?: string }).kind} />
             <h1 className="text-3xl font-bold tracking-tight">{tournament.name}</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">

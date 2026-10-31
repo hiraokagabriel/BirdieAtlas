@@ -138,6 +138,7 @@ export interface CreateTournamentOptions {
   level?: TournamentLevel
   startDate?: string
   endDate?: string
+  kind?: 'official' | 'friendly'
   /** Leva o torneio até este status pelas transições do ciclo de vida (padrão: `draft`). */
   status?: 'draft' | 'registration_open' | 'registration_closed' | 'in_progress'
 }
@@ -151,6 +152,7 @@ export async function createTournament(options: CreateTournamentOptions = {}): P
     name,
     slug: `torneio-e2e-${tag}`,
     level: options.level ?? 'state',
+    ...(options.kind ? { kind: options.kind } : {}),
     city: 'São Paulo',
     state: 'SP',
     location: 'Ginásio E2E',
@@ -274,11 +276,13 @@ export async function prepareTournament(
     /** Atletas já criados (por exemplo, com nomes acentuados); o padrão cria `athleteCount` atletas. */
     athletes?: Athlete[]
     drawType?: 'single_elimination' | 'round_robin' | 'group_then_elimination' | 'swiss' | 'double_elimination'
+    kind?: 'official' | 'friendly'
   } = {},
 ): Promise<PreparedTournament> {
   const tournament = await createTournament({
     status: options.status ?? 'in_progress',
     ...(options.level ? { level: options.level } : {}),
+    ...(options.kind ? { kind: options.kind } : {}),
     ...(options.name ? { name: options.name } : {}),
     ...(options.startDate ? { startDate: options.startDate } : {}),
     ...(options.endDate ? { endDate: options.endDate } : {}),
