@@ -24,7 +24,7 @@ const createAthleteSchema = z.object({
 const csvRowSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   gender: z.enum(['M', 'F'], { errorMap: () => ({ message: 'Gênero deve ser M ou F' }) }),
-  birthDate: z.string().optional(),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento deve ser AAAA-MM-DD').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   email: z.string().email('E-mail inválido').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   nationality: z.string().default('BR'),
 })
