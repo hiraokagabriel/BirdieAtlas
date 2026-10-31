@@ -14,6 +14,9 @@ export type MatchDef = {
   status: 'pending' | 'walkover'
   /** Rótulo da fase quando não é o padrão de eliminação simples (ver roundLabel em schedule.ts). */
   roundLabel?: string | null
+  /** Grupos + eliminatória: letra do grupo e fase da partida. */
+  groupKey?: string | null
+  stage?: 'group' | 'knockout' | null
 }
 
 export function getSlotForPosition(position: number): 'registration1Id' | 'registration2Id' {

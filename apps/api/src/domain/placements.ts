@@ -1,4 +1,5 @@
 import { computeRoundRobinPlacements } from './round-robin.js'
+import { computeGroupKnockoutPlacements } from './groups.js'
 
 // Colocação final de uma chave, derivada das partidas. Regra única: o motor de ranking e o
 // encerramento do torneio usam esta função.
@@ -9,6 +10,8 @@ export interface PlacementMatch {
   round: number
   registration1Id: string | null
   registration2Id: string | null
+  /** Grupos + eliminatória: só as partidas `knockout` entram na colocação da eliminatória. */
+  stage?: string | null
 }
 
 export interface PlacementSet {
@@ -78,5 +81,6 @@ export function computeDrawPlacements(
   setsByMatchId: Map<string, PlacementSet[]>,
 ): Map<string, number> {
   if (format === 'round_robin') return computeRoundRobinPlacements(matches, setsByMatchId)
+  if (format === 'group_then_elimination') return computeGroupKnockoutPlacements(matches, setsByMatchId)
   return computePlacements(matches, setsByMatchId)
 }

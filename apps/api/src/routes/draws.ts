@@ -6,6 +6,9 @@ import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
 import { buildRoundRobinMatchDefs, computeRoundRobinStandings } from '../domain/round-robin.js'
+import {
+  buildGroupMatchDefs, buildKnockoutMatchDefs, computeGroupStandings, distributeToGroups, pickQualifiers, planGroups, type GroupConfig,
+} from '../domain/groups.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { saveMatchResult } from '../services/match-result.js'
@@ -21,26 +24,45 @@ const scheduleMatchSchema = z.object({
   courtNumber: z.number().nullable(),
 })
 
-/** Monta as partidas conforme o formato da categoria (eliminação simples ou todos contra todos). */
+type BuiltDraw =
+  | { ok: true; defs: MatchDef[]; config: GroupConfig | null }
+  | { ok: false; error: string }
+
+/** Monta as partidas conforme o formato da categoria (eliminação simples, todos contra todos ou fase de grupos). */
 async function buildCategoryMatchDefs(
   drawId: string,
   categoryId: string,
   confirmed: { id: string; seed: number | null }[],
-  mode: 'random' | 'seeded',
-): Promise<MatchDef[]> {
+  options: { mode: 'random' | 'seeded'; groupCount?: number | undefined; groupSize?: number | undefined; advancePerGroup?: number | undefined },
+): Promise<BuiltDraw> {
+  const { mode } = options
   const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
+  if (category?.drawType === 'group_then_elimination') {
+    const planned = planGroups({ entries: confirmed.length, groupCount: options.groupCount, groupSize: options.groupSize, advancePerGroup: options.advancePerGroup })
+    if (!planned.ok) return { ok: false, error: planned.error }
+    const groups = distributeToGroups(confirmed, planned.plan.sizes, mode)
+    return {
+      ok: true,
+      defs: buildGroupMatchDefs(drawId, groups, planned.plan.knockoutRounds),
+      config: { groupCount: planned.plan.groupCount, advancePerGroup: planned.plan.advancePerGroup },
+    }
+  }
   if (category?.drawType === 'round_robin') {
     // Ordem de saída do círculo: sorteada; com cabeças de chave, elas ficam nas primeiras posições (por ordem).
     const ordered = mode === 'seeded'
       ? [...confirmed].sort((a, b) => (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER))
       : [...confirmed].sort(() => Math.random() - 0.5)
-    return buildRoundRobinMatchDefs(drawId, ordered.map((r) => r.id))
+    return { ok: true, defs: buildRoundRobinMatchDefs(drawId, ordered.map((r) => r.id)), config: null }
   }
-  return buildMatchDefs(drawId, buildSlots(confirmed, mode))
+  return { ok: true, defs: buildMatchDefs(drawId, buildSlots(confirmed, mode)), config: null }
 }
 
 const generateDrawSchema = z.object({
   mode: z.enum(['random', 'seeded']).default('seeded'),
+  // Grupos + eliminatória (ignorados nos outros formatos): número de grupos OU pessoas por grupo, e classificados por grupo.
+  groupCount: z.number().int().optional(),
+  groupSize: z.number().int().optional(),
+  advancePerGroup: z.number().int().optional(),
 })
 
 export async function drawsRoutes(app: FastifyInstance) {
@@ -51,21 +73,28 @@ export async function drawsRoutes(app: FastifyInstance) {
 
   app.post('/draws/generate/:categoryId', async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string }
-    const { mode } = generateDrawSchema.parse(request.body ?? {})
+    const body = generateDrawSchema.parse(request.body ?? {})
+    const { mode } = body
 
     const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, categoryId), eq(tournamentRegistrations.status, 'approved')))
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
-    const [draw]     = await db.insert(draws).values({ id: randomUUID(), categoryId, drawMode: mode }).returning()
-    const matchDefs  = await buildCategoryMatchDefs(draw.id, categoryId, confirmed, mode)
+    const drawId = randomUUID()
+    const built = await buildCategoryMatchDefs(drawId, categoryId, confirmed, body)
+    if (!built.ok) return reply.status(422).send({ error: built.error, code: 'INVALID_GROUP_CONFIG' })
 
-    await db.insert(matches).values(matchDefs)
-    return reply.status(201).send({ draw, matchCount: matchDefs.length, mode })
+    const draw = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(draws).values({ id: drawId, categoryId, drawMode: mode, config: built.config }).returning()
+      await tx.insert(matches).values(built.defs)
+      return row
+    })
+    return reply.status(201).send({ draw, matchCount: built.defs.length, mode })
   })
 
   app.post('/draws/:drawId/redraw', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
-    const { mode }   = generateDrawSchema.parse(request.body ?? {})
+    const body       = generateDrawSchema.parse(request.body ?? {})
+    const { mode }   = body
 
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found' })
@@ -82,7 +111,9 @@ export async function drawsRoutes(app: FastifyInstance) {
     const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, draw.categoryId), eq(tournamentRegistrations.status, 'approved')))
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
-    const matchDefs = await buildCategoryMatchDefs(drawId, draw.categoryId, confirmed, mode)
+    const built = await buildCategoryMatchDefs(drawId, draw.categoryId, confirmed, body)
+    if (!built.ok) return reply.status(422).send({ error: built.error, code: 'INVALID_GROUP_CONFIG' })
+    const matchDefs = built.defs
 
     // Apagar a chave antiga e gravar a nova é uma operação só: ou troca inteira, ou nada.
     let liveMatchIds: string[] = []
@@ -98,7 +129,7 @@ export async function drawsRoutes(app: FastifyInstance) {
       await tx.insert(matches).values(matchDefs)
 
       const [row] = await tx.update(draws)
-        .set({ drawMode: mode, published: false, generatedAt: new Date(), updatedAt: new Date() })
+        .set({ drawMode: mode, config: built.config, published: false, generatedAt: new Date(), updatedAt: new Date() })
         .where(eq(draws.id, drawId))
         .returning()
       return row
@@ -130,13 +161,13 @@ export async function drawsRoutes(app: FastifyInstance) {
     return { updated, total: allMatches.length }
   })
 
-  // Classificação do todos contra todos (público). Em outros formatos devolve lista vazia.
+  // Classificação do todos contra todos e dos grupos (público). Eliminação simples: lista vazia.
   app.get('/draws/:drawId/standings', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
     const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
     if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
     const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
-    if (category?.drawType !== 'round_robin') return { rows: [] }
+    if (category?.drawType !== 'round_robin' && category?.drawType !== 'group_then_elimination') return { rows: [], groups: [] }
 
     const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
     const setRows = drawMatches.length
@@ -144,9 +175,50 @@ export async function drawsRoutes(app: FastifyInstance) {
       : []
     const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
     for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
+
+    if (category.drawType === 'group_then_elimination') {
+      return { rows: [], groups: computeGroupStandings(drawMatches, setsByMatchId) }
+    }
     const regIds = [...new Set(drawMatches.flatMap((m) => [m.registration1Id, m.registration2Id]).filter((v): v is string => v !== null))]
     const rows = computeRoundRobinStandings(regIds, drawMatches, setsByMatchId).map((row, i) => ({ position: i + 1, ...row }))
-    return { rows }
+    return { rows, groups: [] }
+  })
+
+  // Grupos + eliminatória: cria a eliminatória com os classificados, quando os grupos terminam.
+  app.post('/draws/:drawId/knockout', async (request, reply) => {
+    const { drawId } = request.params as { drawId: string }
+    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
+    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
+    const [category] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
+    if (category?.drawType !== 'group_then_elimination') {
+      return reply.status(409).send({ error: 'Esta categoria não tem fase de grupos.', code: 'NOT_GROUP_FORMAT' })
+    }
+    const config = draw.config as GroupConfig | null
+    if (!config) return reply.status(409).send({ error: 'A chave não tem configuração de grupos. Sorteie de novo.', code: 'MISSING_GROUP_CONFIG' })
+
+    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    if (drawMatches.some((m) => m.stage === 'knockout')) {
+      return reply.status(409).send({ error: 'A eliminatória já foi gerada.', code: 'KNOCKOUT_ALREADY_GENERATED' })
+    }
+    const pending = drawMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && m.registration1Id && m.registration2Id)
+    if (pending.length > 0) {
+      return reply.status(409).send({
+        error: `Ainda há ${pending.length} partida(s) da fase de grupos sem resultado.`,
+        code: 'GROUPS_NOT_FINISHED',
+        details: { pending: pending.length },
+      })
+    }
+
+    const setRows = await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+    const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
+    for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
+
+    const qualifiers = pickQualifiers(computeGroupStandings(drawMatches, setsByMatchId), config.advancePerGroup)
+    if (qualifiers.length < 2) return reply.status(409).send({ error: 'Classificados insuficientes para a eliminatória.', code: 'NOT_ENOUGH_QUALIFIERS' })
+
+    const defs = buildKnockoutMatchDefs(drawId, qualifiers)
+    await db.insert(matches).values(defs)
+    return reply.status(201).send({ matchCount: defs.length, qualifiers: qualifiers.length })
   })
 
   app.get('/draws/:drawId/matches', async (request) => {

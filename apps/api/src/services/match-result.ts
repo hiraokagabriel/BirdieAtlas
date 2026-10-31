@@ -72,6 +72,15 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
     return { ok: false, status: 409, error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' }
   }
 
+  // Grupos + eliminatória: depois que a eliminatória existe, mudar um resultado dos grupos desatualizaria os classificados.
+  if (match.stage === 'group') {
+    const [knockout] = await ex.select({ id: matches.id }).from(matches)
+      .where(and(eq(matches.drawId, match.drawId), eq(matches.stage, 'knockout'))).limit(1)
+    if (knockout) {
+      return { ok: false, status: 409, error: 'A eliminatória já foi gerada. Refaça a chave para alterar resultados dos grupos.', code: 'GROUPS_LOCKED' }
+    }
+  }
+
   const newWinner = getWinnerSlot(body.sets)
   if (!newWinner) return { ok: false, status: 400, error: 'Cannot determine winner from sets' }
   const newWinnerRegId = newWinner === 1 ? match.registration1Id : match.registration2Id
