@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { api, apiCall } from '../support/api.js'
-import { createAthlete, createCategory, createTournament, uniqueTag, type Athlete } from '../support/factories.js'
+import { affiliate, createAthlete, createCategory, createClub, createTournament, uniqueTag, type Athlete } from '../support/factories.js'
 
 // Inscrições pela interface (aba Inscrições do torneio): inscrever, aprovar, recusar com motivo,
 // reabrir, remover e as recusas de elegibilidade da API. Atletas, torneio e categoria vêm da API.
@@ -16,7 +16,7 @@ async function enroll(page: Page, athlete: Athlete): Promise<void> {
   await page.getByRole('searchbox', { name: 'Buscar atleta' }).fill(athlete.name)
   const select = page.getByRole('combobox', { name: /^Atleta/ })
   await expect(select.getByRole('option', { name: athlete.name })).toHaveCount(1)
-  await select.selectOption({ label: athlete.name })
+  await select.selectOption(athlete.id)
   await page.getByRole('button', { name: 'Confirmar inscrição' }).click()
 }
 
@@ -74,7 +74,7 @@ test.describe('inscrições pela interface', () => {
     await expect(select.getByRole('option', { name: man.name })).toHaveCount(1)
     await expect(select.getByRole('option', { name: woman.name })).toHaveCount(0)
 
-    await select.selectOption({ label: man.name })
+    await select.selectOption(man.id)
     await page.getByRole('button', { name: 'Confirmar inscrição' }).click()
     await expect(page.getByRole('button', { name: `Aprovar inscrição de ${man.name}` })).toBeVisible()
 
@@ -99,5 +99,23 @@ test.describe('inscrições pela interface', () => {
     await page.goto(`/admin/tournaments/${tournament.id}`)
     await expect(page.getByText('Torneio encerrado: inscrições bloqueadas')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Inscrever' })).toHaveCount(0)
+  })
+
+  test('o seletor mostra o clube de cada atleta e diferencia nomes iguais', async ({ page }) => {
+    const tournament = await createTournament({ status: 'registration_open' })
+    await createCategory(tournament.id)
+    const tag = uniqueTag()
+    const name = `Homônimo ${tag}`
+    const club = await createClub({ name: `Clube Seletor ${tag}` })
+    const withClub = await createAthlete({ name, gender: 'M' })
+    const withoutClub = await createAthlete({ name, gender: 'M' })
+    await affiliate(withClub.id, club.id)
+
+    await page.goto(`/admin/tournaments/${tournament.id}`)
+    await page.getByRole('button', { name: 'Inscrever' }).click()
+    await page.getByRole('searchbox', { name: 'Buscar atleta' }).fill(name)
+    const select = page.getByRole('combobox', { name: /^Atleta/ })
+    await expect(select.locator(`option[value="${withClub.id}"]`)).toHaveText(`${name} · ${club.name}`)
+    await expect(select.locator(`option[value="${withoutClub.id}"]`)).toHaveText(`${name} · Sem clube`)
   })
 })
