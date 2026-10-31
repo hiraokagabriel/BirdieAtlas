@@ -72,6 +72,11 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
     return { ok: false, status: 409, error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' }
   }
 
+  // Grupos e suíço: trava a chave (a mesma trava da geração da fase seguinte) antes de checar as travas abaixo.
+  if (match.stage === 'group' || match.stage === 'swiss') {
+    await ex.select({ id: draws.id }).from(draws).where(eq(draws.id, match.drawId)).for('update')
+  }
+
   // Grupos + eliminatória: depois que a eliminatória existe, mudar um resultado dos grupos desatualizaria os classificados.
   if (match.stage === 'group') {
     const [knockout] = await ex.select({ id: matches.id }).from(matches)

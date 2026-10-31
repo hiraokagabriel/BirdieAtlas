@@ -62,8 +62,10 @@ async function loadPlayedMatches(athleteId: string): Promise<{ played: PlayedMat
   const drawRows = await db.select().from(draws).where(inArray(draws.id, [...new Set(matchRows.map((m) => m.drawId))]))
   const categoryRows = await db.select().from(tournamentCategories)
     .where(inArray(tournamentCategories.id, [...new Set(drawRows.map((d) => d.categoryId))]))
-  const tournamentRows = await db.select().from(tournaments)
-    .where(inArray(tournaments.id, [...new Set(categoryRows.map((c) => c.tournamentId))]))
+  // Torneio excluído ou ainda em rascunho não é público.
+  const tournamentRows = (await db.select().from(tournaments)
+    .where(and(inArray(tournaments.id, [...new Set(categoryRows.map((c) => c.tournamentId))]), isNull(tournaments.deletedAt))))
+    .filter((t) => t.status !== 'draft')
   const drawById = new Map(drawRows.map((d) => [d.id, d]))
   const categoryById = new Map(categoryRows.map((c) => [c.id, c]))
   const tournamentById = new Map(tournamentRows.map((t) => [t.id, t]))

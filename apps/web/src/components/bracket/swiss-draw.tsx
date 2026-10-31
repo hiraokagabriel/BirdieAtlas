@@ -67,6 +67,9 @@ export function SwissDraw({ drawId, matches, entries, results, categoryName, onS
             </p>
           )}
         </div>
+        {error && data ? (
+          <ErrorNotice>Não foi possível atualizar a classificação: {error}. Os números abaixo podem estar desatualizados.</ErrorNotice>
+        ) : null}
         {error && !data ? (
           <ErrorNotice>Não foi possível carregar a classificação: {error}</ErrorNotice>
         ) : !data ? (

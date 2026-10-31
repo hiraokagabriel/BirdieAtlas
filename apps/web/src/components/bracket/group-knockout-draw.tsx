@@ -64,6 +64,9 @@ export function GroupKnockoutDraw({
         return (
           <section key={key} className="space-y-4">
             <h3 className="text-lg font-semibold">Grupo {key}</h3>
+            {error && data ? (
+              <ErrorNotice>Não foi possível atualizar a classificação: {error}. Os números abaixo podem estar desatualizados.</ErrorNotice>
+            ) : null}
             {error && !data ? (
               <ErrorNotice>Não foi possível carregar a classificação: {error}</ErrorNotice>
             ) : !standings ? (

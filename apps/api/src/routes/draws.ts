@@ -15,7 +15,7 @@ import {
 } from '../domain/groups.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
 import { selectRegistrations } from '../db/registrations.js'
-import { saveMatchResult } from '../services/match-result.js'
+import { findOwnerTournament, isTournamentLocked, saveMatchResult, TOURNAMENT_LOCKED_MESSAGE } from '../services/match-result.js'
 import { getLiveMatchView, liveBus } from '../services/live-match.js'
 
 const upsertMatchResultSchema = z.object({
@@ -221,65 +221,79 @@ export async function drawsRoutes(app: FastifyInstance) {
   // Grupos + eliminatória: cria a eliminatória com os classificados, quando os grupos terminam.
   app.post('/draws/:drawId/knockout', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
-    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
-    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
-    const [category] = await db.select().from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
+    // Uma transação com a chave travada (FOR UPDATE): dois cliques ou um retry não geram a fase duas vezes.
+    const result = await db.transaction(async (tx) => {
+        const [draw] = await tx.select().from(draws).where(eq(draws.id, drawId)).for('update')
+    if (!draw) return { status: 404, body: { error: 'Draw not found', code: 'DRAW_NOT_FOUND' } }
+    const owner = await findOwnerTournament(tx, draw.id)
+    if (owner && isTournamentLocked(owner.status)) {
+      return { status: 409, body: { error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' } }
+    }
+    const [category] = await tx.select().from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
     if (category?.drawType !== 'group_then_elimination') {
-      return reply.status(409).send({ error: 'Esta categoria não tem fase de grupos.', code: 'NOT_GROUP_FORMAT' })
+      return { status: 409, body: { error: 'Esta categoria não tem fase de grupos.', code: 'NOT_GROUP_FORMAT' } }
     }
     const config = draw.config as GroupConfig | null
-    if (!config) return reply.status(409).send({ error: 'A chave não tem configuração de grupos. Sorteie de novo.', code: 'MISSING_GROUP_CONFIG' })
+    if (!config) return { status: 409, body: { error: 'A chave não tem configuração de grupos. Sorteie de novo.', code: 'MISSING_GROUP_CONFIG' } }
 
-    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const drawMatches = await tx.select().from(matches).where(eq(matches.drawId, drawId))
     if (drawMatches.some((m) => m.stage === 'knockout')) {
-      return reply.status(409).send({ error: 'A eliminatória já foi gerada.', code: 'KNOCKOUT_ALREADY_GENERATED' })
+      return { status: 409, body: { error: 'A eliminatória já foi gerada.', code: 'KNOCKOUT_ALREADY_GENERATED' } }
     }
     const pending = drawMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && m.registration1Id && m.registration2Id)
     if (pending.length > 0) {
-      return reply.status(409).send({
+      return { status: 409, body: {
         error: `Ainda há ${pending.length} partida(s) da fase de grupos sem resultado.`,
         code: 'GROUPS_NOT_FINISHED',
         details: { pending: pending.length },
-      })
+      } }
     }
 
-    const setRows = await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+    const setRows = await tx.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
     const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
     for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
 
     const qualifiers = pickQualifiers(computeGroupStandings(drawMatches, setsByMatchId), config.advancePerGroup)
-    if (qualifiers.length < 2) return reply.status(409).send({ error: 'Classificados insuficientes para a eliminatória.', code: 'NOT_ENOUGH_QUALIFIERS' })
+    if (qualifiers.length < 2) return { status: 409, body: { error: 'Classificados insuficientes para a eliminatória.', code: 'NOT_ENOUGH_QUALIFIERS' } }
 
     const defs = buildKnockoutMatchDefs(drawId, qualifiers)
-    await db.insert(matches).values(defs)
-    return reply.status(201).send({ matchCount: defs.length, qualifiers: qualifiers.length })
+    await tx.insert(matches).values(defs)
+    return { status: 201, body: { matchCount: defs.length, qualifiers: qualifiers.length } }
+    })
+    return reply.status(result.status).send(result.body)
   })
 
   // Suíço: gera a próxima rodada, pareando por classificação sem repetir adversário, quando a atual termina.
   app.post('/draws/:drawId/swiss/next-round', async (request, reply) => {
     const { drawId } = request.params as { drawId: string }
-    const [draw] = await db.select().from(draws).where(eq(draws.id, drawId))
-    if (!draw) return reply.status(404).send({ error: 'Draw not found', code: 'DRAW_NOT_FOUND' })
+    // Uma transação com a chave travada (FOR UPDATE): dois cliques ou um retry não geram a fase duas vezes.
+    const result = await db.transaction(async (tx) => {
+        const [draw] = await tx.select().from(draws).where(eq(draws.id, drawId)).for('update')
+    if (!draw) return { status: 404, body: { error: 'Draw not found', code: 'DRAW_NOT_FOUND' } }
+    const owner = await findOwnerTournament(tx, draw.id)
+    if (owner && isTournamentLocked(owner.status)) {
+      return { status: 409, body: { error: TOURNAMENT_LOCKED_MESSAGE, code: 'TOURNAMENT_LOCKED' } }
+    }
     const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, draw.categoryId))
-    if (category?.drawType !== 'swiss') return reply.status(409).send({ error: 'Esta categoria não é suíço.', code: 'NOT_SWISS_FORMAT' })
+    if (category?.drawType !== 'swiss') return { status: 409, body: { error: 'Esta categoria não é suíço.', code: 'NOT_SWISS_FORMAT' } }
     const total = (draw.config as { rounds?: number } | null)?.rounds
-    if (!total) return reply.status(409).send({ error: 'A chave não tem número de rodadas. Sorteie de novo.', code: 'MISSING_SWISS_CONFIG' })
+    if (!total) return { status: 409, body: { error: 'A chave não tem número de rodadas. Sorteie de novo.', code: 'MISSING_SWISS_CONFIG' } }
 
-    const drawMatches = await db.select().from(matches).where(eq(matches.drawId, drawId))
+    const drawMatches = await tx.select().from(matches).where(eq(matches.drawId, drawId))
     const progress = swissProgress(drawMatches, total)
     if (progress.generated >= total) {
-      return reply.status(409).send({ error: 'Todas as rodadas já foram geradas.', code: 'SWISS_ROUNDS_COMPLETE' })
+      return { status: 409, body: { error: 'Todas as rodadas já foram geradas.', code: 'SWISS_ROUNDS_COMPLETE' } }
     }
     const pending = drawMatches.filter((m) => !['completed', 'walkover', 'retired'].includes(m.status) && m.registration1Id && m.registration2Id)
     if (pending.length > 0) {
-      return reply.status(409).send({
+      return { status: 409, body: {
         error: `Ainda há ${pending.length} partida(s) da rodada ${progress.generated} sem resultado.`,
         code: 'ROUND_NOT_FINISHED',
         details: { pending: pending.length },
-      })
+      } }
     }
 
-    const setRows = await db.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
+    const setRows = await tx.select().from(matchResults).where(inArray(matchResults.matchId, drawMatches.map((m) => m.id)))
     const setsByMatchId = new Map<string, { score1: number; score2: number }[]>()
     for (const s of setRows) setsByMatchId.set(s.matchId, [...(setsByMatchId.get(s.matchId) ?? []), s])
 
@@ -290,13 +304,15 @@ export async function drawsRoutes(app: FastifyInstance) {
 
     const pairing = pairSwissRound(ranked, played, byeHistory)
     const defs = buildSwissRoundDefs(drawId, total, progress.generated + 1, pairing)
-    await db.insert(matches).values(defs)
-    return reply.status(201).send({
+    await tx.insert(matches).values(defs)
+    return { status: 201, body: {
       round: progress.generated + 1,
       matchCount: defs.length,
       bye: pairing.bye,
       rematches: pairing.rematches,
+    } }
     })
+    return reply.status(result.status).send(result.body)
   })
 
   app.get('/draws/:drawId/matches', async (request) => {

@@ -31,6 +31,9 @@ export function RoundRobinDraw({ drawId, matches, entries, results, categoryName
     <div className="space-y-8 p-4">
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Classificação</h3>
+        {error && data ? (
+          <ErrorNotice>Não foi possível atualizar a classificação: {error}. Os números abaixo podem estar desatualizados.</ErrorNotice>
+        ) : null}
         {error && !data ? (
           <ErrorNotice>Não foi possível carregar a classificação: {error}</ErrorNotice>
         ) : !data ? (
