@@ -231,6 +231,10 @@ export function isDrawFinished(
   if (matches.length === 0) return false
   if (matches.some(isPending)) return false
   if (format === 'group_then_elimination') return matches.some((m) => m.stage === 'knockout')
+  if (format === 'double_elimination') {
+    // A grande final precisa ter sido jogada (o reset vazio não conta como pendente: só existe se for preciso).
+    return matches.some((m) => m.stage === 'grand_final' && FINISHED.includes(m.status))
+  }
   if (format === 'swiss') {
     // Suíço: todas as rodadas configuradas precisam ter sido geradas (e jogadas).
     const total = (config as { rounds?: number } | null | undefined)?.rounds

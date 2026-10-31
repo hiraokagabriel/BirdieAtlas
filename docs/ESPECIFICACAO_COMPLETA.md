@@ -126,7 +126,7 @@ CPF, e-mail, telefone e data de nascimento são dados pessoais. Endpoints públi
 
 `GET /athletes/search?q=` é público (não exige modo admin) e alimenta a busca da home. `q` é aparado e tem de 2 a 80 caracteres; fora disso, `400 VALIDATION_ERROR`. `page` (padrão 1) e `pageSize` (padrão 10, máximo 25). A resposta é `{ data, pagination }`, ordenada por nome, com apenas campos públicos: `id`, `name`, `gender`, `nationality`, `photoUrl`, `active`, `clubName` e `clubSlug` (clube ativo no tenant padrão, `null` sem vínculo). Nunca devolve e-mail, CPF, telefone nem data de nascimento. Atletas excluídos (`deletedAt`) ficam de fora; inativos aparecem, como no perfil público.
 
-A busca ignora caixa e acentos ("jose" encontra "José") com `lower` e `translate` do Postgres, sem extensão, para as letras acentuadas do português. Vários termos separados por espaço (até 5) precisam aparecer todos no nome, em qualquer ordem. `%`, `_` e `\` do usuário são escapados e valem como texto. A regra mora em `apps/api/src/domain/athlete-search.ts`. A rota é estática e o Fastify a prioriza sobre `/athletes/:id`.
+A busca ignora caixa e acentos ("jose" encontra "José") com `lower` e `translate` do Postgres, sem extensão, para as letras acentuadas do português. Vários termos separados por espaço (até 5) precisam aparecer todos no nome, em qualquer ordem. `%`, `_` e `` do usuário são escapados e valem como texto. A regra mora em `apps/api/src/domain/athlete-search.ts`. A rota é estática e o Fastify a prioriza sobre `/athletes/:id`.
 
 ### Tenant
 
@@ -223,7 +223,7 @@ draft → registration_open → registration_closed → in_progress → complete
 
 ### Chaves
 
-- O formato vem da categoria (`tournament_categories.draw_type`, escolhido ao criar a categoria): `single_elimination` (padrão), `round_robin`, `group_then_elimination` ou `swiss`. Eliminação simples: a chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
+- O formato vem da categoria (`tournament_categories.draw_type`, escolhido ao criar a categoria): `single_elimination` (padrão), `round_robin`, `group_then_elimination`, `swiss` ou `double_elimination`. Eliminação simples: a chave tem tamanho da próxima potência de 2 acima do número de inscritos aprovados; vagas vazias viram byes.
 - Modos de sorteio: aleatório e com cabeças de chave (cabeças 1 e 2 em extremos opostos, 3 e 4 sorteadas entre as metades, 5 a 8 entre os quartos).
 - **Rodadas contam até a final:** a rodada de número mais alto é a primeira fase e a rodada 1 é a final. Cada partida aponta para a seguinte por `nextMatchId`; a vencedora da posição `p` ocupa o slot 1 (se `p` for ímpar) ou 2 (se par) da posição `ceil(p/2)` na rodada seguinte. O gerador fica em `apps/api/src/domain/bracket.ts` e é usado pela API e pelo seed.
 - Bye é uma partida da primeira fase com um único inscrito e status `walkover`; o inscrito avança na hora.
@@ -246,6 +246,12 @@ draft → registration_open → registration_closed → in_progress → complete
   - **Classificação:** vitórias; depois Buchholz (soma das vitórias dos adversários), saldo de sets, saldo de pontos, id. `GET /draws/:drawId/standings` devolve `rows` (com `buchholz` e `byes`) e `rounds: { generated, total }`. A colocação final é a posição na classificação.
   - **Trava:** com a rodada seguinte gerada, o resultado de rodadas anteriores não muda (`409 ROUND_LOCKED`); refazer a chave apaga tudo.
   - **Encerrar e pontuar** exigem todas as rodadas geradas e jogadas.
+- **Eliminação dupla** (`double_elimination`, `domain/double-elimination.ts`; migration `0008` adiciona o valor ao enum e as colunas `matches.next_slot`, `loser_next_match_id` e `loser_next_slot`): quem perde uma vez cai para a chave dos perdedores; perde duas, sai.
+  - **Estrutura:** chave dos vencedores (a mesma da eliminação simples, com a ordem clássica de cabeças: os melhores recebem os byes), chave dos perdedores (rodadas 1 a 2k-2; os perdedores de cada rodada dos vencedores entram em ordem invertida na primeira queda, para evitar revanche imediata), grande final e, se configurado, a partida de reset. De 3 a 64 inscritos. Total de 2n-2 partidas jogadas (mais o reset, se necessário). Partidas que teriam um só participante (consequência dos byes) não são criadas: o participante é encaminhado direto para a seguinte.
+  - **Ponteiros:** cada partida guarda para onde vai o vencedor (`nextMatchId` + `nextSlot`) e o perdedor (`loserNextMatchId` + `loserNextSlot`). Sem `nextSlot`, vale a regra da eliminação simples (posição ímpar = slot 1). `stage`: `winners`, `losers`, `grand_final`, `grand_final_reset`. `round` é calculado pela profundidade no grafo (maior = jogada antes), então o agendador, a fila ao vivo e o placar funcionam como nos outros formatos; o agendador também considera os perdedores como alimentadores (`loserNextMatchId`).
+  - **Reset configurável:** `doubleEliminationReset` (boolean, padrão `true`) em `POST /draws/generate/:categoryId` e `redraw`, guardado em `draws.config` (`{ reset }`). Com reset, existe a partida `grand_final_reset`, vazia; se quem veio dos perdedores (lado 2) vencer a grande final, os dois são colocados nela e jogam de novo; se o campeão dos vencedores vencer, ela continua vazia e não bloqueia o encerramento. Sem reset, a grande final decide.
+  - **Edição de resultados:** mudar o vencedor de uma partida tira o vencedor e o perdedor anteriores das partidas seguintes (`nextMatchId` e `loserNextMatchId`), desfaz em cascata o que dependia deles e, na grande final, também o reset.
+  - **Colocação:** campeão e vice saem da grande final (ou do reset, se jogado). Os demais, pela rodada da chave dos perdedores em que caíram: a final dos perdedores é 3º, a anterior 4º, depois 5º, 7º, 9º... (quem cai na mesma rodada empata). Configuração inválida: `422 INVALID_DOUBLE_ELIMINATION_CONFIG`. Encerrar e pontuar exigem a grande final jogada.
 - **Classificação do todos contra todos:** vitórias; empate entre inscrições com as mesmas vitórias: vitórias no confronto entre as empatadas (com duas, o confronto direto), saldo de sets, saldo de pontos, id. `GET /draws/:drawId/standings` (público) devolve `{ rows: [{ position, registrationId, played, wins, losses, setsFor, setsAgainst, pointsFor, pointsAgainst }] }` (vazio em outros formatos). A colocação final é a posição na classificação (`computeDrawPlacements` em `domain/placements.ts`); `finalize`, `award-points` e o ranking usam a mesma função.
 
 ### Resultados
@@ -538,7 +544,6 @@ Uma entrega só está pronta quando:
 O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`](../PROGRESS.md).
 
 - **Autenticação (por último):** o projeto roda localmente, em rede local, com o modo admin de desenvolvimento. O Clerk só entra junto com a build que roda online; tudo o que depende de identidade (auditoria de aprovação e de resultados, gestão de usuários e papéis, notificações) espera por ele. Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
-- **Formatos de chave:** eliminação dupla.
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora).
 - **Admin:** relatórios exportáveis além dos CSVs atuais (inscritos, ranking, resultados, classificação, atletas), notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.

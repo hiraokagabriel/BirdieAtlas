@@ -7,6 +7,7 @@ import { BracketTree } from './bracket-tree'
 import { RoundRobinDraw } from './round-robin-draw'
 import { GroupKnockoutDraw } from './group-knockout-draw'
 import { SwissDraw } from './swiss-draw'
+import { DoubleEliminationDraw } from './double-elimination-draw'
 import { MatchResultDialog } from './match-result-dialog'
 
 type Category = { id: string; name: string; discipline: string }
@@ -40,7 +41,17 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
 
   return (
     <>
-      {drawType === 'swiss' ? (
+      {drawType === 'double_elimination' ? (
+        <DoubleEliminationDraw
+          matches={matches}
+          entries={registrations}
+          results={results}
+          categoryName={activeCategory?.name}
+          onSelectMatch={readonly ? undefined : setSelectedMatch}
+          linkAthletes={readonly}
+          live={live}
+        />
+      ) : drawType === 'swiss' ? (
         <SwissDraw
           drawId={drawId}
           matches={matches}

@@ -67,7 +67,8 @@ export function buildRounds(matches: readonly BracketMatch[]): BracketRound[] {
     .sort((a, b) => b - a)
     .map((round) => ({
       round,
-      title: roundTitle(round),
+      // Rótulo gravado (eliminação dupla) tem prioridade sobre o nome pela rodada.
+      title: byRound.get(round)?.[0]?.roundLabel ?? roundTitle(round),
       matches: [...(byRound.get(round) ?? [])].sort((a, b) => a.position - b.position),
     }))
 }

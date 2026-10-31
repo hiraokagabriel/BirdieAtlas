@@ -108,3 +108,21 @@ export function swissConfigBody(rounds: string): Record<string, number> {
   const n = Number(rounds)
   return rounds.trim() && Number.isInteger(n) ? { swissRounds: n } : {}
 }
+
+/** Eliminação dupla: a grande final tem reset? */
+export function DoubleEliminationConfigFields({ reset, onChange }: { reset: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <fieldset className="w-full space-y-2 rounded-xl border border-border p-4">
+      <legend className="px-1 text-sm font-semibold">Eliminação dupla</legend>
+      <label className="flex cursor-pointer items-start gap-2 text-sm">
+        <input type="checkbox" checked={reset} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 rounded accent-primary" />
+        <span>
+          <span className="font-medium">Grande final com reset</span>
+          <span className="block text-xs text-muted-foreground">
+            Se quem veio da chave dos perdedores vencer a grande final, os dois jogam uma segunda vez (cada um tem uma derrota).
+          </span>
+        </span>
+      </label>
+    </fieldset>
+  )
+}

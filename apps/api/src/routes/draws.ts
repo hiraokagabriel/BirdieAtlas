@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
 import { buildRoundRobinMatchDefs, computeRoundRobinStandings } from '../domain/round-robin.js'
+import { buildDoubleEliminationDefs, planDoubleElimination } from '../domain/double-elimination.js'
 import {
   buildSwissRoundDefs, computeSwissStandings, pairFirstRound, pairKey, pairSwissRound, planSwiss, swissProgress,
 } from '../domain/swiss.js'
@@ -28,8 +29,8 @@ const scheduleMatchSchema = z.object({
 })
 
 type BuiltDraw =
-  | { ok: true; defs: MatchDef[]; config: GroupConfig | { rounds: number } | null }
-  | { ok: false; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' }
+  | { ok: true; defs: MatchDef[]; config: GroupConfig | { rounds: number } | { reset: boolean } | null }
+  | { ok: false; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' | 'INVALID_DOUBLE_ELIMINATION_CONFIG' }
 
 /** Monta as partidas conforme o formato da categoria (eliminação simples, todos contra todos ou fase de grupos). */
 async function buildCategoryMatchDefs(
@@ -42,6 +43,7 @@ async function buildCategoryMatchDefs(
     groupSize?: number | undefined
     advancePerGroup?: number | undefined
     swissRounds?: number | undefined
+    doubleEliminationReset?: boolean | undefined
   },
 ): Promise<BuiltDraw> {
   const { mode } = options
@@ -55,6 +57,12 @@ async function buildCategoryMatchDefs(
       defs: buildGroupMatchDefs(drawId, groups, planned.plan.knockoutRounds),
       config: { groupCount: planned.plan.groupCount, advancePerGroup: planned.plan.advancePerGroup },
     }
+  }
+  if (category?.drawType === 'double_elimination') {
+    const planned = planDoubleElimination(confirmed.length)
+    if (!planned.ok) return { ok: false, error: planned.error, code: 'INVALID_DOUBLE_ELIMINATION_CONFIG' }
+    const reset = options.doubleEliminationReset ?? true
+    return { ok: true, defs: buildDoubleEliminationDefs(drawId, confirmed, mode, reset), config: { reset } }
   }
   if (category?.drawType === 'swiss') {
     const planned = planSwiss({ entries: confirmed.length, rounds: options.swissRounds })
@@ -80,6 +88,8 @@ const generateDrawSchema = z.object({
   advancePerGroup: z.number().int().optional(),
   // Suíço (ignorado nos outros formatos): número de rodadas (padrão ⌈log₂ inscritos⌉).
   swissRounds: z.number().int().optional(),
+  // Eliminação dupla: se a grande final tem reset (padrão: sim).
+  doubleEliminationReset: z.boolean().optional(),
 })
 
 export async function drawsRoutes(app: FastifyInstance) {
