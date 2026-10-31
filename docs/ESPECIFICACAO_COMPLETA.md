@@ -113,7 +113,7 @@ Listas filhas de um recurso (partidas de uma chave, inscrições de uma categori
 
 - Toda escrita (POST, PUT, PATCH, DELETE) exige modo admin, verificado por um hook global `onRequest` (`apps/api/src/middleware/admin-guard.ts`). Autorização nunca é checada dentro do handler.
 - Leituras que devolvem dados pessoais ou notas internas também exigem modo admin: `GET /athletes`, `GET /athletes/:id`, `GET /registrations/tournament/:tournamentId` e `GET /tournaments/:id/registrations/export.csv`. A lista fica em `ADMIN_ONLY_READS` (`admin-guard.ts`) e é coberta por `admin-guard.test.ts`.
-- Enquanto o Clerk não está integrado, o modo admin vem de `DEV_ADMIN_MODE=true` ou de `PATCH /dev/admin-mode`. Essa rota só existe fora de produção; em produção nenhuma escrita é possível.
+- O Clerk é a última entrega e só chega com a build online; o uso previsto é local, em rede local. Enquanto ele não está integrado, o modo admin vem de `DEV_ADMIN_MODE=true` ou de `PATCH /dev/admin-mode`. Essa rota só existe fora de produção; em produção nenhuma escrita é possível.
 
 ### Dados pessoais
 
@@ -495,7 +495,7 @@ Uma entrega só está pronta quando:
 
 O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`](../PROGRESS.md).
 
-- **Autenticação:** Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
+- **Autenticação (por último):** o projeto roda localmente, em rede local, com o modo admin de desenvolvimento. O Clerk só entra junto com a build que roda online; tudo o que depende de identidade (auditoria de aprovação e de resultados, gestão de usuários e papéis, notificações) espera por ele. Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
 - **Formatos de chave:** eliminação dupla, round robin, grupos + eliminatória e sistema suíço.
 - **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora), critérios de desempate.

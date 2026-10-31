@@ -3,6 +3,8 @@
 > Atualizado em 21/10/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
+>
+> **Diretriz (31/10/2026):** o projeto roda localmente, em rede local. A autenticação Clerk (e tudo que depende de identidade: auditoria, usuários e papéis, notificações) é a **última** entrega e só existirá na build que rodar online.
 
 ## Redesign
 
