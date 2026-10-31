@@ -429,7 +429,7 @@ A falha de uma violação do axe imprime regra, impacto, critério WCAG, seletor
 - Também faltam à mão: navegação só por teclado em um navegador real com extensões desligadas, zoom de 200% de texto (não só de página) em todas as telas, modo de alto contraste do Windows, `prefers-contrast`, legendas/alternativas para as imagens de compartilhamento (PNG gerados no servidor) e revisão do vocabulário em linguagem simples.
 - O gráfico do dashboard (Recharts) é decorativo para tecnologia assistiva; a tabela oculta é a alternativa.
 - Critérios do WCAG 2.2 que o time adotou como meta (alvo de 24 px) estão testados; os demais da 2.2 (por exemplo, autenticação acessível) não se aplicam enquanto não houver login.
-- Páginas de impressão (`print.css`) e os PNG de compartilhamento não passam pelo axe.
+- `wcag-print.spec.ts`: axe com a mídia `print` emulada na chave do torneio encerrado e no ranking (botões, abas e cabeçalho somem do papel) e checagem dos PNG de compartilhamento (status, tipo e dimensões). Os PNG não têm DOM; o axe não se aplica a eles.
 
 ## Testes E2E
 
