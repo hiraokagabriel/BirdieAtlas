@@ -92,11 +92,12 @@ test.describe('inscrições pela interface', () => {
     expect((res.body as { code?: string }).code).toBe('GENDER_INCOMPATIBLE')
   })
 
-  test('torneio encerrado bloqueia novas inscrições na interface', async ({ page }) => {
+  test('torneio cancelado bloqueia novas inscrições na interface', async ({ page }) => {
     const tournament = await createTournament({ status: 'registration_open' })
     await createCategory(tournament.id)
     await api.post(`/tournaments/${tournament.id}/transition`, { to: 'cancelled' })
     await page.goto(`/admin/tournaments/${tournament.id}`)
+    await expect(page.getByText('Torneio encerrado: inscrições bloqueadas')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Inscrever' })).toHaveCount(0)
   })
 })

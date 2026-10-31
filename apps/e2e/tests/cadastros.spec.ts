@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { api } from '../support/api.js'
+import { api, apiCall } from '../support/api.js'
 import { createAthlete, createClub, uniqueTag } from '../support/factories.js'
 
 // Cadastros no admin pela interface: atletas, importação de CSV, clubes e duplas.
@@ -78,6 +78,20 @@ test.describe('importação de atletas por CSV', () => {
     await expect(dialog).toBeHidden()
   })
 
+  test('a API recusa data fora do formato AAAA-MM-DD e aceita data vazia', async () => {
+    const tag = uniqueTag()
+    const res = await apiCall<{ created: number; failed: number; errors: { row: number; reason: string }[] }>('POST', '/athletes/import-csv', [
+      { name: `Data Ruim ${tag}`, gender: 'M', birthDate: '20/03/1995' },
+      { name: `Data Vazia ${tag}`, gender: 'F', birthDate: '' },
+      { name: `Data Impossivel ${tag}`, gender: 'F', birthDate: '2000-02-30' },
+    ])
+    expect(res.body.created).toBe(1)
+    expect(res.body.errors).toEqual([
+      { row: 1, reason: 'Data de nascimento deve ser AAAA-MM-DD' },
+      { row: 3, reason: 'Data de nascimento deve ser AAAA-MM-DD' },
+    ])
+  })
+
   test('o template CSV é baixado pelo diálogo', async ({ page }) => {
     await page.goto('/admin/athletes')
     await page.getByRole('button', { name: 'Importar CSV' }).click()
@@ -114,7 +128,9 @@ test.describe('clubes', () => {
     await expect(dialog.getByText('Slug é obrigatório')).toBeVisible()
 
     await dialog.getByLabel('Nome do clube').fill('Qualquer')
+    await expect(dialog.getByLabel('Slug')).toHaveValue('qualquer') // derivado do nome
     await dialog.getByLabel('Slug').fill('Slug Inválido')
+    await expect(dialog.getByLabel('Slug')).toHaveValue('Slug Inválido')
     await dialog.getByRole('button', { name: 'Criar clube' }).click()
     await expect(dialog.getByText(/só pode ter letras minúsculas/)).toBeVisible()
   })
@@ -147,7 +163,7 @@ test.describe('duplas', () => {
       await dialog.getByRole('searchbox', { name: new RegExp(`Buscar atleta para ${label}`) }).fill(athlete.name)
       await dialog.getByRole('button', { name: new RegExp(athlete.name) }).click()
     }
-    await dialog.getByText('MD', { exact: false }).first().click()
+    await dialog.locator('label', { hasText: /^MD/ }).click()
     await dialog.getByRole('button', { name: 'Criar dupla' }).click()
     await expect(dialog).toBeHidden()
 

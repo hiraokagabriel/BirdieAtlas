@@ -28,6 +28,7 @@ test.describe('impressão (@media print)', () => {
 
       // Na tela os botões existem; só então "sumir no papel" quer dizer algo.
       await expect(page.getByRole('button', { name: /Imprimir/ })).toBeVisible()
+      await expect(page.getByRole('tablist').or(page.getByRole('button', { name: 'Compartilhar' })).first()).toBeVisible()
       await page.emulateMedia({ media: 'print' })
       await settle(page)
 
@@ -68,6 +69,6 @@ test.describe('imagens de compartilhamento', () => {
 
   test('torneio inexistente não gera imagem', async ({ request }) => {
     const res = await request.get('/t/nao-existe-mesmo/share-image')
-    expect(res.status()).toBeGreaterThanOrEqual(400)
+    expect(res.status()).toBe(404)
   })
 })

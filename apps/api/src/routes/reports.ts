@@ -5,7 +5,7 @@ import { db } from '../db/index.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { athletes, draws, matchResults, matches, tournamentCategories, tournaments } from '../db/schema.js'
 import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
-import { GENDER_LABELS, MATCH_STATUS_LABELS, formatScore, roundLabel } from '../domain/report-format.js'
+import { GENDER_LABELS, MATCH_STATUS_LABELS, formatScore, joinClubs, pickWinner, roundLabel, sortByPlacement, sortMatchesForReport } from '../domain/report-format.js'
 import { getWinnerSlot } from '../services/match-result.js'
 import { athleteNames, currentClubNames } from './registrations.js'
 
@@ -36,7 +36,7 @@ export async function reportsRoutes(app: FastifyInstance) {
     const sideName = new Map(regs.map((r) => [r.id, [names.get(r.athleteId), r.athlete2Id ? names.get(r.athlete2Id) : null].filter(Boolean).join(' / ')]))
 
     const categoryIds = categories.map((c) => c.id)
-    const drawRows = categoryIds.length ? await db.select().from(draws).where(inArray(draws.categoryId, categoryIds)) : []
+    const drawRows = categoryIds.length ? await db.select().from(draws).where(and(inArray(draws.categoryId, categoryIds), eq(draws.published, true))) : []
     const drawIds = drawRows.map((d) => d.id)
     const matchRows = drawIds.length ? await db.select().from(matches).where(inArray(matches.drawId, drawIds)) : []
     const setRows = matchRows.length
@@ -47,13 +47,11 @@ export async function reportsRoutes(app: FastifyInstance) {
 
     const rows = categories.flatMap((category) =>
       drawRows.filter((d) => d.categoryId === category.id).flatMap((draw) =>
-        // Primeira fase primeiro (rodada de número mais alto); a final fica por último.
-        matchRows.filter((m) => m.drawId === draw.id)
-          .sort((a, b) => b.round - a.round || a.position - b.position)
+        sortMatchesForReport(matchRows.filter((m) => m.drawId === draw.id))
           .map((m) => {
             const sets = setsByMatch.get(m.id) ?? []
             const slot = getWinnerSlot(sets)
-            const winnerId = slot === 1 ? m.registration1Id : slot === 2 ? m.registration2Id : null
+            const winnerId = pickWinner(slot, m.registration1Id, m.registration2Id)
             return [
               category.name,
               roundLabel(m.round),
@@ -89,18 +87,14 @@ export async function reportsRoutes(app: FastifyInstance) {
     const clubs = await currentClubNames(ids)
 
     const rows = categories.flatMap((category) =>
-      placed
-        .filter((r) => r.categoryId === category.id)
-        .sort((a, b) => (a.finalPlacement ?? 0) - (b.finalPlacement ?? 0) || a.id.localeCompare(b.id))
+      sortByPlacement(placed.filter((r) => r.categoryId === category.id))
         .map((r) => {
-          const athleteIds = [r.athleteId, r.athlete2Id].filter((v): v is string => !!v)
-          const clubList = [...new Set(athleteIds.map((id) => clubs.get(id)).filter((v): v is string => !!v))]
           return [
             category.name,
             r.finalPlacement,
             names.get(r.athleteId) ?? '',
             r.athlete2Id ? (names.get(r.athlete2Id) ?? '') : '',
-            clubList.join(' / '),
+            joinClubs([r.athleteId, r.athlete2Id ?? ''].map((id) => clubs.get(id))),
           ]
         }),
     )

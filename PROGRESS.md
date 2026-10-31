@@ -1,6 +1,6 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 21/10/2026.
+> Atualizado em 31/10/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
 >

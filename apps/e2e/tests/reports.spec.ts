@@ -32,6 +32,12 @@ test.describe('relatórios CSV', () => {
     expect(lines.slice(1).every((l) => l.split(';')[5] !== '')).toBe(true)
   })
 
+  test('resultados: chave não publicada não sai no CSV público', async ({ request }) => {
+    const draft = await prepareTournament({ athleteCount: 4, publish: false })
+    const lines = await csvLines(request, `/tournaments/${draft.tournament.id}/results/export.csv`)
+    expect(lines).toHaveLength(1)
+  })
+
   test('classificação: colocações do pódio em ordem', async ({ request }) => {
     const lines = await csvLines(request, `/tournaments/${done.tournament.id}/standings/export.csv`)
     expect(lines[0]).toBe('Categoria;Colocação;Atleta;Parceiro(a);Clube')

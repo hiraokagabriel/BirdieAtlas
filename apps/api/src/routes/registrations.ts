@@ -19,6 +19,7 @@ import {
 import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
 import { checkRegistrationEligibility } from '../domain/eligibility.js'
 import { paginate } from '../domain/pagination.js'
+import { getDefaultTenantId } from '../tenant.js'
 import { canEditRegistration, validateRegistrationStatusChange } from '../domain/registration-rules.js'
 
 export async function athleteNames(ids: string[]): Promise<Map<string, string>> {
@@ -30,11 +31,12 @@ export async function athleteNames(ids: string[]): Promise<Map<string, string>> 
 /** Clube atual (afiliação sem data de término) de cada atleta. */
 export async function currentClubNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()
+  const tenantId = await getDefaultTenantId()
   const rows = await db
     .select({ athleteId: athleteAffiliations.athleteId, clubName: clubs.name })
     .from(athleteAffiliations)
     .innerJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
-    .where(and(inArray(athleteAffiliations.athleteId, ids), isNull(athleteAffiliations.endedAt)))
+    .where(and(inArray(athleteAffiliations.athleteId, ids), isNull(athleteAffiliations.endedAt), eq(athleteAffiliations.tenantId, tenantId)))
     .orderBy(asc(athleteAffiliations.startedAt))
   return new Map(rows.map((r) => [r.athleteId, r.clubName]))
 }

@@ -112,7 +112,7 @@ Listas filhas de um recurso (partidas de uma chave, inscrições de uma categori
 ### Autorização
 
 - Toda escrita (POST, PUT, PATCH, DELETE) exige modo admin, verificado por um hook global `onRequest` (`apps/api/src/middleware/admin-guard.ts`). Autorização nunca é checada dentro do handler.
-- Leituras que devolvem dados pessoais ou notas internas também exigem modo admin: `GET /athletes`, `GET /athletes/:id`, `GET /registrations/tournament/:tournamentId` e `GET /tournaments/:id/registrations/export.csv`. A lista fica em `ADMIN_ONLY_READS` (`admin-guard.ts`) e é coberta por `admin-guard.test.ts`.
+- Leituras que devolvem dados pessoais ou notas internas também exigem modo admin: `GET /athletes`, `GET /athletes/:id`, `GET /athletes/export.csv`, `GET /registrations/tournament/:tournamentId` e `GET /tournaments/:id/registrations/export.csv`. A lista fica em `ADMIN_ONLY_READS` (`admin-guard.ts`) e é coberta por `admin-guard.test.ts`.
 - O Clerk é a última entrega e só chega com a build online; o uso previsto é local, em rede local. Enquanto ele não está integrado, o modo admin vem de `DEV_ADMIN_MODE=true` ou de `PATCH /dev/admin-mode`. Essa rota só existe fora de produção; em produção nenhuma escrita é possível.
 
 ### Dados pessoais
@@ -133,13 +133,13 @@ O servidor aplica um tenant padrão em todas as consultas e escritas: `DEFAULT_T
 
 | Recurso | Endpoints |
 |---|---|
-| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/search` (público), `GET /athletes/:id/profile` (público), `POST /athletes/import-csv`, `POST /import/athletes`, `GET /import/athletes/template-columns` |
+| Atletas | `GET/POST /athletes`, `GET/PUT/DELETE /athletes/:id`, `GET /athletes/search` (público), `GET /athletes/:id/profile` (público), `GET /athletes/export.csv` (admin, CSV), `POST /athletes/import-csv` (por linha: `birthDate` no formato AAAA-MM-DD ou vazio; linha inválida entra em `errors` e as demais são criadas), `POST /import/athletes`, `GET /import/athletes/template-columns` |
 | Afiliações | `GET/POST /athletes/:athleteId/affiliations`, `PATCH/DELETE /affiliations/:id` |
 | Clubes | `GET/POST /clubs`, `GET/PUT/DELETE /clubs/:id`, `GET /clubs/by-slug/:slug`, `GET /clubs/:id/profile` |
 | Duplas | `GET/POST /pairs`, `GET/PUT/DELETE /pairs/:id` (desativar é `PUT { active: false }`) |
 | Torneios | `GET/POST /tournaments`, `GET/PUT/DELETE /tournaments/:id`, `GET /tournaments/by-slug/:slug`, `GET /tournaments/:id/public-summary`, `POST /tournaments/:id/transition`, `POST /tournaments/:id/finalize`, `POST /tournaments/:id/reopen` |
 | Categorias | `GET/POST /tournaments/:id/categories` |
-| Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público; inclui `finalPlacement`, preenchida só com o torneio encerrado), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `GET /tournaments/:id/registrations/export.csv` (admin, CSV), `GET /tournaments/:id/results/export.csv` e `GET /tournaments/:id/standings/export.csv` (públicos, CSV), `GET /athletes/export.csv` (admin, CSV), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
+| Inscrições | `GET /tournaments/categories/:categoryId/registrations` (público; inclui `finalPlacement`, preenchida só com o torneio encerrado), `POST /tournaments/categories/:categoryId/register`, `GET /registrations/tournament/:tournamentId` (admin), `GET /tournaments/:id/registrations/export.csv` (admin, CSV), `GET /tournaments/:id/results/export.csv` e `GET /tournaments/:id/standings/export.csv` (públicos, CSV), `PATCH /registrations/:registrationId`, `POST /registrations/:registrationId/approve`, `DELETE /tournaments/registrations/:registrationId` |
 | Chaves e partidas | `GET /tournaments/categories/:categoryId/draws`, `POST /draws/generate/:categoryId`, `POST /draws/:drawId/redraw`, `POST /draws/:drawId/publish`, `POST /draws/:drawId/unpublish`, `GET /draws/:drawId/matches`, `PATCH /draws/matches/:matchId/schedule`, `GET/POST /draws/matches/:matchId/result` |
 | Agenda automática | `POST /tournaments/:id/schedule/auto` |
 | Placar ao vivo | `GET /tournaments/:id/live` (SSE, público), `GET /tournaments/:id/live/matches` (público), `GET /tournaments/:id/live/queue` (público), `POST /draws/matches/:matchId/live/start`, `.../live/point`, `.../live/undo`, `.../live/finish`, `.../live/cancel` |
@@ -382,9 +382,9 @@ Botão "Imprimir / Salvar PDF" (`PrintButton`) na chave do torneio público e no
 
 - `GET /tournaments/:id/registrations/export.csv` (admin): uma linha por inscrição, ordenadas por categoria. Colunas: `Categoria; Atleta; Parceiro(a); Clube; Cabeça de chave; Status` (`Pendente`, `Aprovada`, `Recusada`; recusadas incluídas). Dados pessoais: só nomes e o clube atual, nunca e-mail, data de nascimento nem `notes`. É leitura só de admin (`ADMIN_ONLY_READS`): sem modo admin, `403 ADMIN_MODE_DISABLED`.
 - `GET /rankings/:rankingId/entries/export.csv` (público, como a lista de entradas): `Posição; Atleta; Parceiro(a); Pontos; Torneios`, ordenado pela posição. `404` para ranking inexistente.
-- `GET /tournaments/:id/results/export.csv` (público): uma linha por partida, da primeira fase à final. Colunas: `Categoria; Fase; Partida; Lado 1; Lado 2; Placar; Vencedor; Situação; Quadra`. `Placar` lista os sets (`21-15 18-21`); `Vencedor` sai dos sets e fica vazio em W.O. e desistência sem sets.
+- `GET /tournaments/:id/results/export.csv` (público): uma linha por partida de chave **publicada** (chave não publicada não sai), da primeira fase à final. Colunas: `Categoria; Fase; Partida; Lado 1; Lado 2; Placar; Vencedor; Situação; Quadra`. `Placar` lista os sets (`21-15 18-21`); `Vencedor` sai dos sets e fica vazio em W.O. e desistência sem sets.
 - `GET /tournaments/:id/standings/export.csv` (público): `Categoria; Colocação; Atleta; Parceiro(a); Clube`, só com colocação final (torneio encerrado).
-- `GET /athletes/export.csv` (admin, `ADMIN_ONLY_READS`): `Atleta; Gênero; Clube; Situação`. Sem e-mail nem data de nascimento.
+- `GET /athletes/export.csv` (admin, `ADMIN_ONLY_READS`): `Atleta; Gênero; Clube; Situação`. Sem e-mail nem data de nascimento. O clube é o atual no tenant padrão.
 - Formato (`apps/api/src/domain/csv.ts`): UTF-8 com BOM, separador `;` (convenção do Excel em português do Brasil, onde a vírgula é separador decimal), quebra de linha CRLF e CRLF no fim. Campo com `;`, aspas ou quebra de linha vai entre aspas, com aspas dobradas. Texto que começa com `=`, `+`, `-`, `@`, TAB ou CR ganha um apóstrofo na frente (injeção de fórmula); números não são alterados.
 - Cabeçalhos: `Content-Type: text/csv; charset=utf-8` e `Content-Disposition: attachment; filename="<slug>.csv"; filename*=UTF-8''<slug>.csv`. O nome é um slug ASCII (`slugifyFilename`), então não há injeção de cabeçalho. O CORS expõe `Content-Disposition` para o navegador ler o nome.
 - Web: botão "Exportar CSV" na aba Inscrições do torneio e na página do ranking no admin (`ExportCsvButton`). Baixa por `fetch` e mostra o erro (`403`, rede) abaixo do botão.
