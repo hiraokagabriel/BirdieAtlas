@@ -1,5 +1,12 @@
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// `apps/e2e/.env` (ignorado pelo Git, ver `.env.example`) ajusta o E2E nesta máquina, por exemplo
+// `E2E_DATABASE_URL` com outra porta do Postgres. Não sobrescreve variável já exportada.
+// A barreira "e2e" no nome do banco (`assertE2eDatabase`) continua valendo.
+const localEnv = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env')
+if (existsSync(localEnv)) process.loadEnvFile(localEnv)
 
 // Configuração única do E2E: portas próprias (as do desenvolvimento são 3000 e 3001) e banco próprio.
 // Tudo pode ser trocado por variável de ambiente, mas o padrão nunca encosta no ambiente de desenvolvimento.
