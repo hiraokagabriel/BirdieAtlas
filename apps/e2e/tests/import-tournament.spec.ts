@@ -223,6 +223,28 @@ test.describe('importar torneio (tela)', () => {
     await expect(page).toHaveURL(/\/admin\/tournaments\/[0-9a-f-]{36}$/)
   })
 
+  test('planilha consolidada (Mod/cat., clube no nome) é lida, verificada e importada', async ({ page }) => {
+    const tag = uniqueTag()
+    const csv = [
+      'Mod/cat.;RK;Nome 1;Nome 2;Entidade',
+      `SMA;1;Cons Um ${tag} 04 (CLUBE ${tag});;`,
+      `SFA;;Cons Dois ${tag} (CLUBE ${tag});;`,
+      `DFSB ??;;Cons Tres ${tag} (CLUBE ${tag});Cons Quatro ${tag} (CLUBE ${tag});`,
+      `DXB;;Cons Tres ${tag};Cons Um ${tag};CLUBE ${tag}`, // mista: sexo completado pelas outras categorias
+      `DF/DX;;Cons Cinco ${tag};Cons Seis ${tag};CLUBE ${tag}`, // ambíguo: ignorada com aviso
+    ].join(String.fromCharCode(13, 10))
+    const dialog = await openDialog(page)
+    await dialog.locator('input[type="file"]').setInputFiles({ name: 'consolidada.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') })
+    await expect(dialog.getByText('Planilha consolidada')).toBeVisible()
+    await expect(dialog.getByText(/Linhas ignoradas por categoria não reconhecida/)).toBeVisible()
+    await dialog.getByLabel('Início').fill('15/11/2099')
+    await dialog.getByLabel('Término').fill('16/11/2099')
+    await dialog.getByRole('button', { name: 'Verificar planilha' }).click()
+    await expect(dialog.getByText('Planilha válida')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Importar torneio' }).click()
+    await expect(page).toHaveURL(/\/admin\/tournaments\/[0-9a-f-]{36}$/)
+  })
+
   for (const theme of THEMES) {
     test(`diálogo com relatório sem violações de acessibilidade (${theme})`, async ({ page }) => {
       await useTheme(page, theme)

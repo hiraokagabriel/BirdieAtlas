@@ -30,6 +30,7 @@ export function ImportTournamentDialog() {
   const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState<ParsedImport | null>(null)
   const [fields, setFields] = useState<TournamentFields>(EMPTY_TOURNAMENT_FIELDS)
+  const [tab, setTab] = useState('')
   const [report, setReport] = useState<ImportReport | null>(null)
   const [busy, setBusy] = useState<'reading' | 'checking' | 'importing' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +39,7 @@ export function ImportTournamentDialog() {
     setOpen(false)
     setFileName('')
     setParsed(null)
+    setTab('')
     setFields(EMPTY_TOURNAMENT_FIELDS)
     setReport(null)
     setBusy(null)
@@ -54,6 +56,7 @@ export function ImportTournamentDialog() {
       const result = await parseImportFile(file)
       setFileName(file.name)
       setParsed(result)
+      setTab(result.alternatives?.[0]?.name ?? '')
       setFields({ ...EMPTY_TOURNAMENT_FIELDS, ...result.tournament })
     } catch (err) {
       setParsed(null)
@@ -63,6 +66,16 @@ export function ImportTournamentDialog() {
       setBusy(null)
       ev.target.value = ''
     }
+  }
+
+  function pickTab(name: string) {
+    const alternatives = parsed?.alternatives
+    const next = alternatives?.find((a) => a.name === name)
+    if (!alternatives || !next) return
+    setTab(name)
+    setParsed({ ...next.parsed, alternatives })
+    setFields({ ...EMPTY_TOURNAMENT_FIELDS, ...next.parsed.tournament })
+    setReport(null)
   }
 
   function body(dryRun: boolean) {
@@ -127,7 +140,7 @@ export function ImportTournamentDialog() {
           <DialogHeader>
             <DialogTitle>Importar torneio por planilha</DialogTitle>
             <DialogDescription>
-              Uma planilha .xlsx (abas Torneio, Categorias e Inscritos) ou .csv cria o torneio, as categorias, os atletas e clubes que ainda não existem,
+              Uma planilha .xlsx (abas Torneio, Categorias e Inscritos), uma planilha consolidada (coluna Mod/cat., uma aba por torneio) ou um .csv cria o torneio, as categorias, os atletas e clubes que ainda não existem,
               as duplas e as inscrições. Antes de gravar, você confere um resumo e os erros.
             </DialogDescription>
           </DialogHeader>
@@ -151,6 +164,21 @@ export function ImportTournamentDialog() {
             </label>
 
             {error && <p role="alert" className="text-sm font-medium text-destructive">{error}</p>}
+
+            {parsed?.alternatives && parsed.alternatives.length > 1 && (
+              <Field label="Aba da planilha (um torneio por aba)" hint="Cada aba é importada como um torneio. Importe uma de cada vez.">
+                {(props) => (
+                  <select
+                    {...props}
+                    value={tab}
+                    onChange={(e) => pickTab(e.target.value)}
+                    className={`${FIELD_CONTROL_CLASS} cursor-pointer`}
+                  >
+                    {parsed.alternatives!.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+                  </select>
+                )}
+              </Field>
+            )}
 
             {parsed && (
               <>

@@ -1,4 +1,5 @@
 import type { ImportCategoryInput, ImportEntryInput } from '@birdie-atlas/validators'
+import { parseConsolidatedWorkbook } from './consolidated-import'
 
 // Leitura da planilha de importação de torneio (XLSX com abas ou CSV de uma tabela só) e o modelo para baixar.
 // As células viram texto; a API normaliza e valida os rótulos em português (ver domain/tournament-import.ts na API).
@@ -25,6 +26,8 @@ export interface ParsedImport {
   entries: ImportEntryInput[]
   /** Avisos de leitura (colunas ignoradas, categorias deduzidas...). */
   notes: string[]
+  /** Planilha consolidada: uma aba por torneio. Cada aba lida, para o usuário escolher qual importar. */
+  alternatives?: { name: string; parsed: ParsedImport }[]
 }
 
 /** Minúsculas, sem acento nem pontuação: "Máx. inscrições" vira "max inscricoes". */
@@ -217,6 +220,9 @@ function entriesFrom(rows: { row: number; values: Partial<Record<string, string>
 
 /** Monta o que a API espera a partir das abas (XLSX) ou de uma tabela só (CSV). */
 export function parseSheets(sheets: { name: string; grid: Grid }[]): ParsedImport {
+  const consolidated = parseConsolidatedWorkbook(sheets)
+  if (consolidated) return consolidated
+
   const notes: string[] = []
   const named = (...names: string[]) => sheets.find((s) => names.includes(fold(s.name)))
   const tournamentSheet = named('torneio', 'campeonato')
