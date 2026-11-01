@@ -5,6 +5,7 @@ import { PagerLinks } from '@/components/shared/pager-links'
 import { Badge } from '@/components/ui/badge'
 import { KindBadge } from '@/components/shared/kind-badge'
 import { CreateTournamentDialog } from '@/components/tournament/create-tournament-dialog'
+import { ImportTournamentDialog } from '@/components/tournament/import-tournament-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Calendar, MapPin, Trophy } from 'lucide-react'
 import Link from 'next/link'
@@ -47,7 +48,10 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
           <h2 className="text-2xl font-bold tracking-tight">Torneios</h2>
           <p className="text-muted-foreground">Gerencie todos os campeonatos da federação.</p>
         </div>
-        <CreateTournamentDialog />
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportTournamentDialog />
+          <CreateTournamentDialog />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
