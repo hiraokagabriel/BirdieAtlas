@@ -95,11 +95,33 @@ export function parseConsolidatedSheet(name: string, grid: Grid): ParsedImport |
     if (cat.doubtful) doubtful++
     rows.push({
       row, cat, n1,
-      n2: splitPerson(cols.n2 >= 0 ? cells[cols.n2] : '', cols.c2 >= 0 ? cells[cols.c2] : ''),
+      // sem coluna de clube do parceiro, o clube (Entidade) é da dupla: vale para os dois
+      n2: splitPerson(cols.n2 >= 0 ? cells[cols.n2] : '', cols.c2 >= 0 ? cells[cols.c2] : cols.c1 >= 0 ? cells[cols.c1] : ''),
       g1: cols.g1 >= 0 ? genderOf(cells[cols.g1]) : '', g2: cols.g2 >= 0 ? genderOf(cells[cols.g2]) : '',
       rk: cols.rk >= 0 ? text(cells[cols.rk]) : '',
     })
   })
+
+  // Parceiro sem clube herda o do atleta (é o que a importação faz); entra na contagem de clubes abaixo.
+  for (const r of rows) if (r.n2.name && !r.n2.club && r.n1.club) r.n2.club = r.n1.club
+
+  // Mesmo nome na aba = mesma pessoa. Clubes escritos de formas diferentes (ou ausentes) viram o clube mais citado,
+  // senão a importação criaria o mesmo atleta várias vezes (a chave do atleta inclui o clube).
+  const clubVotes = new Map<string, Map<string, number>>()
+  const people = rows.flatMap((r) => [r.n1, r.n2]).filter((p) => p.name)
+  for (const p of people) {
+    if (!p.club) continue
+    const votes = clubVotes.get(fold(p.name)) ?? new Map<string, number>()
+    votes.set(p.club, (votes.get(p.club) ?? 0) + 1)
+    clubVotes.set(fold(p.name), votes)
+  }
+  let unified = 0
+  for (const p of people) {
+    const votes = clubVotes.get(fold(p.name))
+    if (!votes) continue
+    const best = [...votes].reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+    if (p.club !== best) { if (p.club) unified++; p.club = best }
+  }
 
   // Sexo conhecido de cada pessoa (coluna de gênero ou modalidade não mista), para completar as duplas mistas.
   const known = new Map<string, 'M' | 'F' | 'conflito'>()
@@ -165,6 +187,7 @@ export function parseConsolidatedSheet(name: string, grid: Grid): ParsedImport |
   }
 
   notes.push(`Planilha consolidada (aba "${name}"): categorias deduzidas do código "Mod/cat."; clube e ano de nascimento separados do nome.`)
+  if (unified > 0) notes.push(`${unified} citaç${unified === 1 ? 'ão' : 'ões'} de atleta com clube diferente do mais usado na aba: o mesmo nome foi tratado como a mesma pessoa, com o clube mais citado.`)
   if (inferred > 0) notes.push(`${inferred} dupla${inferred === 1 ? '' : 's'} mista${inferred === 1 ? '' : 's'} com o sexo completado (pelo que a planilha mostra da pessoa em outras categorias ou, sem isso, pela convenção mulher primeiro e homem depois). Confira.`)
   if (doubtful > 0) notes.push(`${doubtful} linha${doubtful === 1 ? '' : 's'} com "?" no código da categoria (dúvida anotada na planilha): lidas sem o "?". Confira.`)
   if (droppedSeeds > 0) notes.push(`${droppedSeeds} cabeça${droppedSeeds === 1 ? '' : 's'} de chave (coluna RK) repetida${droppedSeeds === 1 ? '' : 's'} na mesma categoria: ignorada${droppedSeeds === 1 ? '' : 's'}.`)
