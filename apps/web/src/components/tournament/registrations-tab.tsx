@@ -6,11 +6,12 @@ import type { Paginated } from '@birdie-atlas/types'
 import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, athleteOptionLabel, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
-import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw } from 'lucide-react'
+import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw, Pencil } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ErrorNotice } from '@/components/public/notices'
 import { ChoiceGroup } from '@/components/ui/choice-group'
+import { EditRegistrationForm } from '@/components/tournament/edit-registration-form'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 
 type Category = {
@@ -70,6 +71,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
   const [error, setError] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
   const doubles = activeCategory ? isDoubles(activeCategory.discipline) : false
@@ -377,8 +379,9 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                     <div className="min-w-40 flex-1">
                       <p className={`text-sm font-medium break-words ${reg.status === 'rejected' ? 'line-through text-muted-foreground' : ''}`}>
                         {reg.athleteName ?? reg.athleteId}
+                        {reg.athleteClub && <span className="font-normal text-muted-foreground"> ({reg.athleteClub})</span>}
                         {reg.athlete2Name && (
-                          <span className="text-muted-foreground"> / {reg.athlete2Name}</span>
+                          <span className="text-muted-foreground"> / {reg.athlete2Name}{reg.athlete2Club && ` (${reg.athlete2Club})`}</span>
                         )}
                       </p>
                     </div>
@@ -421,6 +424,16 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                           </button>
                         )}
                         <button
+                          onClick={() => setEditingId(editingId === reg.id ? null : reg.id)}
+                          disabled={busy}
+                          aria-expanded={editingId === reg.id}
+                          className={`${iconBtn} hover:bg-muted hover:text-foreground`}
+                          title="Editar inscrição"
+                          aria-label={`Editar inscrição de ${reg.athleteName ?? reg.athleteId}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                        </button>
+                        <button
                           onClick={() => removeMutation.mutate(reg.id)}
                           disabled={busy}
                           className={`${iconBtn} hover:bg-destructive/10 hover:text-destructive`}
@@ -435,6 +448,10 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
 
                   {reg.status === 'rejected' && reg.notes && (
                     <p className="mt-1 ml-[3.5rem] text-xs text-muted-foreground">Motivo: {reg.notes}</p>
+                  )}
+
+                  {editingId === reg.id && !locked && (
+                    <EditRegistrationForm registration={reg} categories={categories} onClose={() => setEditingId(null)} />
                   )}
 
                   {rejectingId === reg.id && (
