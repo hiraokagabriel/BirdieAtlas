@@ -68,6 +68,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Categorias com disciplina e formato | ✅ | |
 | Inscrições com status (pendente, aprovada, recusada) | ✅ | Atleta XOR dupla; só aprovadas entram na chave. Aprovar, recusar com motivo, reabrir e remover na aba Inscrições |
 | Auditoria de aprovação e recusa (quem e quando) | ❌ | Depende de identidade de usuário (Clerk); hoje só `notes` e `updatedAt`. Contrato em `docs/api/tournament-registrations.md` |
+| Editar inscrição (remanejar, trocar parceiro(a), substituir atleta, cabeça de chave e clube) | ✅ | Lápis na aba Inscrições; amistoso é quase todo editável (inclusive trocar atleta na chave); oficial segue as regras de elegibilidade |
 | Elegibilidade na API de inscrição | ✅ | Gênero, atleta ativo, sem inscrição duplicada na categoria e limite de vagas, sob lock da categoria |
 | Página pública do torneio (`/t/[slug]`) | ✅ | |
 
