@@ -62,6 +62,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Item | Situação | Observação |
 |---|---|---|
 | CRUD de torneios | ✅ | `level` como enum; criação pela tela (botão "Novo torneio") |
+| Importar torneio por planilha (.xlsx/.csv) | ✅ | Modelo para baixar; cria categorias, atletas, clubes, duplas e inscrições; verificação antes de gravar; lê também a planilha consolidada das federações (Mod/cat., uma aba por torneio) |
 | Torneio amistoso | ✅ | `kind = friendly`: guarda tudo, não pontua; pode virar oficial depois |
 | Ciclo de vida validado no servidor | ✅ | Transição, encerramento com pódio e reabertura que reverte pontos |
 | Categorias com disciplina e formato | ✅ | |
