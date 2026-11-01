@@ -83,6 +83,37 @@ describe('parseConsolidatedSheet', () => {
     expect(r.notes.join(' ')).toContain('"?"')
   })
 
+  it('mesmo nome com clubes diferentes ou ausente vira uma pessoa só, com o clube mais citado', () => {
+    const r = parseConsolidatedSheet('T', [
+      HEADER,
+      ['SMA', null, null, 'Cris Sales', 'F', 'BUNKA SBC/BZN', null, null, null, null, null],
+      ['SMB', null, null, 'Cris Sales', 'F', 'BUNKA SBC/NCC', null, null, null, null, null],
+      ['SFC', null, null, 'Cris Sales', 'F', 'BUNKA SBC/BZN', null, null, null, null, null],
+      ['SFD', null, null, 'Cris Sales', 'F', null, null, null, null, null, null],
+    ])!
+    expect(r.entries.map((e) => e.club)).toEqual(Array(4).fill('BUNKA SBC/BZN'))
+    expect(r.notes.some((n) => n.includes('mesma pessoa'))).toBe(true)
+  })
+
+  it('Entidade sem clube do parceiro vale para a dupla toda (mesmo parceiro em duplas de clubes diferentes é uma pessoa só)', () => {
+    const r = parseConsolidatedSheet('T', [
+      ['Chave', 'Mod/cat.', 'Nome 1', 'Nome 2', 'Entidade'],
+      [1, 'DMA', 'Fernando Huang', 'Kaique Yu', 'BZN/USP'],
+      [2, 'DMB', 'Leticia Dietrich', 'Kaique Yu', 'BZN/USP'],
+      [3, 'DMC', 'Outro Cara', 'Kaique Yu', 'BZN'],
+    ])!
+    expect(r.entries.map((e) => e.partnerClub)).toEqual(['BZN/USP', 'BZN/USP', 'BZN/USP'])
+  })
+
+  it('parceiro sem clube herda o do atleta antes de unificar (mesmo parceiro, uma pessoa só)', () => {
+    const r = parseConsolidatedSheet('T', [
+      HEADER,
+      ['DMA', null, null, 'Jorge', 'M', 'SUGIURA', null, 'Marcelo', 'M', null, null],
+      ['DXA', null, null, 'Claudia', 'F', null, null, 'Marcelo', 'M', null, null],
+    ])!
+    expect(r.entries.map((e) => e.partnerClub)).toEqual(['SUGIURA', 'SUGIURA'])
+  })
+
   it('parseSheets usa o modo consolidado e lista as abas', () => {
     const r = parseSheets([
       { name: 'ABA 1', grid: [HEADER, ['SMA', null, null, 'Ana', 'F', 'X', null, null, null, null, null]] },
