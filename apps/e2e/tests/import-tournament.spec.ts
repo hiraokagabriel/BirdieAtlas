@@ -127,7 +127,7 @@ test.describe('importar torneio (API)', () => {
       tournament: tournament(`Com Erros ${tag}`),
       categories: [{ row: 2, name: 'Fem', discipline: 'Simples Feminino' }, { row: 3, name: 'Ruim', discipline: 'Veteranos' }],
       entries: [
-        { row: 2, category: 'Fem', athlete: `Novo ${tag}` }, // novo sem sexo
+        { row: 2, category: 'Fem', athlete: `Novo ${tag}` }, // sem sexo: deduzido da categoria (sem erro)
         { row: 3, category: 'Fem', athlete: `Homem ${tag}`, gender: 'M' }, // gênero errado para a disciplina
         { row: 4, category: 'Nenhuma', athlete: 'X', gender: 'M' },
       ],
@@ -136,7 +136,7 @@ test.describe('importar torneio (API)', () => {
     expect(res.status).toBe(422)
     expect(res.body.code).toBe('IMPORT_INVALID')
     const messages = res.body.details.errors.map((e) => `${e.sheet}:${e.row}:${e.field}`)
-    expect(messages).toEqual(expect.arrayContaining(['Categorias:3:Disciplina', 'Inscritos:2:Sexo', 'Inscritos:3:Atleta', 'Inscritos:4:Categoria']))
+    expect(messages).toEqual(expect.arrayContaining(['Categorias:3:Disciplina', 'Inscritos:3:Sexo', 'Inscritos:4:Categoria']))
     expect((await apiCall('GET', `/tournaments/by-slug/com-erros-${tag}`)).status).toBe(404)
   })
 
@@ -188,7 +188,7 @@ test.describe('importar torneio (tela)', () => {
     const csv = [
       'Categoria;Atleta;Parceiro(a);Sexo;Clube;Disciplina;Formato',
       `Simples A;Fulano ${tag};;M;Clube ${tag};Simples Masculino;Todos contra todos`,
-      `Simples A;Beltrano ${tag};;;;;`, // novo sem sexo
+      `Simples A;Beltrano ${tag};;F;;;`, // sexo F em categoria masculina
       `Duplas;Sicrano ${tag};;M;;Duplas Masculinas;`, // dupla sem parceiro
     ].join('\r\n')
     const dialog = await openDialog(page)
@@ -227,7 +227,7 @@ test.describe('importar torneio (tela)', () => {
     test(`diálogo com relatório sem violações de acessibilidade (${theme})`, async ({ page }) => {
       await useTheme(page, theme)
       const dialog = await openDialog(page)
-      const csv = 'Categoria;Atleta;Sexo;Disciplina\r\nA;Pessoa Teste;;Simples Masculino\r\n'
+      const csv = 'Categoria;Atleta;Sexo;Disciplina\r\nA;Pessoa Teste;F;Simples Masculino\r\n'
       await dialog.locator('input[type="file"]').setInputFiles({ name: 'a.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') })
       await dialog.getByRole('textbox', { name: /^Nome/ }).fill('Torneio A11y')
       await dialog.getByLabel('Início').fill('15/11/2099')

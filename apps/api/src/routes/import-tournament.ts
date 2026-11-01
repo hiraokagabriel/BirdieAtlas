@@ -124,7 +124,7 @@ export async function importTournamentRoutes(app: FastifyInstance) {
 
       if (match) {
         if (person.gender && person.gender !== match.gender) {
-          at(`${person.name}: o sexo informado (${person.gender}) diverge do cadastro (${match.gender}).`, 'Sexo')
+          at(`${person.name}: o sexo da planilha ou da modalidade (${person.gender}) diverge do cadastro (${match.gender}).`, 'Sexo')
           continue
         }
         resolved.set(key, { id: match.id, ref: match.id, ref_person: person, gender: match.gender, active: match.active })

@@ -109,6 +109,25 @@ describe('validateImportInput', () => {
     expect(r.entries[2]!.partner).toMatchObject({ name: 'Bia Costa', gender: 'F' })
   })
 
+  it('simples: o sexo vem da modalidade; em duplas não é deduzido; conflito é erro', () => {
+    const input = base()
+    input.categories.push({ row: 4, name: 'Simples F', discipline: 'Simples Feminino' })
+    input.entries.push(
+      { row: 5, category: 'Simples F', athlete: 'Carla Dias' },
+      { row: 6, category: 'Simples F', athlete: 'Davi Reis', gender: 'M' },
+    )
+    const r = validateImportInput(input)
+    expect(r.errors.map((e) => `${e.row}:${e.field}`)).toEqual(['6:Sexo'])
+    expect(r.entries.find((e) => e.athlete.name === 'João Souza')!.athlete.gender).toBe('M')
+    expect(r.entries.find((e) => e.athlete.name === 'Carla Dias')!.athlete.gender).toBe('F')
+
+    const doubles = base()
+    doubles.entries = [{ row: 2, category: 'Duplas', athlete: 'Ana Lima', partner: 'Bia Costa' }]
+    const d = validateImportInput(doubles)
+    expect(d.entries[0]!.athlete.gender).toBeNull()
+    expect(d.entries[0]!.partner!.gender).toBeNull()
+  })
+
   it('erros do torneio apontam o campo', () => {
     const input = base()
     input.tournament = { name: '', startDate: '31/02/2026', endDate: '01/01/2026', kind: 'x', level: 'y', slug: 'Slug Ruim', state: 'SPP' }

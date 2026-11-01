@@ -309,7 +309,7 @@ const INSTRUCTIONS: string[] = [
   'Aba Inscritos: uma linha por inscrição. A categoria precisa existir na aba Categorias.',
   'Duplas: preencha Parceiro(a). Simples: deixe Parceiro(a) em branco.',
   'Atletas já cadastrados são reconhecidos pelo nome (sem diferenciar acentos). Se houver nomes iguais, informe o Clube ou o E-mail.',
-  'Atleta novo: informe o Sexo (M ou F). O clube é criado se ainda não existir.',
+  'Atleta novo: em Simples o Sexo vem da categoria (Masculino = M, Feminino = F) e pode ficar em branco; em Duplas informe o Sexo (M ou F) do atleta e do parceiro(a). O clube é criado se ainda não existir.',
   'Cabeça de chave (opcional): 1, 2, 3... Situação: Aprovada (padrão), Pendente ou Recusada.',
   'Arquivo CSV: uma tabela só, com as colunas da aba Inscritos mais Disciplina, Formato e Máx. inscrições (valem para a categoria na primeira linha dela). Os dados do torneio são preenchidos na tela.',
   'As linhas de exemplo deste modelo criam atletas "Exemplo ..." de verdade: apague-as antes de importar o seu torneio.',

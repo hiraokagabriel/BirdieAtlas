@@ -245,7 +245,13 @@ export function validateImportInput(input: ImportTournamentInput): ValidatedImpo
 
     if (errors.length > before) continue
 
-    const athlete = person(e.athlete, gender ?? null, e.club, e.email)
+    // Simples: o sexo vem da modalidade (masculino = M, feminino = F). Em duplas ele precisa ser informado antes.
+    const impliedGender: Gender | null = category.discipline === 'MS' ? 'M' : category.discipline === 'WS' ? 'F' : null
+    if (impliedGender && gender && gender !== impliedGender) {
+      error('Inscritos', e.row, 'Sexo', `A categoria "${category.name}" é ${impliedGender === 'M' ? 'masculina' : 'feminina'}, mas o sexo informado é ${gender}.`)
+      continue
+    }
+    const athlete = person(e.athlete, gender ?? impliedGender, e.club, e.email)
     const partner = doubles ? person(partnerName, partnerGender ?? null, e.partnerClub ?? e.club, e.partnerEmail) : null
     const keys = [personKey(athlete), ...(partner ? [personKey(partner)] : [])]
     if (partner && keys[0] === keys[1]) { error('Inscritos', e.row, 'Parceiro(a)', 'O(a) parceiro(a) não pode ser a mesma pessoa.'); continue }
