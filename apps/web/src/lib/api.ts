@@ -1,5 +1,6 @@
 import { unstable_rethrow } from 'next/navigation'
 import type { ApiErrorBody } from '@birdie-atlas/types'
+import { adminAuthHeaders } from '@/lib/admin-token'
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -46,17 +47,16 @@ async function toApiError(res: Response): Promise<ApiError> {
 export async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> {
   const { json, headers, ...rest } = options ?? {}
 
+  // Cabeçalhos do chamador vencem; o token de admin (modo PIN) só entra no navegador.
+  const merged = new Headers(headers)
+  if (json !== undefined && !merged.has('Content-Type')) merged.set('Content-Type', 'application/json')
+  for (const [name, value] of Object.entries(adminAuthHeaders())) if (!merged.has(name)) merged.set(name, value)
+
   const res = await fetch(`${API_URL}${path}`, {
     cache: 'no-store',
     ...rest,
-    ...(json !== undefined && {
-      body: JSON.stringify(json),
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
-    }),
-    ...(json === undefined && headers ? { headers } : {}),
+    ...(json !== undefined && { body: JSON.stringify(json) }),
+    headers: merged,
   }).catch((err: unknown) => {
     // Sinais internos do Next (ex.: renderização dinâmica) precisam continuar subindo.
     unstable_rethrow(err)

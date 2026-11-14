@@ -43,7 +43,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Variáveis de ambiente documentadas | ✅ | `apps/api/.env.example` |
 | Modo admin de desenvolvimento | ✅ | Guard global em toda escrita e nas leituras com dados pessoais |
 | Tenant padrão no servidor | ✅ | `DEFAULT_TENANT_SLUG` |
-| Autenticação Clerk, papéis e seletor de tenant | ❌ | Sem Clerk, nenhuma escrita é possível em produção |
+| PIN de admin para a rede local | ✅ | `ADMIN_PIN` na API: escrita só com sessão aberta pelo PIN (12 h, token no navegador), bloqueio de 1 min após 5 erros, modo admin global desligado. Cobre o uso em rede local até o Clerk |
+| Autenticação Clerk, papéis e seletor de tenant | ❌ | Sem Clerk e sem `ADMIN_PIN`, nenhuma escrita é possível em produção |
 
 ## Phase 1 — Atletas, clubes e duplas
 

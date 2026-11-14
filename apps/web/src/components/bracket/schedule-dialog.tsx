@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, CalendarClock, X } from 'lucide-react'
+import { adminAuthHeaders } from '@/lib/admin-token'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -43,7 +44,7 @@ export function ScheduleDialog({ match, open, onClose, player1Name, player2Name,
     mutationFn: async () => {
       const res = await fetch(`${API_URL}/draws/matches/${match!.id}/schedule`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
         body: JSON.stringify({
           scheduledAt: scheduledAt || null,
           courtNumber: courtNumber ? parseInt(courtNumber) : null,

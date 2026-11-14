@@ -11,6 +11,7 @@ import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
 import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
 import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
 import { ChoiceGroup } from '@/components/ui/choice-group'
+import { adminAuthHeaders } from '@/lib/admin-token'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -160,7 +161,7 @@ export function BracketView({
   const { mutate: togglePublish, isPending: isTogglingPublish } = useMutation({
     mutationFn: async () => {
       const action = draw?.published ? 'unpublish' : 'publish'
-      const res = await fetch(`${API_URL}/draws/${draw!.id}/${action}`, { method: 'POST' })
+      const res = await fetch(`${API_URL}/draws/${draw!.id}/${action}`, { method: 'POST', headers: adminAuthHeaders() })
       if (!res.ok) throw new Error('Erro ao alterar publicação')
       return res.json()
     },
@@ -183,7 +184,7 @@ export function BracketView({
       setGenerateError(null)
       const res = await fetch(`${API_URL}/draws/generate/${activeCategoryId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
         body: JSON.stringify({ mode: selectedMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' ? { doubleEliminationReset: deReset } : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao gerar chaveamento') }
@@ -198,7 +199,7 @@ export function BracketView({
       setRedrawError(null)
       const res = await fetch(`${API_URL}/draws/${draw!.id}/redraw`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
         body: JSON.stringify({ mode: redrawMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' ? { doubleEliminationReset: deReset } : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao ressortear') }
