@@ -5,7 +5,7 @@ export type ResultSet = { setNumber: number; score1: number; score2: number }
 export type ResultEvent = {
   id: string
   matchId: string
-  source: 'dialog' | 'live'
+  source: 'dialog' | 'live' | 'cascade'
   courtNumber: number | null
   previousStatus: string
   previousSets: ResultSet[]
@@ -32,6 +32,7 @@ function score(sets: readonly ResultSet[], status: string): string {
 
 export function resultSourceLabel(event: Pick<ResultEvent, 'source' | 'courtNumber'>): string {
   if (event.source === 'dialog') return 'Diálogo de resultado'
+  if (event.source === 'cascade') return 'Desfeito: o vencedor de uma partida anterior mudou'
   return event.courtNumber != null ? `Quadra ${event.courtNumber} (ao vivo)` : 'Ao vivo'
 }
 

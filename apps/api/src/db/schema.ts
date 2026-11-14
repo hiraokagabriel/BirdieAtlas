@@ -286,7 +286,8 @@ export const matchLiveStates = pgTable('match_live_states', {
 // Só acrescenta (é um registro de auditoria): nunca é editado nem apagado. Sem identidade de
 // usuário até o Clerk; a origem (diálogo do admin ou quadra ao vivo) e a quadra identificam a mesa.
 // ---------------------------------------------------------------------------
-export const resultSourceEnum = pgEnum('result_source', ['dialog', 'live'])
+// 'cascade': a partida perdeu o resultado (ou o placar ao vivo) porque o vencedor de uma anterior mudou.
+export const resultSourceEnum = pgEnum('result_source', ['dialog', 'live', 'cascade'])
 
 export const matchResultEvents = pgTable('match_result_events', {
   id: id(),
@@ -298,7 +299,7 @@ export const matchResultEvents = pgTable('match_result_events', {
   previousSets: jsonb('previous_sets').$type<{ setNumber: number; score1: number; score2: number }[]>().notNull(),
   nextStatus: matchStatusEnum('next_status').notNull(),
   nextSets: jsonb('next_sets').$type<{ setNumber: number; score1: number; score2: number }[]>().notNull(),
-  /** Partidas seguintes desfeitas em cascata porque o vencedor mudou. */
+  /** Partidas seguintes que perderam resultado ou placar ao vivo porque o vencedor mudou (cada uma ganha seu evento 'cascade'). */
   resetMatchCount: integer('reset_match_count').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [

@@ -31,5 +31,6 @@ describe('resultSourceLabel', () => {
     expect(resultSourceLabel(base)).toBe('Diálogo de resultado')
     expect(resultSourceLabel({ source: 'live', courtNumber: 3 })).toBe('Quadra 3 (ao vivo)')
     expect(resultSourceLabel({ source: 'live', courtNumber: null })).toBe('Ao vivo')
+    expect(resultSourceLabel({ source: 'cascade', courtNumber: 1 })).toMatch(/^Desfeito/)
   })
 })

@@ -6,7 +6,7 @@ import { prepareTournament, scoreUntilDecided } from '../support/factories.js'
 // quadra ao vivo) e quantas partidas seguintes foram desfeitas. Leitura só de admin.
 
 interface ResultEvent {
-  source: 'dialog' | 'live'
+  source: 'dialog' | 'live' | 'cascade'
   courtNumber: number | null
   previousStatus: string
   previousSets: { setNumber: number; score1: number; score2: number }[]
@@ -29,9 +29,24 @@ test('diálogo: primeiro resultado e correção que troca o vencedor ficam no hi
 
   const events = await history(semi!.id)
   expect(events).toHaveLength(2)
-  expect(events[0]).toMatchObject({ source: 'dialog', previousStatus: 'completed', previousSets: sets([[21, 15], [21, 18]]), nextSets: sets([[15, 21], [18, 21]]) })
+  // A final ainda não tinha resultado: só o slot mudou, nada foi desfeito.
+  expect(events[0]).toMatchObject({ source: 'dialog', previousStatus: 'completed', previousSets: sets([[21, 15], [21, 18]]), nextSets: sets([[15, 21], [18, 21]]), resetMatchCount: 0 })
   expect(events[1]).toMatchObject({ source: 'dialog', previousStatus: 'pending', previousSets: [], nextStatus: 'completed' })
   expect(Date.parse(events[0]!.createdAt)).toBeGreaterThanOrEqual(Date.parse(events[1]!.createdAt))
+})
+
+test('trocar o vencedor desfaz o resultado da final, que ganha um evento de cascata', async () => {
+  const prepared = await prepareTournament({ athleteCount: 4 })
+  const [semi1, semi2] = prepared.matches.filter((m) => m.round === 2).sort((a, b) => a.position - b.position)
+  const final = prepared.matches.find((m) => m.round === 1)!
+  await api.post(`/draws/matches/${semi1!.id}/result`, { status: 'completed', sets: sets([[21, 15], [21, 18]]) })
+  await api.post(`/draws/matches/${semi2!.id}/result`, { status: 'completed', sets: sets([[21, 15], [21, 18]]) })
+  await api.post(`/draws/matches/${final.id}/result`, { status: 'completed', sets: sets([[21, 5], [21, 6]]) })
+
+  await api.post(`/draws/matches/${semi1!.id}/result`, { status: 'completed', sets: sets([[15, 21], [18, 21]]) })
+  expect((await history(semi1!.id))[0]).toMatchObject({ resetMatchCount: 1 })
+  const [cascade] = await history(final.id)
+  expect(cascade).toMatchObject({ source: 'cascade', previousStatus: 'completed', previousSets: sets([[21, 5], [21, 6]]), nextStatus: 'pending', nextSets: [] })
 })
 
 test('encerramento ao vivo registra a quadra', async () => {

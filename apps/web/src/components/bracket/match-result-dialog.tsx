@@ -387,7 +387,8 @@ export function MatchResultDialog({
           </p>
         )}
 
-        {isEdit && match && <ResultHistory matchId={match.id} enabled={open} />}
+        {/* Também em partida sem resultado: ela pode ter perdido um em cascata. */}
+        {match && <ResultHistory matchId={match.id} enabled={open} />}
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
