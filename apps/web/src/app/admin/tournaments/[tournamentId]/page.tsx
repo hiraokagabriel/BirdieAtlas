@@ -160,6 +160,16 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
             Telão
             <span className="sr-only"> (abre em nova aba)</span>
           </Link>
+          <Link
+            href={`/t/${tournament.slug}/sumulas`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" aria-hidden="true" />
+            Súmulas
+            <span className="sr-only"> (abre em nova aba)</span>
+          </Link>
         </div>
       </div>
 

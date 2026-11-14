@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  qrBaseUrl,
   buildShareText,
   cleanText,
   joinNames,
@@ -110,5 +111,20 @@ describe('share image helpers', () => {
     expect(shareImageFilename('Copa São Paulo 2026!')).toBe('copa-sao-paulo-2026.png')
     expect(shareImageFilename('Copa SP', 'story')).toBe('copa-sp-story.png')
     expect(shareImageFilename('???')).toBe('birdieatlas.png')
+  })
+})
+
+describe('qrBaseUrl', () => {
+  const lan = { hostname: '192.168.1.10', origin: 'http://192.168.1.10:3000' }
+  const local = { hostname: 'localhost', origin: 'http://localhost:3000' }
+  it('usa NEXT_PUBLIC_SITE_URL quando configurada', () => {
+    expect(qrBaseUrl('http://birdie.local:3000/', local)).toBe('http://birdie.local:3000')
+  })
+  it('sem a variável, usa a origem da rede local', () => {
+    expect(qrBaseUrl(undefined, lan)).toBe('http://192.168.1.10:3000')
+  })
+  it('aberto pelo próprio PC (localhost), não há endereço que o celular alcance', () => {
+    expect(qrBaseUrl('', local)).toBeNull()
+    expect(qrBaseUrl(undefined, { hostname: '127.0.0.1', origin: 'http://127.0.0.1:3000' })).toBeNull()
   })
 })
