@@ -135,6 +135,20 @@ pnpm --filter @birdie-atlas/api db:seed
 
 Se o banco local já existia com dados velhos ou migrations divergentes, use `pnpm --filter @birdie-atlas/api db:reset` e depois `db:seed`. O banco local é descartável, mas confirme com o usuário antes se ele já tinha trabalhado nesta máquina.
 
+### Backup e restauração
+
+```bash
+pnpm db:backup                                   # grava backups/birdie_atlas-AAAA-MM-DD_HHMMSS.dump
+pnpm db:restore backups/<arquivo>.dump --yes     # substitui o banco pelo do arquivo
+```
+
+- Rodam `pg_dump`/`pg_restore` dentro do contêiner do `docker compose` (precisa dele de pé); não é preciso ter o Postgres instalado.
+- A restauração faz antes um backup do estado atual, apaga os schemas `public` e `drizzle` e recria tudo a partir do arquivo, numa transação só: se o arquivo for inválido ou algo falhar, nada muda. Um backup antigo volta inteiro, com as migrations da época; depois rode `pnpm --filter @birdie-atlas/api db:migrate` para chegar ao schema atual. Sem `--yes`, só explica.
+- Os comandos funcionam de qualquer pasta (o Agendador de Tarefas inclusive).
+- `--db <nome>` escolhe outro banco (padrão `birdie_atlas`).
+- A pasta `backups/` é ignorada pelo Git, porque os arquivos têm dados pessoais de atletas. Copie-os para outro disco ou pendrive: um backup no mesmo PC não protege contra perda do disco.
+- Rode `pnpm db:backup` antes e depois de cada dia de torneio. Para automatizar no Windows, agende o comando no Agendador de Tarefas.
+
 ## 9. Verificação
 
 1. **Pipeline do CI:**
