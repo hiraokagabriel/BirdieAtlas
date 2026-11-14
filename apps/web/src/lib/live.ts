@@ -251,3 +251,31 @@ export function queueOnCourt(queue: readonly QueueMatch[], court: number | null)
 export function setsSummary(match: Pick<LiveMatch, 'setsWon'>): string {
   return `${match.setsWon.side1} x ${match.setsWon.side2} em sets`
 }
+
+// ---------------------------------------------------------------------------
+// Telão
+// ---------------------------------------------------------------------------
+
+export type TvCourtSlot = {
+  /** `null` = partidas ao vivo ainda sem quadra. */
+  court: number | null
+  live: LiveMatch | undefined
+  /** Próxima partida desta quadra na fila (só quando não há partida ao vivo nela). */
+  next: QueueMatch | undefined
+}
+
+/** Um cartão por quadra conhecida, em ordem; partidas ao vivo sem quadra vão num cartão a mais, no fim. */
+export function tvCourtSlots(live: readonly LiveMatch[], queue: readonly QueueMatch[]): TvCourtSlot[] {
+  const slots: TvCourtSlot[] = knownCourts(live, queue).map((court) => {
+    const onCourt = liveOnCourt(live, court)
+    return { court, live: onCourt, next: onCourt ? undefined : queueOnCourt(queue, court)[0] }
+  })
+  for (const m of live) if (m.courtNumber == null) slots.push({ court: null, live: m, next: undefined })
+  return slots
+}
+
+/** "14:30" no fuso do aparelho; vazio sem horário. */
+export function formatTvTime(iso: string | null): string {
+  if (!iso) return ''
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso))
+}

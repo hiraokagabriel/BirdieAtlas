@@ -12,6 +12,7 @@ import {
   queueOnCourt,
   shouldFallBackToPolling,
   sortLive,
+  tvCourtSlots,
   type LiveMatch,
   type QueueMatch,
 } from './live'
@@ -200,5 +201,17 @@ describe('quadras do operador', () => {
     expect(liveOnCourt([match({ courtNumber: 3 })], 1)).toBeUndefined()
     expect(queueOnCourt(queue, 2).map((m) => m.matchId)).toEqual(['q1'])
     expect(queueOnCourt(queue, null).map((m) => m.matchId)).toEqual(['q2'])
+  })
+
+  it('telão: um cartão por quadra; próxima da fila só em quadra livre; ao vivo sem quadra no fim', () => {
+    const live = [match({ matchId: 'l3', courtNumber: 3 }), match({ matchId: 'l0', courtNumber: null })]
+    const queueOn3 = { ...queue[0]!, matchId: 'q3', courtNumber: 3 }
+    const slots = tvCourtSlots(live, [...queue, queueOn3])
+    expect(slots.map((s) => [s.court, s.live?.matchId, s.next?.matchId])).toEqual([
+      [2, undefined, 'q1'],
+      [3, 'l3', undefined],
+      [null, 'l0', undefined],
+    ])
+    expect(tvCourtSlots([], [])).toEqual([])
   })
 })

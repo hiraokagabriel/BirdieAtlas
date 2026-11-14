@@ -59,6 +59,14 @@ export function publicPages(data: () => WcagData): PageCase[] {
     },
   },
   {
+    name: 'telão do torneio em andamento',
+    path: () => `/telao/${data().running.tournament.slug}`,
+    ready: async (p) => {
+      await expect(p.getByRole('article', { name: /^Quadra 1:/ })).toBeVisible()
+      await expect(p.getByRole('heading', { name: 'Próximas partidas' })).toBeVisible()
+    },
+  },
+  {
     name: 'torneio inexistente',
     path: () => '/t/torneio-que-nao-existe',
     ready: (p) => heading(p, 'Torneio não encontrado'),

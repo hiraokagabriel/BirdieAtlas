@@ -79,6 +79,7 @@ Público, identificando por slug:
 |---|---|
 | `/` | Landing |
 | `/t/[slug]` | Torneio; em andamento, mostra "Ao vivo agora" e o placar corrente nos cartões da chave |
+| `/telao/[slug]` | Telão do torneio para TV ou projetor, fora do layout público (sem cabeçalho): um cartão por quadra com o placar ao vivo (stream SSE) ou "Livre" e a próxima partida da fila; abaixo, as próximas 8 partidas (`GET /tournaments/:id/live/queue`, recarregada a cada 15 s e quando uma partida começa ou termina); relógio, botão de tela cheia e link para a página do torneio. Link "Telão" no cabeçalho do torneio no admin. `404` para slug inexistente |
 | `/t/[slug]/share-image` | PNG de compartilhamento do torneio (ver "Compartilhamento e exportações") |
 | `/r/[tenantSlug]` | Rankings da federação |
 | `/r/[tenantSlug]/share-image` | PNG do top 10 de um ranking |
