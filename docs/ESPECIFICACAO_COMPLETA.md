@@ -288,6 +288,7 @@ draft → registration_open → registration_closed → in_progress → complete
 - No W.O., o diálogo de resultado grava 21-0 para quem avança. Na desistência (`retired`), grava as parciais com o vencedor fazendo 21. O vencedor é sempre lido dos sets salvos, nunca presumido pelo slot.
 - Resultado de partida de torneio `completed` ou `cancelled` é recusado com `409 TOURNAMENT_LOCKED`; reabra o torneio para corrigir (o `reopen` zera `finalPlacement` e revoga os pontos).
 - A gravação do resultado é uma função só (`apps/api/src/services/match-result.ts`, `saveMatchResult`), usada pela rota `POST /draws/matches/:matchId/result` e pelo encerramento de uma partida ao vivo. Ela roda numa transação que trava a linha da partida (`FOR UPDATE`), grava os sets, faz o vencedor avançar, desfaz a cascata e apaga qualquer placar provisório da partida.
+- **Histórico de resultados:** cada gravação oficial (diálogo ou encerramento ao vivo) acrescenta uma linha em `match_result_events` (migration `0011_match_result_events.sql`), na mesma transação: origem (`dialog` ou `live`), quadra, status e sets de antes e de depois, quantas partidas seguintes foram desfeitas e o horário. Só acrescenta, nunca edita nem apaga; sem FK para `matches`, porque refazer a chave apaga as partidas e o histórico fica. Não há identidade de usuário até o Clerk: a origem e a quadra identificam a mesa. `GET /draws/matches/:matchId/result-history` (admin, `ADMIN_ONLY_READS`) devolve as linhas da mais recente para a mais antiga (`404 MATCH_NOT_FOUND`). No diálogo de resultado de uma partida já decidida, "Histórico de alterações" (recolhido) mostra cada gravação. Resultados gravados antes da migration não têm histórico.
 
 ### Agenda automática
 
@@ -574,7 +575,7 @@ Uma entrega só está pronta quando:
 O que ainda não existe, em ordem aproximada. O detalhe está no [`PROGRESS.md`](../PROGRESS.md).
 
 - **Autenticação (por último):** o projeto roda localmente, em rede local, com o modo admin de desenvolvimento. O Clerk só entra junto com a build que roda online; tudo o que depende de identidade (auditoria de aprovação e de resultados, gestão de usuários e papéis, notificações) espera por ele. Clerk, com organizações para o seletor de tenant e os papéis `federation_admin`, `tournament_organizer`, `referee`, `club_manager`, `athlete` e `public`, checados em middleware.
-- **Partidas:** auditoria de resultados (quem lançou e quando); barramento do placar ao vivo entre instâncias (hoje em memória).
+- **Partidas:** autoria dos resultados (quem lançou; o histórico de quando e o quê já existe); barramento do placar ao vivo entre instâncias (hoje em memória).
 - **Ranking:** cache (Redis, TTL de 1 hora).
 - **Admin:** relatórios exportáveis além dos CSVs atuais (inscritos, ranking, resultados, classificação, atletas), notificações (dependem de provedor de e-mail/WhatsApp e de login), gestão de usuários e papéis.
 - **Infraestrutura:** Vercel (web), Railway (API, PostgreSQL e Redis), Cloudinary ou Uploadthing (uploads), Resend (e-mails), Sentry (erros), rate limiting.

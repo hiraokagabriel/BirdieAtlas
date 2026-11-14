@@ -10,6 +10,7 @@ import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Trophy, Loader2, AlertCircle } from 'lucide-react'
+import { ResultHistory } from './result-history'
 
 type GameScore = { score1: string; score2: string }
 
@@ -174,6 +175,7 @@ export function MatchResultDialog({
       queryClient.invalidateQueries({ queryKey: ['results', drawId] })
       // O aviso "Todas as partidas encerradas" da aba Chaveamento depende deste status.
       queryClient.invalidateQueries({ queryKey: ['all-draws-status'] })
+      if (match) queryClient.invalidateQueries({ queryKey: ['result-history', match.id] })
       handleClose()
     },
   })
@@ -384,6 +386,8 @@ export function MatchResultDialog({
             {submitError}
           </p>
         )}
+
+        {isEdit && match && <ResultHistory matchId={match.id} enabled={open} />}
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>

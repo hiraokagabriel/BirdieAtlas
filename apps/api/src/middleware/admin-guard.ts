@@ -25,6 +25,7 @@ const ADMIN_ONLY_READS = new Set([
   '/clubs/:id/athletes/export.csv',
   '/athletes/:id',
   '/registrations/tournament/:tournamentId',
+  '/draws/matches/:matchId/result-history',
   '/tournaments/:id/registrations/export.csv',
 ])
 

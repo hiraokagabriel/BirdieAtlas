@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { and, eq, isNull, lt } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
-  draws, matches, matchLiveStates, matchResults, tournamentCategories, tournaments,
+  draws, matches, matchLiveStates, matchResultEvents, matchResults, tournamentCategories, tournaments,
 } from '../db/schema.js'
 import { getSlotForPosition } from '../domain/bracket.js'
 
@@ -24,6 +24,12 @@ export interface ResultInput {
   sets: ResultSetInput[]
   status: 'completed' | 'walkover' | 'retired'
 }
+
+/** De onde veio a gravação, para o histórico: diálogo de resultado do admin ou encerramento ao vivo. */
+export type ResultSource = 'dialog' | 'live'
+
+const setsOf = (rows: readonly ResultSetInput[]) =>
+  [...rows].sort((a, b) => a.setNumber - b.setNumber).map(({ setNumber, score1, score2 }) => ({ setNumber, score1, score2 }))
 
 export function getWinnerSlot(sets: { score1: number; score2: number }[]): 1 | 2 | null {
   const wins1 = sets.filter((s) => s.score1 > s.score2).length
@@ -62,7 +68,7 @@ export type SaveResultOutcome =
  * Grava o resultado. Deve rodar numa transação: trava a linha da partida (`FOR UPDATE`), então
  * resultado, placar ao vivo e início/fim de partida da mesma partida se serializam.
  */
-export async function saveMatchResult(ex: Executor, matchId: string, body: ResultInput): Promise<SaveResultOutcome> {
+export async function saveMatchResult(ex: Executor, matchId: string, body: ResultInput, source: ResultSource): Promise<SaveResultOutcome> {
   const [match] = await ex.select().from(matches).where(eq(matches.id, matchId)).for('update')
   if (!match) return { ok: false, status: 404, error: 'Match not found' }
 
@@ -132,6 +138,19 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
     await ex.update(matches).set({ [slotColumn(match.loserNextSlot, 1)]: newLoserRegId, updatedAt: new Date() }).where(eq(matches.id, match.loserNextMatchId))
   }
   if (match.stage === 'grand_final') await syncGrandFinalReset(ex, match, newWinner, resetMatchIds)
+
+  // Histórico na mesma transação: se a gravação falhar, o registro também não existe.
+  await ex.insert(matchResultEvents).values({
+    id: randomUUID(),
+    matchId,
+    source,
+    courtNumber: match.courtNumber,
+    previousStatus: match.status,
+    previousSets: setsOf(prevResults),
+    nextStatus: body.status,
+    nextSets: setsOf(body.sets),
+    resetMatchCount: resetMatchIds.length,
+  })
 
   return { ok: true, match: { ...match, status: body.status }, results, tournamentId: owner?.id ?? null, resetMatchIds }
 }
