@@ -1,10 +1,10 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 31/10/2026.
+> Atualizado em 14/11/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
 >
-> **Diretriz (31/10/2026):** o projeto roda localmente, em rede local. A autenticação Clerk (e tudo que depende de identidade: auditoria, usuários e papéis, notificações) é a **última** entrega e só existirá na build que rodar online.
+> **Diretriz (14/11/2026):** a versão online foi aprovada com custo zero e sem domínio próprio: plano em [`docs/PLANO_ONLINE.md`](docs/PLANO_ONLINE.md) (Vercel Hobby, Render Free, Neon Free). O atleta guarda só nome, ano de nascimento e dados esportivos. A identidade de usuário (Better Auth, no lugar do Clerk) é a **última** fase.
 
 ## Redesign
 
@@ -44,7 +44,8 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Modo admin de desenvolvimento | ✅ | Guard global em toda escrita e nas leituras com dados pessoais |
 | Tenant padrão no servidor | ✅ | `DEFAULT_TENANT_SLUG` |
 | PIN de admin para a rede local | ✅ | `ADMIN_PIN` na API: escrita só com sessão aberta pelo PIN (12 h, token no navegador), bloqueio de 1 min após 5 erros, modo admin global desligado. Cobre o uso em rede local até o Clerk. Testes: unitários e HTTP (Fastify inject) na API; o fluxo no navegador foi verificado à mão, porque o E2E roda sem PIN |
-| Autenticação Clerk, papéis e seletor de tenant | ❌ | Sem Clerk e sem `ADMIN_PIN`, nenhuma escrita é possível em produção |
+| Autenticação (Better Auth), papéis e seletor de tenant | ❌ | Fase 6 do plano online. Sem ela e sem `ADMIN_PIN`, nenhuma escrita é possível em produção |
+| Versão online (Vercel, Render, Neon) | ❌ | Plano aprovado em `docs/PLANO_ONLINE.md`, fases 0 a 7 |
 
 ## Phase 1 — Atletas, clubes e duplas
 
@@ -86,7 +87,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Página pública de rankings (`/r/[tenantSlug]`) | ✅ | |
 | Remoção de `pointsTables` | ✅ | Linhas convertidas em regras genéricas pela migration; tabela, rotas e telas removidas |
 | Critérios de desempate | ✅ | Pontos, títulos, 2º, 3º, melhor resultado, menos torneios, id (`domain/ranking-order.ts`, com testes); posições sempre distintas |
-| Cache Redis (TTL 1h) | ❌ | |
+| Cache do ranking | ❌ | Fora do plano até haver lentidão medida (sem Redis) |
 
 ## Phase 4 — Chaves
 
@@ -133,7 +134,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Dashboard com dados reais | ✅ | |
 | Relatórios exportáveis | ✅ | CSV de inscritos, entradas do ranking, resultados das partidas, agenda, classificação final, lista de atletas e atletas do clube (os dois últimos de admin) |
 | Notificações | ❌ | Dependem de provedor de e-mail/WhatsApp e de login |
-| Gestão de usuários e papéis | ❌ | Depende do Clerk |
+| Gestão de usuários e papéis | ❌ | Depende da identidade (Better Auth, Fase 6) |
 
 ## Phase 8 — Qualidade e mobile
 
