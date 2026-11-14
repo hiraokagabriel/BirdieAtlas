@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { ShieldCheck, ShieldOff } from 'lucide-react'
 import { useAdminMode } from '@/hooks/use-admin-mode'
 import { Button } from '@/components/ui/button'
@@ -70,6 +70,7 @@ function PinDialog({ open, onClose, login }: {
 }) {
   const [pin, setPin] = useState('')
   const [emptyError, setEmptyError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const close = () => {
     setPin('')
@@ -82,6 +83,7 @@ function PinDialog({ open, onClose, login }: {
     event.preventDefault()
     if (!pin.trim()) {
       setEmptyError('Digite o PIN.')
+      inputRef.current?.focus()
       return
     }
     setEmptyError(null)
@@ -105,7 +107,7 @@ function PinDialog({ open, onClose, login }: {
                 type="password"
                 inputMode="numeric"
                 autoComplete="off"
-                autoFocus
+                ref={inputRef}
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
               />

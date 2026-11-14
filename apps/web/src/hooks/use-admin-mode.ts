@@ -26,10 +26,15 @@ export function useAdminMode() {
     staleTime: 30_000,
   })
   const refreshAll = () => queryClient.invalidateQueries()
+  // Ao perder o acesso, apaga o cache: dados pessoais já carregados não podem seguir na tela.
+  const dropCachedData = () => {
+    void queryClient.resetQueries({ predicate: (query) => query.queryKey[0] !== 'admin-session' })
+    void queryClient.invalidateQueries({ queryKey: ['admin-session'] })
+  }
 
   const toggleGlobal = useMutation({
     mutationFn: (enabled: boolean) => apiFetch('/dev/admin-mode', { method: 'PATCH', json: { enabled } }),
-    onSettled: refreshAll,
+    onSettled: (_data, _error, enabled) => (enabled ? void refreshAll() : dropCachedData()),
   })
 
   const login = useMutation({
@@ -45,7 +50,7 @@ export function useAdminMode() {
     mutationFn: () => apiFetch('/admin/session', { method: 'DELETE' }),
     onSettled: () => {
       setAdminToken(null)
-      void refreshAll()
+      dropCachedData()
     },
   })
 
