@@ -10,6 +10,7 @@ import { formatTvTime, liveTitle, tvCourtSlots, tvUpcoming, type LiveMatch, type
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConnectionBadge } from './live-now'
 import { useLiveMatches } from './use-live-matches'
+import { TvQrCode } from './tv-qr-code'
 
 // Telão (TV ou projetor) de um torneio: quadras com o placar ao vivo e a fila de próximas partidas.
 // Leitura pública; tempo real pelo mesmo stream da página do torneio e fila recarregada a cada 15 s.
@@ -154,6 +155,7 @@ export function TvBoard({ tournamentId, slug, name }: { tournamentId: string; sl
           <ConnectionBadge connection={live.connection} />
         </div>
         <div className="flex flex-wrap items-center gap-4">
+          <TvQrCode path={`/t/${slug}`} />
           <span className="text-3xl font-semibold lg:text-4xl"><Clock /></span>
           <FullscreenButton />
           <nav aria-label="Telão">

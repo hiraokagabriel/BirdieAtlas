@@ -103,3 +103,13 @@ export function shareImageFilename(name: string, suffix = ''): string {
     .replace(/-+$/g, '')
   return `${slug || 'birdieatlas'}${suffix ? `-${suffix}` : ''}.png`
 }
+
+/**
+ * Base do QR code do telão: `NEXT_PUBLIC_SITE_URL` se configurada; senão a origem de onde o telão foi aberto,
+ * desde que não seja o próprio PC (localhost), que o celular não alcança. `null` = sem endereço útil.
+ */
+export function qrBaseUrl(envValue: string | undefined, location: { hostname: string; origin: string }): string | null {
+  if (envValue?.trim()) return resolveSiteUrl(envValue)
+  if (['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname)) return null
+  return location.origin
+}

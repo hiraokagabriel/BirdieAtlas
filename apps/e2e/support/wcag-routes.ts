@@ -59,6 +59,13 @@ export function publicPages(data: () => WcagData): PageCase[] {
     },
   },
   {
+    name: 'súmulas do torneio em andamento',
+    path: () => `/t/${data().running.tournament.slug}/sumulas`,
+    ready: async (p) => {
+      await expect(p.getByRole('article', { name: /^Súmula:/ }).first()).toBeVisible()
+    },
+  },
+  {
     name: 'telão do torneio em andamento',
     path: () => `/telao/${data().running.tournament.slug}`,
     ready: async (p) => {

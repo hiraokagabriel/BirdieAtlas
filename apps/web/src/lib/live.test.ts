@@ -230,4 +230,10 @@ describe('quadras do operador', () => {
     expect(formatTvTime(new Date(2026, 10, 15, 9, 5).toISOString(), now)).toBe('15/11 09:05')
     expect(formatTvTime(null, now)).toBe('')
   })
+
+  it('telão: com fuso explícito (servidor em UTC), hora e dia saem em Brasília', () => {
+    const now = new Date('2026-11-14T12:00:00Z')
+    expect(formatTvTime('2026-11-14T17:30:00Z', now, 'America/Sao_Paulo')).toBe('14:30')
+    expect(formatTvTime('2026-11-14T02:30:00Z', now, 'America/Sao_Paulo')).toBe('13/11 23:30')
+  })
 })

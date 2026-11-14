@@ -112,6 +112,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Auditoria de resultados (quem e quando) | 🟡 | "Quando" e "o quê" feitos: histórico de cada gravação (antes, depois, origem, quadra, cascata) em `match_result_events`, no diálogo de resultado. "Quem" depende de identidade (Clerk). Spec `result-history.spec.ts` |
 | Placar ao vivo por quadra | ✅ | Tela do operador `/admin/live`, API de início, ponto, desfazer e encerramento, stream SSE público e seção "Ao vivo agora" em `/t/[slug]`. Barramento em memória: uma instância de API (ver especificação) |
 | Telão do torneio (TV ou projetor) | ✅ | `/telao/[slug]`: quadras com placar ao vivo ou próxima partida, fila das próximas 8, relógio e tela cheia. Spec `telao.spec.ts` e rota no spec WCAG |
+| QR code do público e súmulas impressas | ✅ | QR da página do torneio no telão (`qrcode`); `/t/[slug]/sumulas` com uma súmula por partida pronta. Spec `sumulas.spec.ts` |
 
 ## Phase 6 — Portal público
 
