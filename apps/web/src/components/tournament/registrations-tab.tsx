@@ -6,7 +6,7 @@ import type { Paginated } from '@birdie-atlas/types'
 import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, athleteOptionLabel, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
-import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw, Pencil } from 'lucide-react'
+import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw, Pencil, UserCheck } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ErrorNotice } from '@/components/public/notices'
@@ -84,6 +84,8 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
     enabled: !!activeCategoryId,
   })
   const registrations = data?.data ?? []
+  const approvedCount = registrations.filter((r) => r.status === 'approved').length
+  const checkedInCount = registrations.filter((r) => r.status === 'approved' && r.checkedInAt !== null).length
   const total = data?.pagination.total ?? 0
 
   // Atletas que já ocupam uma vaga na categoria (recusadas liberam a vaga)
@@ -154,7 +156,14 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
     },
   })
 
-  const busy = removeMutation.isPending || approveMutation.isPending || statusMutation.isPending
+  // Check-in: presença confirmada na mesa no dia do torneio (só inscrições aprovadas).
+  const checkInMutation = useMutation({
+    mutationFn: ({ id, present }: { id: string; present: boolean }) =>
+      apiFetch(`/registrations/${id}/check-in`, { method: present ? 'POST' : 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['registrations'] }),
+  })
+
+  const busy = removeMutation.isPending || approveMutation.isPending || statusMutation.isPending || checkInMutation.isPending
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -355,6 +364,17 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
             Nenhum inscrito nesta categoria ainda.
           </div>
         ) : (
+          <>
+          {approvedCount > 0 && (
+            <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+              Presença confirmada: {checkedInCount} de {approvedCount} aprovadas
+            </p>
+          )}
+          {checkInMutation.error && (
+            <p role="alert" className="border-b border-border px-4 py-2 text-xs font-medium text-destructive">
+              Não foi possível alterar a presença: {checkInMutation.error.message}
+            </p>
+          )}
           <div className="divide-y divide-border">
             {registrations.map((reg, index) => {
               const badge = STATUS_BADGE[reg.status]
@@ -387,6 +407,23 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                     </div>
 
                     <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>{badge.label}</span>
+
+                    {reg.status === 'approved' && (locked ? (
+                      reg.checkedInAt && <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-success/10 text-success">Presente</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => checkInMutation.mutate({ id: reg.id, present: !reg.checkedInAt })}
+                        disabled={busy}
+                        aria-pressed={reg.checkedInAt !== null}
+                        aria-label={`Presente: ${reg.athleteName ?? reg.athleteId}${reg.athlete2Name ? ` / ${reg.athlete2Name}` : ''}`}
+                        title={reg.checkedInAt ? 'Presença confirmada. Clique para desfazer.' : 'Confirmar presença na mesa'}
+                        className={`inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors disabled:opacity-50 ${reg.checkedInAt ? 'border-success bg-success/10 text-success' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                      >
+                        <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                        Presente
+                      </button>
+                    ))}
 
                     {!locked && (
                       <div className="flex items-center gap-1 shrink-0">
@@ -492,6 +529,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
               )
             })}
           </div>
+          </>
         )}
       </div>
     </div>

@@ -63,6 +63,9 @@ export interface QueueMatchView {
   scheduledAt: string | null
   participant1: string
   participant2: string
+  /** Presença confirmada (check-in) de cada lado. */
+  checkedIn1: boolean
+  checkedIn2: boolean
 }
 
 export const liveBus = new LiveBus<LiveMatchView>()
@@ -77,7 +80,12 @@ interface MatchWithContext {
   discipline: string
 }
 
-async function participantNames(ex: Reader, rows: MatchRow[]): Promise<(registrationId: string | null) => string | null> {
+interface Participants {
+  nameOf: (registrationId: string | null) => string | null
+  isCheckedIn: (registrationId: string | null) => boolean
+}
+
+async function participants(ex: Reader, rows: MatchRow[]): Promise<Participants> {
   const regIds = [...new Set(rows.flatMap((m) => [m.registration1Id, m.registration2Id]).filter((v): v is string => v !== null))]
   const registrations = regIds.length
     ? await selectRegistrations(inArray(tournamentRegistrations.id, regIds), { includeDeleted: true, executor: ex })
@@ -89,11 +97,15 @@ async function participantNames(ex: Reader, rows: MatchRow[]): Promise<(registra
     ? await ex.select({ id: athletes.id, name: athletes.name }).from(athletes).where(inArray(athletes.id, athleteIds))
     : []
   const nameById = new Map(rows2.map((a) => [a.id, a.name]))
-  return (registrationId) => {
-    if (!registrationId) return null
-    const ids = athletesByReg.get(registrationId)
-    if (!ids) return null
-    return ids.map((id) => nameById.get(id) ?? '?').join(' / ')
+  const checkedIn = new Set(registrations.filter((r) => r.checkedInAt !== null).map((r) => r.id))
+  return {
+    nameOf: (registrationId) => {
+      if (!registrationId) return null
+      const ids = athletesByReg.get(registrationId)
+      if (!ids) return null
+      return ids.map((id) => nameById.get(id) ?? '?').join(' / ')
+    },
+    isCheckedIn: (registrationId) => registrationId !== null && checkedIn.has(registrationId),
   }
 }
 
@@ -135,7 +147,7 @@ export async function toLiveViews(ex: Reader, contexts: MatchWithContext[]): Pro
   const matchIds = contexts.map((c) => c.match.id)
   const states = await ex.select().from(matchLiveStates).where(inArray(matchLiveStates.matchId, matchIds))
   const stateByMatch = new Map(states.map((s) => [s.matchId, s]))
-  const nameOf = await participantNames(ex, contexts.map((c) => c.match))
+  const { nameOf } = await participants(ex, contexts.map((c) => c.match))
 
   return contexts.map(({ match, tournamentId, categoryId, categoryName, discipline }) => {
     const state = stateByMatch.get(match.id)
@@ -194,7 +206,7 @@ export async function listQueue(ex: Reader, tournamentId: string): Promise<Queue
   const contexts = (await loadContexts(ex, tournamentId, 'pending'))
     .filter(({ match }) => match.registration1Id !== null && match.registration2Id !== null)
   if (!contexts.length) return []
-  const nameOf = await participantNames(ex, contexts.map((c) => c.match))
+  const { nameOf, isCheckedIn } = await participants(ex, contexts.map((c) => c.match))
   const queue: QueueMatchView[] = contexts.map(({ match, tournamentId: tid, categoryId, categoryName, discipline }) => ({
     matchId: match.id,
     tournamentId: tid,
@@ -209,6 +221,8 @@ export async function listQueue(ex: Reader, tournamentId: string): Promise<Queue
     scheduledAt: match.scheduledAt ? match.scheduledAt.toISOString() : null,
     participant1: nameOf(match.registration1Id) ?? '?',
     participant2: nameOf(match.registration2Id) ?? '?',
+    checkedIn1: isCheckedIn(match.registration1Id),
+    checkedIn2: isCheckedIn(match.registration2Id),
   }))
   return queue.sort(byCourtThenStart)
 }

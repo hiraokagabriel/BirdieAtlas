@@ -190,8 +190,8 @@ describe('formatLiveScore', () => {
 
 describe('quadras do operador', () => {
   const queue: QueueMatch[] = [
-    { matchId: 'q1', tournamentId: 't1', categoryId: 'c', categoryName: 'MS', discipline: 'MS', drawId: 'd', round: 3, roundLabel: 'Quartas', position: 1, courtNumber: 2, scheduledAt: null, participant1: 'A', participant2: 'B' },
-    { matchId: 'q2', tournamentId: 't1', categoryId: 'c', categoryName: 'MS', discipline: 'MS', drawId: 'd', round: 3, roundLabel: 'Quartas', position: 2, courtNumber: null, scheduledAt: null, participant1: 'C', participant2: 'D' },
+    { matchId: 'q1', tournamentId: 't1', categoryId: 'c', categoryName: 'MS', discipline: 'MS', drawId: 'd', round: 3, roundLabel: 'Quartas', position: 1, courtNumber: 2, scheduledAt: null, participant1: 'A', participant2: 'B', checkedIn1: false, checkedIn2: false },
+    { matchId: 'q2', tournamentId: 't1', categoryId: 'c', categoryName: 'MS', discipline: 'MS', drawId: 'd', round: 3, roundLabel: 'Quartas', position: 2, courtNumber: null, scheduledAt: null, participant1: 'C', participant2: 'D', checkedIn1: false, checkedIn2: false },
   ]
 
   it('lista quadras sem repetir, em ordem, ignorando partidas sem quadra', () => {

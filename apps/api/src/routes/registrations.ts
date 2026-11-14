@@ -20,7 +20,7 @@ import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
 import { checkRegistrationEligibility } from '../domain/eligibility.js'
 import { paginate } from '../domain/pagination.js'
 import { getDefaultTenantId } from '../tenant.js'
-import { canEditRegistration, validateRegistrationStatusChange } from '../domain/registration-rules.js'
+import { canEditRegistration, checkInError, validateRegistrationStatusChange } from '../domain/registration-rules.js'
 
 export async function athleteNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()
@@ -66,6 +66,7 @@ function toResponse(reg: ResolvedRegistration, names: Map<string, string>, clubN
     seed: reg.seed,
     status: reg.status,
     notes: reg.notes,
+    checkedInAt: reg.checkedInAt ? reg.checkedInAt.toISOString() : null,
     createdAt: reg.createdAt.toISOString(),
     updatedAt: reg.updatedAt.toISOString(),
   }
@@ -367,6 +368,8 @@ export async function registrationsRoutes(app: FastifyInstance) {
         ...(changesStatus ? { status: nextStatus } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
         ...(body.seed !== undefined ? { seed: body.seed } : {}),
+        // Deixou de ser aprovada ou trocou de atleta: a presença confirmada não vale mais.
+        ...((changesStatus && nextStatus !== 'approved') || changesParticipants ? { checkedInAt: null } : {}),
         updatedAt: new Date(),
       }).where(eq(tournamentRegistrations.id, registrationId))
       return { ok: true }
@@ -402,6 +405,37 @@ export async function registrationsRoutes(app: FastifyInstance) {
     const [approved] = await selectRegistrations(eq(tournamentRegistrations.id, registrationId))
     return (await toResponses([approved!]))[0]!
   })
+
+  // Check-in: confirma (POST) ou desfaz (DELETE) a presença no dia. Idempotente.
+  for (const method of ['post', 'delete'] as const) {
+    app[method]('/registrations/:registrationId/check-in', async (request, reply) => {
+      const { registrationId } = registrationIdParamsSchema.parse(request.params)
+      const [current] = await selectRegistrations(eq(tournamentRegistrations.id, registrationId))
+      if (!current) return reply.status(404).send({ error: 'Registration not found', code: 'REGISTRATION_NOT_FOUND' })
+
+      const tournament = await loadTournament(current.tournamentId)
+      if (!tournament || !canEditRegistration(tournament.status)) {
+        return reply.status(409).send({ error: 'O torneio não permite mais alterações.', code: 'TOURNAMENT_LOCKED' })
+      }
+      if (method === 'post') {
+        const error = checkInError(current.status)
+        if (error) return reply.status(422).send({ error, code: 'REGISTRATION_NOT_APPROVED' })
+      }
+
+      // Grava com a condição relida no banco: um PATCH ou DELETE concorrente não deixa presença em inscrição não aprovada ou excluída.
+      const checkedInAt = method === 'post' ? (current.checkedInAt ?? new Date()) : null
+      const changed = await db.update(tournamentRegistrations).set({ checkedInAt, updatedAt: new Date() })
+        .where(and(
+          eq(tournamentRegistrations.id, registrationId),
+          isNull(tournamentRegistrations.deletedAt),
+          ...(method === 'post' ? [eq(tournamentRegistrations.status, 'approved')] : []),
+        ))
+        .returning({ id: tournamentRegistrations.id })
+      if (changed.length === 0) return reply.status(409).send({ error: 'A inscrição mudou durante a operação. Recarregue e tente de novo.', code: 'REGISTRATION_CHANGED' })
+      const [updated] = await selectRegistrations(eq(tournamentRegistrations.id, registrationId))
+      return (await toResponses([updated!]))[0]!
+    })
+  }
 
   app.delete('/tournaments/registrations/:registrationId', async (request, reply) => {
     const { registrationId } = request.params as { registrationId: string }

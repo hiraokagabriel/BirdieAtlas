@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkInError,
   canEditRegistration,
   canTransitionRegistrationStatus,
   validateRegistrationStatusChange,
@@ -23,5 +24,13 @@ describe("registration domain rules", () => {
     expect(canEditRegistration("in_progress")).toBe(true);
     expect(canEditRegistration("completed")).toBe(false);
     expect(canEditRegistration("cancelled")).toBe(false);
+  });
+});
+
+describe("checkInError", () => {
+  it("só inscrição aprovada faz check-in", () => {
+    expect(checkInError("approved")).toBeNull();
+    expect(checkInError("pending")).toMatch(/aprovadas/);
+    expect(checkInError("rejected")).toMatch(/aprovadas/);
   });
 });

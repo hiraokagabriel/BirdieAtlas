@@ -325,6 +325,13 @@ function Scoreboard({ match, actions, onError }: { match: LiveMatch; actions: Li
   )
 }
 
+/** Presença confirmada na mesa (check-in), por texto: quem falta aparece antes de chamar a partida. */
+function Presence({ checkedIn }: { checkedIn: boolean }) {
+  return checkedIn
+    ? <span className="text-xs font-medium text-success">· presente</span>
+    : <span className="text-xs font-medium text-warning">· sem check-in</span>
+}
+
 function QueueItem({
   item,
   highlight,
@@ -344,9 +351,9 @@ function QueueItem({
     <li className={cn('flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-center', highlight ? 'border-primary/50' : 'border-border')}>
       <div className="min-w-0 flex-1 space-y-0.5">
         {highlight && <p className="text-xs font-semibold uppercase tracking-wider text-primary">Próxima partida</p>}
-        <p className="text-base font-semibold leading-tight">{item.participant1}</p>
+        <p className="text-base font-semibold leading-tight">{item.participant1} <Presence checkedIn={item.checkedIn1} /></p>
         <p className="text-sm text-muted-foreground">contra</p>
-        <p className="text-base font-semibold leading-tight">{item.participant2}</p>
+        <p className="text-base font-semibold leading-tight">{item.participant2} <Presence checkedIn={item.checkedIn2} /></p>
         <p className="pt-1 text-xs text-muted-foreground">
           {item.categoryName} · {item.roundLabel}
           {item.scheduledAt && ` · ${new Date(item.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
