@@ -110,6 +110,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Agenda automática por quadra e horário | ✅ | `POST /tournaments/:id/schedule/auto` com pré-visualização; sem mudança de schema; a janela diária (`dayStartsAt`, `dayEndsAt`) tem campos "Início do dia" e "Fim do dia" no diálogo |
 | Auditoria de resultados (quem e quando) | ❌ | |
 | Placar ao vivo por quadra | ✅ | Tela do operador `/admin/live`, API de início, ponto, desfazer e encerramento, stream SSE público e seção "Ao vivo agora" em `/t/[slug]`. Barramento em memória: uma instância de API (ver especificação) |
+| Telão do torneio (TV ou projetor) | ✅ | `/telao/[slug]`: quadras com placar ao vivo ou próxima partida, fila das próximas 8, relógio e tela cheia. Spec `telao.spec.ts` e rota no spec WCAG |
 
 ## Phase 6 — Portal público
 

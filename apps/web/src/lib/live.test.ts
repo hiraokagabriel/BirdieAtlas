@@ -12,6 +12,9 @@ import {
   queueOnCourt,
   shouldFallBackToPolling,
   sortLive,
+  formatTvTime,
+  tvCourtSlots,
+  tvUpcoming,
   type LiveMatch,
   type QueueMatch,
 } from './live'
@@ -200,5 +203,31 @@ describe('quadras do operador', () => {
     expect(liveOnCourt([match({ courtNumber: 3 })], 1)).toBeUndefined()
     expect(queueOnCourt(queue, 2).map((m) => m.matchId)).toEqual(['q1'])
     expect(queueOnCourt(queue, null).map((m) => m.matchId)).toEqual(['q2'])
+  })
+
+  it('telão: um cartão por quadra; próxima da fila só em quadra livre; ao vivo sem quadra no fim', () => {
+    const live = [match({ matchId: 'l3', courtNumber: 3 }), match({ matchId: 'l0', courtNumber: null })]
+    const queueOn3 = { ...queue[0]!, matchId: 'q3', courtNumber: 3 }
+    const slots = tvCourtSlots(live, [...queue, queueOn3])
+    expect(slots.map((s) => [s.court, s.live?.matchId, s.next?.matchId])).toEqual([
+      [2, undefined, 'q1'],
+      [3, 'l3', undefined],
+      [null, 'l0', undefined],
+    ])
+    expect(tvCourtSlots([], [])).toEqual([])
+  })
+
+  it('telão: próximas por horário (a quadra 2 que começa antes vem primeiro), sem horário no fim', () => {
+    const at = (id: string, court: number | null, scheduledAt: string | null) => ({ ...queue[0]!, matchId: id, courtNumber: court, scheduledAt })
+    const list = [at('c1-late', 1, '2026-11-14T15:00:00Z'), at('none', 1, null), at('c2-early', 2, '2026-11-14T13:00:00Z'), at('c1-early', 1, '2026-11-14T13:00:00Z')]
+    expect(tvUpcoming(list, 3).map((m) => m.matchId)).toEqual(['c1-early', 'c2-early', 'c1-late'])
+    expect(tvUpcoming(list, 10).at(-1)?.matchId).toBe('none')
+  })
+
+  it('telão: horário só com a hora no mesmo dia; com dia e mês em outro dia', () => {
+    const now = new Date(2026, 10, 14, 10, 0)
+    expect(formatTvTime(new Date(2026, 10, 14, 14, 30).toISOString(), now)).toBe('14:30')
+    expect(formatTvTime(new Date(2026, 10, 15, 9, 5).toISOString(), now)).toBe('15/11 09:05')
+    expect(formatTvTime(null, now)).toBe('')
   })
 })

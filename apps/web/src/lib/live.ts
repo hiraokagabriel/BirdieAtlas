@@ -251,3 +251,45 @@ export function queueOnCourt(queue: readonly QueueMatch[], court: number | null)
 export function setsSummary(match: Pick<LiveMatch, 'setsWon'>): string {
   return `${match.setsWon.side1} x ${match.setsWon.side2} em sets`
 }
+
+// ---------------------------------------------------------------------------
+// Telão
+// ---------------------------------------------------------------------------
+
+export type TvCourtSlot = {
+  /** `null` = partidas ao vivo ainda sem quadra. */
+  court: number | null
+  live: LiveMatch | undefined
+  /** Próxima partida desta quadra na fila (só quando não há partida ao vivo nela). */
+  next: QueueMatch | undefined
+}
+
+/** Um cartão por quadra conhecida, em ordem; partidas ao vivo sem quadra vão num cartão a mais, no fim. */
+export function tvCourtSlots(live: readonly LiveMatch[], queue: readonly QueueMatch[]): TvCourtSlot[] {
+  const slots: TvCourtSlot[] = knownCourts(live, queue).map((court) => {
+    const onCourt = liveOnCourt(live, court)
+    return { court, live: onCourt, next: onCourt ? undefined : queueOnCourt(queue, court)[0] }
+  })
+  for (const m of live) if (m.courtNumber == null) slots.push({ court: null, live: m, next: undefined })
+  return slots
+}
+
+/** "14:30" no fuso do aparelho; em outro dia, "15/03 14:30". Vazio sem horário. */
+export function formatTvTime(iso: string | null, now: Date = new Date()): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)
+  if (date.toDateString() === now.toDateString()) return time
+  return `${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(date)} ${time}`
+}
+
+/** Próximas partidas do telão: por horário (sem horário no fim), depois quadra (sem quadra no fim). A API ordena por quadra. */
+export function tvUpcoming(queue: readonly QueueMatch[], limit: number): QueueMatch[] {
+  const time = (m: QueueMatch) => (m.scheduledAt ? Date.parse(m.scheduledAt) : Number.POSITIVE_INFINITY)
+  const court = (m: QueueMatch) => m.courtNumber ?? Number.POSITIVE_INFINITY
+  return queue
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => time(a.m) - time(b.m) || court(a.m) - court(b.m) || a.i - b.i)
+    .slice(0, limit)
+    .map(({ m }) => m)
+}
