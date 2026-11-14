@@ -79,7 +79,9 @@ test.describe('importar torneio (API)', () => {
     expect(regs).toHaveLength(3)
     expect(regs.find((r) => r.athleteName === `Novo ${tag} Um`)).toMatchObject({ status: 'approved', seed: 1 })
     expect(regs.find((r) => r.athleteName === `Novo ${tag} Dois`)?.status).toBe('pending')
-    expect(regs.find((r) => r.athlete2Name)).toMatchObject({ athleteName: expect.stringContaining('Ana'), athlete2Name: expect.stringContaining('Bia') })
+    // A dupla guarda os atletas em ordem canônica (por id), então a ordem Ana/Bia não é fixa.
+    const doubles = regs.find((r) => r.athlete2Name)!
+    expect([doubles.athleteName, doubles.athlete2Name].map((n) => n?.split(' ').pop()).sort()).toEqual(['Ana', 'Bia'])
 
     const found = await api.get<{ data: { name: string; clubName: string | null }[] }>(`/athletes?search=${encodeURIComponent(`Novo ${tag}`)}`)
     expect(found.data).toHaveLength(2)
@@ -235,7 +237,7 @@ test.describe('importar torneio (tela)', () => {
     ].join(String.fromCharCode(13, 10))
     const dialog = await openDialog(page)
     await dialog.locator('input[type="file"]').setInputFiles({ name: 'consolidada.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') })
-    await expect(dialog.getByText('Planilha consolidada')).toBeVisible()
+    await expect(dialog.getByText(/^Planilha consolidada \(aba/)).toBeVisible()
     await expect(dialog.getByText(/Linhas ignoradas por categoria não reconhecida/)).toBeVisible()
     await dialog.getByLabel('Início').fill('15/11/2099')
     await dialog.getByLabel('Término').fill('16/11/2099')

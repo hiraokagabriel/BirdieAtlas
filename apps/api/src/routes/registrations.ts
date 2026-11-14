@@ -51,7 +51,7 @@ async function namesFor(regs: ResolvedRegistration[]): Promise<Map<string, strin
   return athleteNames([...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))])
 }
 
-function toResponse(reg: ResolvedRegistration, names: Map<string, string>): RegistrationResponse {
+function toResponse(reg: ResolvedRegistration, names: Map<string, string>, clubNames: Map<string, string>): RegistrationResponse {
   return {
     id: reg.id,
     tournamentId: reg.tournamentId,
@@ -61,12 +61,20 @@ function toResponse(reg: ResolvedRegistration, names: Map<string, string>): Regi
     athlete2Id: reg.athlete2Id,
     athleteName: names.get(reg.athleteId) ?? null,
     athlete2Name: reg.athlete2Id ? (names.get(reg.athlete2Id) ?? null) : null,
+    athleteClub: clubNames.get(reg.athleteId) ?? null,
+    athlete2Club: reg.athlete2Id ? (clubNames.get(reg.athlete2Id) ?? null) : null,
     seed: reg.seed,
     status: reg.status,
     notes: reg.notes,
     createdAt: reg.createdAt.toISOString(),
     updatedAt: reg.updatedAt.toISOString(),
   }
+}
+
+async function toResponses(regs: ResolvedRegistration[]): Promise<RegistrationResponse[]> {
+  const ids = [...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))]
+  const [names, clubNames] = await Promise.all([athleteNames(ids), currentClubNames(ids)])
+  return regs.map((r) => toResponse(r, names, clubNames))
 }
 
 type TxResult = { ok: true; id: string } | { ok: false; error: { code: string; message: string } }
@@ -161,11 +169,7 @@ export async function registrationsRoutes(app: FastifyInstance) {
     )
     return paginate(
       query,
-      async (limit, offset) => {
-        const regs = await selectRegistrations(where, { limit, offset })
-        const names = await namesFor(regs)
-        return regs.map((r) => toResponse(r, names))
-      },
+      async (limit, offset) => toResponses(await selectRegistrations(where, { limit, offset })),
       () => countRegistrations(where),
     )
   })
@@ -257,9 +261,10 @@ export async function registrationsRoutes(app: FastifyInstance) {
     }
 
     const [reg] = await selectRegistrations(eq(tournamentRegistrations.id, result.id))
-    return reply.status(201).send(toResponse(reg!, await namesFor([reg!])))
+    return reply.status(201).send((await toResponses([reg!]))[0]!)
   })
 
+  // Edição da inscrição: status, categoria (remanejar), atletas (substituir atleta ou trocar parceiro(a)) e cabeça de chave.
   app.patch('/registrations/:registrationId', async (request, reply) => {
     const { registrationId } = registrationIdParamsSchema.parse(request.params)
     const body = updateRegistrationBodySchema.parse(request.body)
@@ -272,35 +277,105 @@ export async function registrationsRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: 'O torneio não permite mais alterações.', code: 'TOURNAMENT_LOCKED' })
     }
 
-    const changesStatus = body.status !== undefined && body.status !== current.status
+    const nextStatus = body.status ?? current.status
+    const changesStatus = nextStatus !== current.status
     if (changesStatus) {
-      const transitionError = validateRegistrationStatusChange(current.status, body.status!, body.notes)
+      const transitionError = validateRegistrationStatusChange(current.status, nextStatus, body.notes)
       if (transitionError) return reply.status(422).send({ error: transitionError, code: 'INVALID_REGISTRATION_TRANSITION' })
     }
 
-    const changesCategory = body.categoryId !== undefined && body.categoryId !== current.categoryId
-    if (changesCategory) {
-      const [target] = await db.select().from(tournamentCategories)
-        .where(and(eq(tournamentCategories.id, body.categoryId!), isNull(tournamentCategories.deletedAt)))
-      if (!target || target.tournamentId !== current.tournamentId || target.discipline !== current.discipline) {
-        return reply.status(422).send({ error: 'A categoria precisa ser do mesmo torneio e da mesma disciplina.', code: 'INVALID_REGISTRATION_CATEGORY' })
-      }
+    const targetCategoryId = body.categoryId ?? current.categoryId
+    const changesCategory = targetCategoryId !== current.categoryId
+    const nextAthlete1 = body.athleteId ?? current.athleteId
+    const nextAthlete2 = body.athlete2Id !== undefined ? body.athlete2Id : current.athlete2Id
+    const changesParticipants = nextAthlete1 !== current.athleteId || nextAthlete2 !== current.athlete2Id
+    const reopens = changesStatus && current.status === 'rejected' // volta a ocupar vaga
+
+    const [target] = await db.select().from(tournamentCategories)
+      .where(and(eq(tournamentCategories.id, targetCategoryId), isNull(tournamentCategories.deletedAt)))
+    // Amistoso: pode remanejar para qualquer categoria do torneio (inclusive de outra disciplina). Oficial: mesma disciplina.
+    if (!target || target.tournamentId !== current.tournamentId || (changesCategory && target.discipline !== current.discipline && tournament.kind !== 'friendly')) {
+      return reply.status(422).send({ error: 'A categoria precisa ser do mesmo torneio e da mesma disciplina.', code: 'INVALID_REGISTRATION_CATEGORY' })
     }
 
     // Quem já está numa chave só pode ser recusado ou movido depois de refazer a chave.
-    if ((changesCategory || (changesStatus && body.status !== 'approved')) && (await isInDraw(registrationId))) {
-      return reply.status(409).send({ error: 'A inscrição já está em uma chave. Refaça ou remova a chave antes.', code: 'REGISTRATION_IN_DRAW' })
+    // Trocar só os atletas (substituição) mantém o lugar na chave: liberado em torneio amistoso.
+    const leavesDraw = changesCategory || (changesStatus && nextStatus !== 'approved')
+    if ((leavesDraw || changesParticipants) && (await isInDraw(registrationId))) {
+      if (leavesDraw || tournament.kind !== 'friendly') {
+        return reply.status(409).send({ error: 'A inscrição já está em uma chave. Refaça ou remova a chave antes.', code: 'REGISTRATION_IN_DRAW' })
+      }
     }
 
-    await db.update(tournamentRegistrations).set({
-      ...(changesCategory ? { categoryId: body.categoryId } : {}),
-      ...(changesStatus ? { status: body.status } : {}),
-      ...(body.notes !== undefined ? { notes: body.notes } : {}),
-      updatedAt: new Date(),
-    }).where(eq(tournamentRegistrations.id, registrationId))
+    type PatchResult = { ok: true } | { ok: false; status: number; error: { code: string; message: string } }
+    const result = await db.transaction(async (tx): Promise<PatchResult> => {
+      for (const id of [...new Set([current.categoryId, targetCategoryId])].sort()) {
+        await tx.select({ id: tournamentCategories.id }).from(tournamentCategories).where(eq(tournamentCategories.id, id)).for('update')
+      }
+
+      let columns: { athleteId: string | null; pairId: string | null } | undefined
+      if (changesCategory || changesParticipants || reopens) {
+        const ids = [nextAthlete1, ...(nextAthlete2 ? [nextAthlete2] : [])]
+        if (ids.length === 2 && ids[0] === ids[1]) {
+          return { ok: false, status: 422, error: { code: 'INVALID_PARTICIPANTS', message: 'O(a) parceiro(a) não pode ser a mesma pessoa.' } }
+        }
+        const rows = await tx.select({ id: athletes.id, gender: athletes.gender, active: athletes.active }).from(athletes)
+          .where(and(inArray(athletes.id, ids), isNull(athletes.deletedAt)))
+        if (rows.length !== ids.length) return { ok: false, status: 404, error: { code: 'ATHLETE_NOT_FOUND', message: 'Atleta não encontrado.' } }
+
+        // Recusada não ocupa vaga; as demais disputam a categoria de destino (sem contar esta própria inscrição).
+        const taking = nextStatus === 'rejected' ? [] : await selectRegistrations(
+          and(eq(tournamentRegistrations.categoryId, targetCategoryId), ne(tournamentRegistrations.status, 'rejected'), ne(tournamentRegistrations.id, registrationId)),
+          { executor: tx },
+        )
+        const eligibility = checkRegistrationEligibility({
+          discipline: target.discipline,
+          athletes: ids.map((id) => rows.find((a) => a.id === id)!),
+          takenAthleteIds: new Set(taking.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[])),
+          maxEntries: target.maxEntries,
+          currentEntries: taking.length,
+        })
+        if (eligibility) {
+          const conflict = eligibility.code === 'ATHLETE_ALREADY_REGISTERED' || eligibility.code === 'CATEGORY_FULL'
+          return { ok: false, status: conflict ? 409 : 422, error: eligibility }
+        }
+
+        if (ids.length === 2) {
+          const [first, second] = ids as [string, string]
+          const [pair] = await tx.select().from(pairs).where(and(
+            eq(pairs.tenantId, tournament.tenantId),
+            eq(pairs.discipline, target.discipline),
+            isNull(pairs.deletedAt),
+            or(
+              and(eq(pairs.athlete1Id, first), eq(pairs.athlete2Id, second)),
+              and(eq(pairs.athlete1Id, second), eq(pairs.athlete2Id, first)),
+            ),
+          )).orderBy(asc(pairs.createdAt), asc(pairs.id)).limit(1)
+          if (pair && !pair.active) return { ok: false, status: 409, error: { code: 'PAIR_INACTIVE', message: 'A dupla está inativa. Reative-a em Duplas antes de usar.' } }
+          const pairId = pair?.id ?? (await tx.insert(pairs).values({
+            id: randomUUID(), tenantId: tournament.tenantId, athlete1Id: first, athlete2Id: second, discipline: target.discipline,
+          }).returning())[0]!.id
+          columns = { athleteId: null, pairId }
+        } else {
+          columns = { athleteId: ids[0]!, pairId: null }
+        }
+      }
+
+      await tx.update(tournamentRegistrations).set({
+        ...(changesCategory ? { categoryId: targetCategoryId } : {}),
+        ...(columns ?? {}),
+        ...(changesStatus ? { status: nextStatus } : {}),
+        ...(body.notes !== undefined ? { notes: body.notes } : {}),
+        ...(body.seed !== undefined ? { seed: body.seed } : {}),
+        updatedAt: new Date(),
+      }).where(eq(tournamentRegistrations.id, registrationId))
+      return { ok: true }
+    })
+
+    if (!result.ok) return reply.status(result.status).send({ error: result.error.message, code: result.error.code })
 
     const [updated] = await selectRegistrations(eq(tournamentRegistrations.id, registrationId))
-    return toResponse(updated!, await namesFor([updated!]))
+    return (await toResponses([updated!]))[0]!
   })
 
   // Idempotente: aprovar uma inscrição já aprovada devolve a inscrição como está.
@@ -325,7 +400,7 @@ export async function registrationsRoutes(app: FastifyInstance) {
     }
 
     const [approved] = await selectRegistrations(eq(tournamentRegistrations.id, registrationId))
-    return toResponse(approved!, await namesFor([approved!]))
+    return (await toResponses([approved!]))[0]!
   })
 
   app.delete('/tournaments/registrations/:registrationId', async (request, reply) => {

@@ -18,6 +18,10 @@ export const tournamentRegistrationsQuerySchema = paginationQuerySchema.extend({
 
 export const updateRegistrationBodySchema = z.object({
   categoryId: z.string().trim().min(1).optional(),
+  /** Troca de atleta (substituição) ou de parceiro(a): `athleteId` é o atleta 1 e `athlete2Id` o atleta 2 (null em simples). */
+  athleteId: z.string().trim().min(1).optional(),
+  athlete2Id: z.string().trim().min(1).nullable().optional(),
+  seed: z.number().int().min(1).nullable().optional(),
   status: registrationStatusSchema.optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
@@ -68,6 +72,9 @@ export const registrationResponseSchema = z.object({
   athlete2Id: z.string().nullable(),
   athleteName: z.string().nullable(),
   athlete2Name: z.string().nullable(),
+  /** Clube atual de cada atleta (null sem afiliação). */
+  athleteClub: z.string().nullable(),
+  athlete2Club: z.string().nullable(),
   seed: z.number().int().nullable(),
   status: registrationStatusSchema,
   notes: z.string().nullable(),

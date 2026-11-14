@@ -4,6 +4,8 @@ import { athleteAffiliations, clubs, athletes } from '../db/schema.js'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { changeAthleteClubBodySchema } from '@birdie-atlas/validators'
+import { fold, toSlug } from '../domain/tournament-import.js'
 import { getDefaultTenantId } from '../tenant.js'
 
 const createSchema = z.object({
@@ -40,6 +42,58 @@ const updateSchema = z.object({
 })
 
 export async function affiliationsRoutes(app: FastifyInstance) {
+  /**
+   * PUT /athletes/:athleteId/current-club
+   *
+   * Troca simplificada do clube atual (correção rápida pelo admin): `clubId` de um clube existente,
+   * `clubName` para um clube novo (reaproveita o de mesmo nome) ou `clubId: null` para ficar sem clube.
+   * Com afiliação ativa, ela é corrigida (mesmo início); sem, cria uma começando hoje.
+   */
+  app.put('/athletes/:athleteId/current-club', async (request, reply) => {
+    const { athleteId } = request.params as { athleteId: string }
+    const body = changeAthleteClubBodySchema.parse(request.body)
+    const tenantId = await getDefaultTenantId()
+
+    const [athlete] = await db.select({ id: athletes.id }).from(athletes).where(and(eq(athletes.id, athleteId), isNull(athletes.deletedAt)))
+    if (!athlete) return reply.status(404).send({ error: 'Atleta não encontrado.', code: 'ATHLETE_NOT_FOUND' })
+
+    const today = new Date().toISOString().slice(0, 10)
+    const result = await db.transaction(async (tx): Promise<{ clubId: string | null; error?: undefined } | { error: string; code: string; status: 404 }> => {
+      let clubId: string | null = body.clubId ?? null
+      if (body.clubId) {
+        const [club] = await tx.select({ id: clubs.id }).from(clubs).where(and(eq(clubs.id, body.clubId), eq(clubs.tenantId, tenantId), isNull(clubs.deletedAt)))
+        if (!club) return { error: 'Clube não encontrado.', code: 'CLUB_NOT_FOUND', status: 404 }
+      } else if (body.clubName) {
+        const all = await tx.select({ id: clubs.id, name: clubs.name, slug: clubs.slug }).from(clubs).where(and(eq(clubs.tenantId, tenantId), isNull(clubs.deletedAt)))
+        const wanted = fold(body.clubName)
+        const existing = all.find((c) => fold(c.name) === wanted)
+        if (existing) clubId = existing.id
+        else {
+          const base = toSlug(body.clubName) || 'clube'
+          const taken = new Set(all.map((c) => c.slug))
+          let slug = base
+          for (let n = 2; taken.has(slug); n++) slug = `${base}-${n}`
+          clubId = randomUUID()
+          await tx.insert(clubs).values({ id: clubId, tenantId, name: body.clubName, slug })
+        }
+      }
+
+      const [active] = await tx.select().from(athleteAffiliations)
+        .where(and(eq(athleteAffiliations.athleteId, athleteId), eq(athleteAffiliations.tenantId, tenantId), isNull(athleteAffiliations.endedAt)))
+      if (clubId === null) {
+        if (active) await tx.update(athleteAffiliations).set({ endedAt: today, updatedAt: new Date() }).where(eq(athleteAffiliations.id, active.id))
+      } else if (active) {
+        if (active.clubId !== clubId) await tx.update(athleteAffiliations).set({ clubId, updatedAt: new Date() }).where(eq(athleteAffiliations.id, active.id))
+      } else {
+        await tx.insert(athleteAffiliations).values({ id: randomUUID(), athleteId, clubId, tenantId, startedAt: today, endedAt: null })
+      }
+      return { clubId }
+    })
+
+    if (result.error !== undefined) return reply.status(result.status).send({ error: result.error, code: result.code })
+    return { athleteId, clubId: result.clubId }
+  })
+
   /**
    * GET /athletes/:athleteId/affiliations
    *
