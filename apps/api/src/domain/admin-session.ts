@@ -2,9 +2,10 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 
 // Sessões de admin por PIN, para a rede local. Com `ADMIN_PIN` definido, só quem digitou o PIN
 // recebe um token (enviado em `Authorization: Bearer`) e o modo admin global deixa de existir.
-// O token é assinado (HMAC), sem guardar sessão: reiniciar a API (deploy, hibernação do provedor) não derruba
-// ninguém. A chave vem do PIN e de ADMIN_SESSION_SECRET, então trocar qualquer um dos dois revoga todas as sessões.
-// Sair revoga o token só em memória (volta a valer se a API reiniciar antes de ele expirar).
+// O token é assinado (HMAC), sem guardar sessão: com ADMIN_SESSION_SECRET, reiniciar a API (deploy, hibernação do
+// provedor) não derruba ninguém, e trocar o PIN ou o segredo revoga todas as sessões. Sem segredo, a chave é aleatória
+// por processo (reiniciar derruba as sessões): uma chave só do PIN deixaria descobrir o PIN offline a partir de um token.
+// Sair revoga o token só em memória e só nesta instância (volta a valer se a API reiniciar antes de ele expirar).
 
 // 8+: com o bloqueio por IP, mesmo vários aparelhos na rede levariam meses para testar 10^8 PINs numéricos.
 export const ADMIN_PIN_MIN_LENGTH = 8
@@ -37,7 +38,9 @@ export class AdminSessions {
 
   constructor(pin: string, private readonly now: () => number = Date.now, secret = '') {
     this.pinDigest = digest(pin)
-    this.signingKey = createHmac('sha256', `birdie-admin-session:${secret}`).update(pin).digest()
+    this.signingKey = secret
+      ? createHmac('sha256', `birdie-admin-session:${secret}`).update(pin).digest()
+      : randomBytes(32)
   }
 
   private sign(payload: string): string {
@@ -68,8 +71,8 @@ export class AdminSessions {
   }
 
   /** Prazo do token se a assinatura confere, ou null. Não olha a revogação. */
-  private expiry(token: string | null): number | null {
-    const match = /^v1\.(([0-9a-z]{1,12})\.[A-Za-z0-9_-]{12})\.([A-Za-z0-9_-]{43})$/.exec(token ?? '')
+  private expiry(token: string): number | null {
+    const match = /^v1\.(([0-9a-z]{1,12})\.[A-Za-z0-9_-]{12})\.([A-Za-z0-9_-]{43})$/.exec(token)
     const [, payload, stamp, signature] = match ?? []
     if (!payload || !stamp || !signature) return null
     const expected = Buffer.from(this.sign(payload))
@@ -81,15 +84,15 @@ export class AdminSessions {
   }
 
   isValid(token: string | null): boolean {
-    return this.expiry(token) !== null && !this.revoked.has(token as string)
+    return token !== null && this.expiry(token) !== null && !this.revoked.has(token)
   }
 
   revoke(token: string | null): void {
-    const expiresAt = this.expiry(token)
-    if (expiresAt === null) return
+    const expiresAt = token === null ? null : this.expiry(token)
+    if (token === null || expiresAt === null) return
     const now = this.now()
     for (const [t, exp] of this.revoked) if (exp <= now) this.revoked.delete(t)
-    this.revoked.set(token as string, expiresAt)
+    this.revoked.set(token, expiresAt)
   }
 }
 

@@ -117,3 +117,30 @@ describe('token assinado (sobrevive a reinício)', () => {
     expect(s.isValid(b)).toBe(true)
   })
 })
+
+describe('chave e prazo', () => {
+  it('sem segredo, a chave é aleatória por processo: outra instância não aceita o token', () => {
+    const r = new AdminSessions('24681012').login('24681012', 'ip')
+    if (!r.ok) throw new Error('login falhou')
+    expect(new AdminSessions('24681012').isValid(r.token)).toBe(false)
+  })
+
+  it('prazo além do TTL é recusado mesmo com assinatura válida (relógio de quem valida atrasado)', () => {
+    const t = Date.UTC(2026, 10, 14, 12)
+    const r = new AdminSessions('24681012', () => t, 'segredo').login('24681012', 'ip')
+    if (!r.ok) throw new Error('login falhou')
+    expect(new AdminSessions('24681012', () => t, 'segredo').isValid(r.token)).toBe(true)
+    expect(new AdminSessions('24681012', () => t - 60 * 60 * 1000, 'segredo').isValid(r.token)).toBe(false)
+  })
+
+  it('revogados vencidos saem da memória no próximo logout', () => {
+    let now = Date.UTC(2026, 10, 14, 12)
+    const s = new AdminSessions('24681012', () => now, 'segredo')
+    const login = () => { const r = s.login('24681012', 'ip'); if (!r.ok) throw new Error('login falhou'); return r.token }
+    const old = login()
+    s.revoke(old)
+    now += ADMIN_SESSION_TTL_MS + 1
+    s.revoke(login())
+    expect((s as unknown as { revoked: Map<string, number> }).revoked.has(old)).toBe(false)
+  })
+})
