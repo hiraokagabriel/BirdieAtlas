@@ -1,9 +1,10 @@
 import { API_URL, ApiError } from '@/lib/api'
 import { downloadErrorMessage, filenameFromDisposition } from '@/lib/download-helpers'
+import { adminAuthHeaders } from '@/lib/admin-token'
 
 /** Baixa um arquivo da API (mesma origem de `apiFetch`) e dispara o download no navegador. */
 export async function downloadFromApi(path: string, fallbackName: string): Promise<void> {
-  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store' }).catch(() => {
+  const res = await fetch(`${API_URL}${path}`, { cache: 'no-store', headers: adminAuthHeaders() }).catch(() => {
     throw new ApiError(0, 'Não foi possível conectar à API. Verifique a conexão e tente novamente.', 'NETWORK_ERROR')
   })
   if (!res.ok) throw new ApiError(res.status, await downloadErrorMessage(res))

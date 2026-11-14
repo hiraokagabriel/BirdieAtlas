@@ -1,67 +1,68 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-
-const STORAGE_KEY = 'birdie_admin_mode'
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiFetch } from '@/lib/api'
+import { setAdminToken } from '@/lib/admin-token'
 
 // ---------------------------------------------------------------------------
 // useAdminMode
 //
-// Gerencia o estado do modo admin de desenvolvimento.
-// Persiste no localStorage para sobreviver a refresh de página.
-// Sincroniza com a API via PATCH /dev/admin-mode.
-//
-// Uso:
-//   const { isAdmin, toggle } = useAdminMode()
+// Estado do acesso admin, sempre lido da API (GET /admin/session):
+// - Sem PIN na API: modo global de desenvolvimento, alternado por PATCH /dev/admin-mode.
+// - Com PIN (rede local): entrar troca o PIN por um token guardado neste navegador; sair o revoga.
+// Toda troca invalida as queries, para as telas recarregarem com a nova permissão.
 // ---------------------------------------------------------------------------
 
+interface AdminSessionState {
+  pinRequired: boolean
+  admin: boolean
+}
+
 export function useAdminMode() {
-  const [isAdmin, setIsAdmin] = useState<boolean>(false)
-  const [isSyncing, setIsSyncing] = useState<boolean>(false)
+  const queryClient = useQueryClient()
+  const session = useQuery({
+    queryKey: ['admin-session'],
+    queryFn: () => apiFetch<AdminSessionState>('/admin/session'),
+    staleTime: 30_000,
+  })
+  const refreshAll = () => queryClient.invalidateQueries()
+  // Ao perder o acesso, apaga o cache: dados pessoais já carregados não podem seguir na tela.
+  const dropCachedData = () => {
+    void queryClient.resetQueries({ predicate: (query) => query.queryKey[0] !== 'admin-session' })
+    void queryClient.invalidateQueries({ queryKey: ['admin-session'] })
+  }
 
-  // Lê o estado inicial do localStorage
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = localStorage.getItem(STORAGE_KEY)
-    setIsAdmin(stored === 'true')
-  }, [])
+  const toggleGlobal = useMutation({
+    mutationFn: (enabled: boolean) => apiFetch('/dev/admin-mode', { method: 'PATCH', json: { enabled } }),
+    onSettled: (_data, _error, enabled) => (enabled ? void refreshAll() : dropCachedData()),
+  })
 
-  const syncWithApi = useCallback(async (enabled: boolean) => {
-    setIsSyncing(true)
-    try {
-      await fetch(`${API_URL}/dev/admin-mode`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
-      })
-    } catch {
-      // Falha silenciosa — API pode estar offline durante dev
-      console.warn('[AdminMode] Não foi possível sincronizar com a API.')
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [])
+  const login = useMutation({
+    mutationFn: (pin: string) => apiFetch<{ token: string }>('/admin/session', { method: 'POST', json: { pin } }),
+    onSuccess: ({ token }) => {
+      setAdminToken(token)
+      void refreshAll()
+    },
+  })
 
-  const enable = useCallback(async () => {
-    localStorage.setItem(STORAGE_KEY, 'true')
-    setIsAdmin(true)
-    await syncWithApi(true)
-  }, [syncWithApi])
+  // O DELETE leva o token; só depois ele sai do navegador, mesmo se a API não responder.
+  const logout = useMutation({
+    mutationFn: () => apiFetch('/admin/session', { method: 'DELETE' }),
+    onSettled: () => {
+      setAdminToken(null)
+      dropCachedData()
+    },
+  })
 
-  const disable = useCallback(async () => {
-    localStorage.setItem(STORAGE_KEY, 'false')
-    setIsAdmin(false)
-    await syncWithApi(false)
-  }, [syncWithApi])
-
-  const toggle = useCallback(async () => {
-    if (isAdmin) {
-      await disable()
-    } else {
-      await enable()
-    }
-  }, [isAdmin, enable, disable])
-
-  return { isAdmin, isSyncing, enable, disable, toggle }
+  return {
+    isLoading: session.isPending,
+    pinRequired: session.data?.pinRequired ?? false,
+    isAdmin: session.data?.admin ?? false,
+    isSyncing: toggleGlobal.isPending || login.isPending || logout.isPending,
+    /** Falha ao alternar o modo global ou ao sair (o erro do login aparece no diálogo). */
+    error: (toggleGlobal.error ?? logout.error)?.message ?? null,
+    toggleGlobal: (enabled: boolean) => toggleGlobal.mutate(enabled),
+    login,
+    logout: () => logout.mutate(),
+  }
 }
