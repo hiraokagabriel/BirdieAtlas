@@ -127,8 +127,8 @@ export async function liveRoutes(app: FastifyInstance) {
     for (const close of [...openStreams]) close()
   })
 
-  // Conexão longa: fica fora do rate limit por requisição.
-  app.get('/tournaments/:id/live', { config: { rateLimit: false } }, async (request, reply) => {
+  // Conexão longa: conta uma vez por conexão, com teto próprio para ninguém abrir streams sem limite.
+  app.get('/tournaments/:id/live', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { id } = tournamentParamsSchema.parse(request.params)
     if (!(await tournamentExists(id))) return reply.status(404).send({ error: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' })
 

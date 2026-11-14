@@ -41,6 +41,8 @@ export function readServerConfig(env: Env): ServerConfig {
       problems.push(`ADMIN_PIN é obrigatório em produção, com pelo menos ${PRODUCTION_ADMIN_PIN_MIN_LENGTH} caracteres (o mínimo na rede local é ${ADMIN_PIN_MIN_LENGTH}).`)
     }
     if (origins.length === 0) problems.push('CORS_ORIGINS é obrigatório em produção (origens do site, separadas por vírgula).')
+    // Sem declarar, atrás de um proxy todo mundo teria o IP do proxy: um balde só no rate limit e no bloqueio de PIN.
+    if (rawProxy === '') problems.push('TRUST_PROXY é obrigatório em produção (0 se a API recebe a conexão direto).')
   }
 
   if (problems.length > 0) throw new Error(`Configuração inválida da API:\n- ${problems.join('\n- ')}`)

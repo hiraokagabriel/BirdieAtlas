@@ -1,10 +1,10 @@
 import Fastify from 'fastify'
 import { describe, expect, it } from 'vitest'
 import { registerErrorHandling } from './errors.js'
-import { registerNetwork } from './network.js'
+import { READ_LIMIT_PER_MINUTE, WRITE_LIMIT_PER_MINUTE, registerNetwork } from './network.js'
 import { readServerConfig } from '../domain/server-config.js'
 
-const prod = readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app' })
+const prod = readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0' })
 
 async function buildApp(config = prod) {
   const app = Fastify()
@@ -13,6 +13,7 @@ async function buildApp(config = prod) {
   app.get('/publico', async () => ({ ok: true }))
   app.post('/login', { config: { rateLimit: { max: 2, timeWindow: '1 minute' } } }, async () => ({ ok: true }))
   app.get('/stream', { config: { rateLimit: false } }, async () => ({ ok: true }))
+  app.put('/escrita', async () => ({ ok: true }))
   return app
 }
 
@@ -40,6 +41,15 @@ describe('limite de requisições', () => {
     expect(blocked.statusCode).toBe(429)
     expect(blocked.json()).toMatchObject({ code: 'RATE_LIMITED', error: expect.stringContaining('Muitas requisições') })
     expect(blocked.headers['retry-after']).toBeDefined()
+  })
+
+  it('leitura e escrita em baldes separados, com tetos diferentes', async () => {
+    const app = await buildApp()
+    expect((await app.inject({ method: 'GET', url: '/publico' })).headers['x-ratelimit-limit']).toBe(String(READ_LIMIT_PER_MINUTE))
+    for (let i = 0; i < WRITE_LIMIT_PER_MINUTE; i++) await app.inject({ method: 'PUT', url: '/escrita' })
+    expect((await app.inject({ method: 'PUT', url: '/escrita' })).statusCode).toBe(429)
+    // O balde de escrita esgotado não bloqueia as leituras do mesmo IP.
+    expect((await app.inject({ method: 'GET', url: '/publico' })).statusCode).toBe(200)
   })
 
   it('rota fora do limite e desenvolvimento sem limite', async () => {
