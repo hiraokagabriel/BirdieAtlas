@@ -282,6 +282,31 @@ export const matchLiveStates = pgTable('match_live_states', {
 ])
 
 // ---------------------------------------------------------------------------
+// Histórico de resultados: uma linha por gravação de resultado oficial, com o antes e o depois.
+// Só acrescenta (é um registro de auditoria): nunca é editado nem apagado. Sem identidade de
+// usuário até o Clerk; a origem (diálogo do admin ou quadra ao vivo) e a quadra identificam a mesa.
+// ---------------------------------------------------------------------------
+// 'cascade': a partida perdeu o resultado (ou o placar ao vivo) porque o vencedor de uma anterior mudou.
+export const resultSourceEnum = pgEnum('result_source', ['dialog', 'live', 'cascade'])
+
+export const matchResultEvents = pgTable('match_result_events', {
+  id: id(),
+  // Sem FK: refazer a chave apaga as partidas, e o histórico precisa continuar existindo.
+  matchId: text('match_id').notNull(),
+  source: resultSourceEnum('source').notNull(),
+  courtNumber: integer('court_number'),
+  previousStatus: matchStatusEnum('previous_status').notNull(),
+  previousSets: jsonb('previous_sets').$type<{ setNumber: number; score1: number; score2: number }[]>().notNull(),
+  nextStatus: matchStatusEnum('next_status').notNull(),
+  nextSets: jsonb('next_sets').$type<{ setNumber: number; score1: number; score2: number }[]>().notNull(),
+  /** Partidas seguintes que perderam resultado ou placar ao vivo porque o vencedor mudou (cada uma ganha seu evento 'cascade'). */
+  resetMatchCount: integer('reset_match_count').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('match_result_events_match_idx').on(table.matchId, table.createdAt),
+])
+
+// ---------------------------------------------------------------------------
 // Rankings
 // ---------------------------------------------------------------------------
 export const rankings = pgTable('rankings', {

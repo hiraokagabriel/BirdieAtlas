@@ -309,7 +309,7 @@ export async function liveRoutes(app: FastifyInstance) {
       if (!score.winner) {
         return fail(409, 'A partida ainda não tem vencedor: termine os sets antes de encerrar.', 'LIVE_MATCH_NOT_DECIDED')
       }
-      const saved = await saveMatchResult(tx, matchId, { sets: toResultSets(score), status: 'completed' })
+      const saved = await saveMatchResult(tx, matchId, { sets: toResultSets(score), status: 'completed' }, 'live')
       if (!saved.ok) return fail(saved.status === 400 ? 422 : saved.status, saved.error, saved.code ?? 'RESULT_REJECTED')
       return { ok: true as const, value: { saved, tournamentId: live.value.tournamentId } }
     })

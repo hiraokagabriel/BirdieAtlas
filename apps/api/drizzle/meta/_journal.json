@@ -78,6 +78,20 @@
       "when": 1794637705934,
       "tag": "0010_registration_check_in",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794648171787,
+      "tag": "0011_match_result_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794648959608,
+      "tag": "0012_result_source_cascade",
+      "breakpoints": true
     }
   ]
 }

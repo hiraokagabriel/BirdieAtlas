@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
-import { draws, matches, matchLiveStates, matchResults, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
-import { eq, and, inArray, isNull } from 'drizzle-orm'
+import { draws, matches, matchLiveStates, matchResultEvents, matchResults, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
+import { eq, and, desc, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
@@ -379,7 +379,7 @@ export async function drawsRoutes(app: FastifyInstance) {
     const { matchId } = matchIdParams.parse(request.params)
     const body = upsertMatchResultSchema.parse(request.body)
 
-    const saved = await db.transaction((tx) => saveMatchResult(tx, matchId, body))
+    const saved = await db.transaction((tx) => saveMatchResult(tx, matchId, body, 'dialog'))
     if (!saved.ok) return reply.status(saved.status).send({ error: saved.error, ...(saved.code ? { code: saved.code } : {}) })
 
     // Quem acompanha o torneio ao vivo atualiza a chave (e some o placar provisório, se havia).
@@ -388,6 +388,16 @@ export async function drawsRoutes(app: FastifyInstance) {
       for (const resetId of saved.resetMatchIds) liveBus.publish(saved.tournamentId, { type: 'match-ended', matchId: resetId, reason: 'cancelled' })
     }
     return { match: saved.match, results: saved.results }
+  })
+
+  // Histórico de gravações do resultado (admin, ADMIN_ONLY_READS), da mais recente para a mais antiga.
+  app.get('/draws/matches/:matchId/result-history', async (request, reply) => {
+    const { matchId } = matchIdParams.parse(request.params)
+    const [match] = await db.select({ id: matches.id }).from(matches).where(eq(matches.id, matchId))
+    if (!match) return reply.status(404).send({ error: 'Match not found', code: 'MATCH_NOT_FOUND' })
+    const rows = await db.select().from(matchResultEvents).where(eq(matchResultEvents.matchId, matchId))
+      .orderBy(desc(matchResultEvents.createdAt), desc(matchResultEvents.id))
+    return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))
   })
 
   app.get('/draws/matches/:matchId/result', async (request) => {
