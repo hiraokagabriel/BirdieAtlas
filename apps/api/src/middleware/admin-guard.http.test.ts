@@ -2,6 +2,8 @@ import Fastify from 'fastify'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { registerErrorHandling } from '../http/errors.js'
 import { adminGuardHook, adminSessionRoutes, configureAdminPin, devAdminModeRoutes } from './admin-guard.js'
+import { registerNetwork } from '../http/network.js'
+import { readServerConfig } from '../domain/server-config.js'
 
 // Guard e sessão de admin pela pilha HTTP do Fastify, sem banco: uma escrita e uma leitura pública de mentira.
 
@@ -106,5 +108,20 @@ describe('com ADMIN_PIN', () => {
     expect(res.statusCode).toBe(403)
     expect(res.json().code).toBe('ADMIN_PIN_ENABLED')
     expect(env.DEV_ADMIN_MODE).toBe('false')
+  })
+})
+
+describe('produção: limite de tentativas de login', () => {
+  it('a 11ª tentativa no mesmo minuto responde 429, antes do bloqueio por PIN errado', async () => {
+    configureAdminPin('a'.repeat(16))
+    const app = Fastify()
+    await registerNetwork(app, readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'a'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0' }))
+    registerErrorHandling(app)
+    await app.register(adminSessionRoutes)
+    // O PIN certo não esgota o bloqueio de 5 erros: o que barra aqui é o limite da rota.
+    for (let i = 0; i < 10; i++) expect((await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: 'a'.repeat(16) } })).statusCode).toBe(200)
+    const blocked = await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: 'a'.repeat(16) } })
+    expect(blocked.statusCode).toBe(429)
+    expect(blocked.json().code).toBe('RATE_LIMITED')
   })
 })

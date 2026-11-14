@@ -127,18 +127,15 @@ export async function liveRoutes(app: FastifyInstance) {
     for (const close of [...openStreams]) close()
   })
 
-  app.get('/tournaments/:id/live', async (request, reply) => {
+  // Conexão longa: conta uma vez por conexão, com teto próprio para ninguém abrir streams sem limite.
+  app.get('/tournaments/:id/live', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { id } = tournamentParamsSchema.parse(request.params)
     if (!(await tournamentExists(id))) return reply.status(404).send({ error: 'Tournament not found', code: 'TOURNAMENT_NOT_FOUND' })
 
     // A resposta passa a ser escrita à mão: o Fastify não monta mais cabeçalhos nem serializa.
-    // Os que o @fastify/cors já pôs em `reply` (Access-Control-Allow-Origin, Vary) são copiados.
+    // Os que o @fastify/cors já pôs em `reply` (Access-Control-Allow-Origin, Vary) são copiados: origem fora da
+    // lista de CORS_ORIGINS fica sem o cabeçalho e o navegador recusa o stream.
     const headers: Record<string, string | number | string[] | undefined> = { ...reply.getHeaders(), ...SSE_HEADERS }
-    const origin = request.headers.origin
-    if (origin && headers['access-control-allow-origin'] === undefined) {
-      headers['access-control-allow-origin'] = origin
-      headers['vary'] = 'Origin'
-    }
     reply.hijack()
     const raw = reply.raw
     raw.writeHead(200, headers)

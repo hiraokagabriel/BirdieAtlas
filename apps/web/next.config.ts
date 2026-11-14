@@ -10,6 +10,19 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      // Cabeçalhos de segurança em todas as rotas (o HSTS só vale quando servido por HTTPS).
+      // Sem CSP completa por enquanto: o Next injeta scripts inline; frame-ancestors impede embutir o site.
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
       // O service worker nunca fica em cache: uma versão nova precisa chegar na hora.
       {
         source: "/sw.js",

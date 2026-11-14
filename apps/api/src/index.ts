@@ -1,7 +1,8 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
-import cors from '@fastify/cors'
 import { registerErrorHandling } from './http/errors.js'
+import { registerNetwork } from './http/network.js'
+import { readServerConfig } from './domain/server-config.js'
 import { adminGuardHook, adminSessionRoutes, configureAdminPin, devAdminModeRoutes } from './middleware/admin-guard.js'
 import { athletesRoutes } from './routes/athletes.js'
 import { athleteStatsRoutes } from './routes/athlete-stats.js'
@@ -20,24 +21,22 @@ import { registrationsRoutes } from './routes/registrations.js'
 import { reportsRoutes } from './routes/reports.js'
 import { importTournamentRoutes } from './routes/import-tournament.js'
 
-// O bloqueio de PIN é por IP do socket (trustProxy desligado). Com proxy reverso na frente, configure trustProxy.
-const app = Fastify({ logger: true })
+// Em produção, configuração insegura (modo admin global, PIN curto, sem CORS_ORIGINS) impede a subida.
+const config = readServerConfig(process.env)
+// TRUST_PROXY: quantos proxies há na frente (0 = IP do socket). O bloqueio de PIN e o rate limit usam esse IP.
+const app = Fastify({ logger: true, trustProxy: config.trustProxy })
 
 // Com ADMIN_PIN, o acesso admin passa a ser por sessão (PIN); PIN curto impede a subida.
 if (configureAdminPin(process.env['ADMIN_PIN'])) app.log.info('PIN de admin ativo: DEV_ADMIN_MODE é ignorado.')
 
-// O padrão do @fastify/cors só libera GET/HEAD/POST: sem a lista, o navegador bloqueia todo PUT, PATCH e DELETE.
-// `exposedHeaders`: sem ele o navegador esconde o nome do arquivo dos downloads CSV (Content-Disposition) do JavaScript.
-await app.register(cors, {
-  origin: true,
-  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  exposedHeaders: ['Content-Disposition'],
-})
+await registerNetwork(app, config)
 
 // Precisam vir antes das rotas: hooks e handlers da raiz valem para os plugins registrados depois.
 registerErrorHandling(app)
 app.addHook('onRequest', adminGuardHook)
 
+// Saúde para o provedor e o keep-alive: não toca o banco (o Neon pode dormir).
+app.get('/health', { config: { rateLimit: false } }, async () => ({ ok: true }))
 await app.register(devAdminModeRoutes)
 await app.register(adminSessionRoutes)
 await app.register(athletesRoutes)
