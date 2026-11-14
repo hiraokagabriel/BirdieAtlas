@@ -19,6 +19,7 @@
   "dependencies": {
     "@birdie-atlas/validators": "workspace:*",
     "@fastify/cors": "^11.3.1",
+    "@fastify/rate-limit": "11.2.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "0.41.0",
     "fastify": "^5.8.2",

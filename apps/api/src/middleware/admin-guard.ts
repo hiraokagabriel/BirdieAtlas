@@ -78,7 +78,8 @@ const loginSchema = z.object({ pin: z.string().trim().min(1).max(64) })
 export async function adminSessionRoutes(app: FastifyInstance) {
   app.get('/admin/session', async (request) => ({ pinRequired: adminSessions !== null, admin: isAdminRequest(request) }))
 
-  app.post('/admin/session', async (request, reply) => {
+  // Em produção, além do bloqueio por IP após 5 erros, no máximo 10 tentativas por minuto por IP.
+  app.post('/admin/session', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { pin } = loginSchema.parse(request.body)
     if (!adminSessions) {
       return reply.status(409).send({ error: 'O PIN de admin não está configurado nesta API.', code: 'ADMIN_PIN_NOT_CONFIGURED' })

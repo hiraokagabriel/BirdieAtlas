@@ -97,6 +97,8 @@ A navegação existe só para admin e público e vem de `apps/web/src/lib/naviga
 
 A API roda em `http://localhost:3001`, sem prefixo `/api`. O web a chama direto do navegador, então o CORS precisa liberar `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` e `OPTIONS` (o padrão do `@fastify/cors` libera só `GET`, `HEAD` e `POST`, e o navegador bloquearia toda escrita que não é `POST`). Teste de escrita com `curl` não pega esse problema: confira no navegador.
 
+**Produção (`NODE_ENV=production`, `apps/api/src/domain/server-config.ts`):** a API não sobe com `DEV_ADMIN_MODE=true`, sem `ADMIN_PIN` de pelo menos 16 caracteres ou sem `CORS_ORIGINS` (origens do site separadas por vírgula; `*` vale por um trecho de subdomínio, ex.: `https://birdieatlas-*.vercel.app` para os previews); a mensagem lista todos os problemas. Fora de produção o CORS reflete qualquer origem. `TRUST_PROXY` é o número de proxies na frente da API (padrão 0, IP do socket), usado pelo bloqueio de PIN e pelo limite de requisições. Em produção há limite de 300 requisições por minuto por IP (`@fastify/rate-limit`, em memória; `429 RATE_LIMITED` com `Retry-After`), 10 por minuto em `POST /admin/session`; o stream SSE e `GET /health` ficam fora. `GET /health` responde `{ ok: true }` sem tocar o banco. O web manda cabeçalhos de segurança em todas as rotas (HSTS, `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Permissions-Policy`). `db:seed`, como `db:reset`, recusa banco que não seja local ou `NODE_ENV=production`.
+
 ### Erros
 
 Todo erro tem o formato `{ error: string, code?: string, details?: unknown }`, produzido por um único handler (`apps/api/src/http/errors.ts`):
@@ -379,7 +381,7 @@ Comuns: `404 MATCH_NOT_FOUND`, `409 MATCH_NOT_LIVE` (ponto, desfazer, encerrar o
 
 `currentSet` é `null` quando há `winner` (falta só encerrar). `winner` é 1 ou 2.
 
-**Stream SSE.** `GET /tournaments/:id/live` é público (leitura) e responde `text/event-stream` com `Cache-Control: no-cache, no-transform`, `Connection: keep-alive` e `X-Accel-Buffering: no`. Como a resposta é escrita à mão (`reply.hijack()`), os cabeçalhos de CORS que o `@fastify/cors` já pôs na resposta (`Access-Control-Allow-Origin` refletindo a origem, `Vary: Origin`) são copiados para o `writeHead`. Eventos, com `id` crescente por conexão e `data` em JSON de uma linha:
+**Stream SSE.** `GET /tournaments/:id/live` é público (leitura) e responde `text/event-stream` com `Cache-Control: no-cache, no-transform`, `Connection: keep-alive` e `X-Accel-Buffering: no`. Como a resposta é escrita à mão (`reply.hijack()`), os cabeçalhos de CORS que o `@fastify/cors` já pôs na resposta (`Access-Control-Allow-Origin` para origem permitida, `Vary: Origin`) são copiados para o `writeHead`; origem fora de `CORS_ORIGINS` fica sem o cabeçalho. Eventos, com `id` crescente por conexão e `data` em JSON de uma linha:
 
 | `event` | `data` | Quando |
 |---|---|---|

@@ -54,6 +54,13 @@ const PROFILE = (() => {
 })() as 'small' | 'medium' | 'large'
 const RESET = args.includes('--reset')
 
+// Seed é só para banco local de desenvolvimento ou de teste: nunca em produção (o --reset apaga tabelas).
+const seedHost = new URL(process.env.DATABASE_URL ?? 'postgresql://localhost/birdie_atlas').hostname
+if (process.env['NODE_ENV'] === 'production' || !['localhost', '127.0.0.1', '::1'].includes(seedHost)) {
+  console.error(`db:seed recusado: só roda em banco local fora de produção (host "${seedHost}").`)
+  process.exit(1)
+}
+
 // Prefixo único por execução — garante slugs únicos sem precisar de --reset
 const RUN_ID = randomUUID().slice(0, 6)
 
