@@ -369,7 +369,7 @@ export async function registrationsRoutes(app: FastifyInstance) {
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
         ...(body.seed !== undefined ? { seed: body.seed } : {}),
         // Deixou de ser aprovada ou trocou de atleta: a presença confirmada não vale mais.
-        ...((changesStatus && nextStatus !== 'approved') || columns ? { checkedInAt: null } : {}),
+        ...((changesStatus && nextStatus !== 'approved') || changesParticipants ? { checkedInAt: null } : {}),
         updatedAt: new Date(),
       }).where(eq(tournamentRegistrations.id, registrationId))
       return { ok: true }
@@ -422,8 +422,16 @@ export async function registrationsRoutes(app: FastifyInstance) {
         if (error) return reply.status(422).send({ error, code: 'REGISTRATION_NOT_APPROVED' })
       }
 
+      // Grava com a condição relida no banco: um PATCH ou DELETE concorrente não deixa presença em inscrição não aprovada ou excluída.
       const checkedInAt = method === 'post' ? (current.checkedInAt ?? new Date()) : null
-      await db.update(tournamentRegistrations).set({ checkedInAt, updatedAt: new Date() }).where(eq(tournamentRegistrations.id, registrationId))
+      const changed = await db.update(tournamentRegistrations).set({ checkedInAt, updatedAt: new Date() })
+        .where(and(
+          eq(tournamentRegistrations.id, registrationId),
+          isNull(tournamentRegistrations.deletedAt),
+          ...(method === 'post' ? [eq(tournamentRegistrations.status, 'approved')] : []),
+        ))
+        .returning({ id: tournamentRegistrations.id })
+      if (changed.length === 0) return reply.status(409).send({ error: 'A inscrição mudou durante a operação. Recarregue e tente de novo.', code: 'REGISTRATION_CHANGED' })
       const [updated] = await selectRegistrations(eq(tournamentRegistrations.id, registrationId))
       return (await toResponses([updated!]))[0]!
     })

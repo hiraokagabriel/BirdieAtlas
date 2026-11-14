@@ -45,6 +45,18 @@ test.describe('check-in pela API', () => {
     expect((await checkIn('nao-existe')).status).toBe(404)
   })
 
+  test('remanejar de categoria mantém a presença', async () => {
+    const tournament = await createTournament({ status: 'registration_open' })
+    const from = await createCategory(tournament.id, { name: 'Simples A' })
+    const to = await createCategory(tournament.id, { name: 'Simples B' })
+    const athlete = await createAthlete({ gender: 'M' })
+    const reg = await api.post<RegistrationRow>(`/tournaments/categories/${from.id}/register`, { athleteId: athlete.id })
+    await api.post(`/registrations/${reg.id}/approve`, {})
+    const checked = (await checkIn(reg.id)).body.checkedInAt
+    const moved = await api.patch<RegistrationRow>(`/registrations/${reg.id}`, { categoryId: to.id })
+    expect(moved.checkedInAt).toBe(checked)
+  })
+
   test('torneio encerrado não aceita check-in', async () => {
     const done = await prepareTournament({ athleteCount: 2 })
     await playWholeDraw(done.draw.id)
