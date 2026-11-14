@@ -274,8 +274,22 @@ export function tvCourtSlots(live: readonly LiveMatch[], queue: readonly QueueMa
   return slots
 }
 
-/** "14:30" no fuso do aparelho; vazio sem horário. */
-export function formatTvTime(iso: string | null): string {
+/** "14:30" no fuso do aparelho; em outro dia, "15/03 14:30". Vazio sem horário. */
+export function formatTvTime(iso: string | null, now: Date = new Date()): string {
   if (!iso) return ''
-  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso))
+  const date = new Date(iso)
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)
+  if (date.toDateString() === now.toDateString()) return time
+  return `${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(date)} ${time}`
+}
+
+/** Próximas partidas do telão: por horário (sem horário no fim), depois quadra (sem quadra no fim). A API ordena por quadra. */
+export function tvUpcoming(queue: readonly QueueMatch[], limit: number): QueueMatch[] {
+  const time = (m: QueueMatch) => (m.scheduledAt ? Date.parse(m.scheduledAt) : Number.POSITIVE_INFINITY)
+  const court = (m: QueueMatch) => m.courtNumber ?? Number.POSITIVE_INFINITY
+  return queue
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => time(a.m) - time(b.m) || court(a.m) - court(b.m) || a.i - b.i)
+    .slice(0, limit)
+    .map(({ m }) => m)
 }

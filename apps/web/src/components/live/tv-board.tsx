@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Maximize, Minimize, WifiOff } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { formatTvTime, liveTitle, tvCourtSlots, type LiveMatch, type QueueMatch, type TvCourtSlot } from '@/lib/live'
+import { formatTvTime, liveTitle, tvCourtSlots, tvUpcoming, type LiveMatch, type QueueMatch, type TvCourtSlot } from '@/lib/live'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConnectionBadge } from './live-now'
 import { useLiveMatches } from './use-live-matches'
@@ -107,7 +107,7 @@ function QueueList({ queue }: { queue: readonly QueueMatch[] }) {
   if (queue.length === 0) return <p className="text-lg text-muted-foreground">Nenhuma partida aguardando.</p>
   return (
     <ol className="divide-y divide-border rounded-2xl border border-border bg-card">
-      {queue.slice(0, QUEUE_SHOWN).map((m) => (
+      {tvUpcoming(queue, QUEUE_SHOWN).map((m) => (
         <li key={m.matchId} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
           <span className="w-14 shrink-0 text-xl font-semibold tabular-nums">{formatTvTime(m.scheduledAt) || '--:--'}</span>
           <span className="w-24 shrink-0 text-lg text-muted-foreground">{m.courtNumber != null ? `Quadra ${m.courtNumber}` : 'Sem quadra'}</span>
@@ -130,15 +130,21 @@ export function TvBoard({ tournamentId, slug, name }: { tournamentId: string; sl
     refetchInterval: QUEUE_REFRESH_MS,
   })
 
-  // Partida que começa sai da fila: recarrega quando muda o número de partidas ao vivo.
+  // Partida que começa sai da fila: recarrega quando aumenta o número de partidas ao vivo (o fim já vem por onMatchEnded).
   const liveCount = live.matches.length
+  const previousLiveCount = useRef<number | null>(null)
   useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: ['tv-queue', tournamentId] })
-  }, [liveCount, queryClient, tournamentId])
+    if (!live.loaded) return
+    const previous = previousLiveCount.current
+    previousLiveCount.current = liveCount
+    if (previous !== null && liveCount > previous) void queryClient.invalidateQueries({ queryKey: ['tv-queue', tournamentId] })
+  }, [live.loaded, liveCount, queryClient, tournamentId])
 
   const loading = (!live.loaded && !live.error) || queue.isPending
   const failed = (live.error && !live.loaded) || (queue.isError && !queue.data)
   const slots = tvCourtSlots(live.matches, queue.data ?? [])
+  // Com dados na tela, uma falha posterior não some: avisa que podem estar desatualizados.
+  const stale = !loading && !failed && (queue.isError || live.error !== null)
 
   return (
     <div className="min-h-screen space-y-6 bg-background p-4 text-foreground sm:p-6 lg:p-8">
@@ -160,6 +166,11 @@ export function TvBoard({ tournamentId, slug, name }: { tournamentId: string; sl
 
       <main className="space-y-6">
         <div aria-live="polite" aria-atomic="true" className="sr-only">{live.announcement}</div>
+        {stale && (
+          <p role="status" className="rounded-lg border border-warning px-4 py-2 text-base text-warning">
+            Sem conexão com a API: os dados podem estar desatualizados. Tentando de novo.
+          </p>
+        )}
 
         {loading ? (
           <div role="status" aria-label="Carregando o telão" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
