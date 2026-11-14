@@ -146,7 +146,7 @@ export async function reportsRoutes(app: FastifyInstance) {
       .send(csv)
   })
 
-  // Admin (ADMIN_ONLY_READS): cadastro de atletas. Sem e-mail nem data de nascimento.
+  // Admin (ADMIN_ONLY_READS): cadastro de atletas. Sem ano de nascimento.
   app.get('/athletes/export.csv', async (_request, reply) => {
     const list = await db.select({ id: athletes.id, name: athletes.name, gender: athletes.gender, active: athletes.active })
       .from(athletes).where(isNull(athletes.deletedAt)).orderBy(asc(athletes.name), asc(athletes.id))

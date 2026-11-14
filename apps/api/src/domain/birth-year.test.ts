@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { birthYearSchema, optionalBirthYearSchema } from './birth-year.js'
 
-const now = new Date('2026-11-14T12:00:00Z')
+const now = () => new Date('2026-11-14T12:00:00Z')
 
 describe('birthYearSchema', () => {
   it('aceita de 1900 até o ano corrente, também como texto', () => {

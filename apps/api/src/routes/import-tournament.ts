@@ -105,11 +105,19 @@ export async function importTournamentRoutes(app: FastifyInstance) {
       let match: (typeof athleteRows)[number] | undefined
 
       const candidates = byName.get(fold(person.name)) ?? []
-      if (candidates.length === 1) match = candidates[0]
-      else if (candidates.length > 1) {
+      if (candidates.length === 1) {
+        match = candidates[0]
+        // Sem e-mail, nome único é a mesma pessoa; o clube diferente só é avisado (pode ter trocado de clube).
+        if (match && person.club && match.clubName && fold(match.clubName) !== fold(person.club)) {
+          warnings.push({ sheet: 'Inscritos', row: rows[0]!, field: 'Clube', message: `${person.name} já está cadastrado(a) no clube ${match.clubName}; a planilha diz ${person.club}. Usei o cadastro existente.` })
+        }
+      } else if (candidates.length > 1) {
         const narrowed = person.club ? candidates.filter((c) => c.clubName && fold(c.clubName) === fold(person.club)) : []
         if (narrowed.length === 1) match = narrowed[0]
-        else {
+        else if (narrowed.length > 1) {
+          at(`Há ${narrowed.length} atletas chamados "${person.name}" no clube ${person.club}. Diferencie o nome no cadastro antes de importar.`)
+          continue
+        } else {
           const clubsSeen = [...new Set(candidates.map((c) => c.clubName ?? 'sem clube'))].join(', ')
           at(`Há ${candidates.length} atletas chamados "${person.name}" (${clubsSeen}). Informe o clube para eu saber qual é.`)
           continue
