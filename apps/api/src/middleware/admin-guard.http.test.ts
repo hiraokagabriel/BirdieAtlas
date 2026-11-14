@@ -16,7 +16,7 @@ async function buildApp() {
   return app
 }
 
-const PIN = '135790'
+const PIN = '13579024'
 // Alias: o lint do turbo cobra variáveis de ambiente lidas direto de process.env.
 const env = process.env as { DEV_ADMIN_MODE?: string }
 let savedDevMode: string | undefined
@@ -73,14 +73,21 @@ describe('com ADMIN_PIN', () => {
     configureAdminPin(PIN)
     const app = await buildApp()
     for (let i = 0; i < 4; i++) {
-      const res = await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: '000000' } })
+      const res = await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: '00000000' } })
       expect(res.statusCode).toBe(401)
       expect(res.json().code).toBe('INVALID_PIN')
     }
-    const locked = await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: '000000' } })
+    const locked = await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: '00000000' } })
     expect(locked.statusCode).toBe(429)
     expect(locked.json().code).toBe('TOO_MANY_ATTEMPTS')
     expect(locked.headers['retry-after']).toBe('60')
+  })
+
+  it('espaços nas pontas do PIN digitado são ignorados', async () => {
+    configureAdminPin(PIN)
+    const app = await buildApp()
+    const res = await app.inject({ method: 'POST', url: '/admin/session', payload: { pin: ` ${PIN} ` } })
+    expect(res.statusCode).toBe(200)
   })
 
   it('corpo inválido é 400 VALIDATION_ERROR', async () => {

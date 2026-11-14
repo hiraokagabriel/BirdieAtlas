@@ -72,7 +72,7 @@ export async function adminGuardHook(request: FastifyRequest, reply: FastifyRepl
 // GET/POST/DELETE /admin/session — estado, entrada com PIN e saída.
 // ---------------------------------------------------------------------------
 
-const loginSchema = z.object({ pin: z.string().min(1).max(64) })
+const loginSchema = z.object({ pin: z.string().trim().min(1).max(64) })
 
 export async function adminSessionRoutes(app: FastifyInstance) {
   app.get('/admin/session', async (request) => ({ pinRequired: adminSessions !== null, admin: isAdminRequest(request) }))

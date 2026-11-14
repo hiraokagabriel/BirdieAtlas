@@ -4,7 +4,8 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 // recebe um token (enviado em `Authorization: Bearer`) e o modo admin global deixa de existir.
 // Tudo em memória: reiniciar a API derruba as sessões, e é o esperado.
 
-export const ADMIN_PIN_MIN_LENGTH = 6
+// 8+: com o bloqueio por IP, mesmo vários aparelhos na rede levariam meses para testar 10^8 PINs numéricos.
+export const ADMIN_PIN_MIN_LENGTH = 8
 export const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000
 export const MAX_FAILED_PIN_ATTEMPTS = 5
 export const PIN_LOCKOUT_MS = 60 * 1000
@@ -46,6 +47,7 @@ export class AdminSessions {
       // Ao bloquear, a contagem volta a zero: depois do minuto, mais 5 tentativas.
       const count = (failure?.count ?? 0) + 1
       const locked = count >= MAX_FAILED_PIN_ATTEMPTS
+      for (const [key, f] of this.failures) if (f.lockedUntil !== 0 && f.lockedUntil <= now) this.failures.delete(key)
       this.failures.set(clientKey, { count: locked ? 0 : count, lockedUntil: locked ? now + PIN_LOCKOUT_MS : 0 })
       return locked ? { ok: false, reason: 'locked', retryAfterMs: PIN_LOCKOUT_MS } : { ok: false, reason: 'invalid_pin' }
     }

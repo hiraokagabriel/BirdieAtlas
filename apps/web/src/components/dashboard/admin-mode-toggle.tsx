@@ -58,6 +58,11 @@ export function AdminModeToggle() {
             : mode.isAdmin ? 'Admin ON' : 'Admin OFF'}
         </span>
       </button>
+      {mode.error && (
+        <p role="alert" className="fixed bottom-16 right-5 z-50 max-w-xs rounded-md border border-destructive bg-background px-3 py-2 text-xs font-medium text-destructive shadow-lg">
+          {mode.error}
+        </p>
+      )}
       {mode.pinRequired && <PinDialog open={pinOpen} onClose={() => setPinOpen(false)} login={mode.login} />}
     </>
   )

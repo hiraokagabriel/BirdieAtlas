@@ -59,6 +59,8 @@ export function useAdminMode() {
     pinRequired: session.data?.pinRequired ?? false,
     isAdmin: session.data?.admin ?? false,
     isSyncing: toggleGlobal.isPending || login.isPending || logout.isPending,
+    /** Falha ao alternar o modo global ou ao sair (o erro do login aparece no diálogo). */
+    error: (toggleGlobal.error ?? logout.error)?.message ?? null,
     toggleGlobal: (enabled: boolean) => toggleGlobal.mutate(enabled),
     login,
     logout: () => logout.mutate(),

@@ -21,6 +21,7 @@ import { registrationsRoutes } from './routes/registrations.js'
 import { reportsRoutes } from './routes/reports.js'
 import { importTournamentRoutes } from './routes/import-tournament.js'
 
+// O bloqueio de PIN é por IP do socket (trustProxy desligado). Com proxy reverso na frente, configure trustProxy.
 const app = Fastify({ logger: true })
 
 // Com ADMIN_PIN, o acesso admin passa a ser por sessão (PIN); PIN curto impede a subida.
