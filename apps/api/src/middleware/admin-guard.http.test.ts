@@ -115,7 +115,7 @@ describe('produção: limite de tentativas de login', () => {
   it('a 11ª tentativa no mesmo minuto responde 429, antes do bloqueio por PIN errado', async () => {
     configureAdminPin('a'.repeat(16))
     const app = Fastify()
-    await registerNetwork(app, readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'a'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0' }))
+    await registerNetwork(app, readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'a'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0', ADMIN_SESSION_SECRET: 's'.repeat(32) }))
     registerErrorHandling(app)
     await app.register(adminSessionRoutes)
     // O PIN certo não esgota o bloqueio de 5 erros: o que barra aqui é o limite da rota.

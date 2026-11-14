@@ -78,3 +78,42 @@ describe('bearerToken', () => {
     expect(bearerToken(undefined)).toBeNull()
   })
 })
+
+describe('token assinado (sobrevive a reinício)', () => {
+  const login = (s: AdminSessions) => {
+    const r = s.login('24681012', 'ip')
+    if (!r.ok) throw new Error('login falhou')
+    return r.token
+  }
+
+  it('outra instância com o mesmo PIN e segredo aceita o token (API reiniciada)', () => {
+    const token = login(new AdminSessions('24681012', Date.now, 'segredo'))
+    expect(new AdminSessions('24681012', Date.now, 'segredo').isValid(token)).toBe(true)
+  })
+
+  it('trocar o PIN ou o segredo revoga todas as sessões', () => {
+    const token = login(new AdminSessions('24681012', Date.now, 'segredo'))
+    expect(new AdminSessions('99999999', Date.now, 'segredo').isValid(token)).toBe(false)
+    expect(new AdminSessions('24681012', Date.now, 'outro').isValid(token)).toBe(false)
+  })
+
+  it('assinatura ou prazo adulterados não valem', () => {
+    const s = new AdminSessions('24681012')
+    const token = login(s)
+    const [v, stamp, nonce, sig] = token.split('.')
+    const later = (parseInt(stamp!, 36) + 60_000).toString(36)
+    expect(s.isValid(`${v}.${later}.${nonce}.${sig}`)).toBe(false)
+    expect(s.isValid(`${v}.${stamp}.${nonce}.${sig!.slice(0, -1)}${sig!.endsWith('A') ? 'B' : 'A'}`)).toBe(false)
+    expect(s.isValid('v1.abc')).toBe(false)
+  })
+
+  it('cada login gera um token diferente; sair revoga só o seu', () => {
+    const s = new AdminSessions('24681012')
+    const a = login(s)
+    const b = login(s)
+    expect(a).not.toBe(b)
+    s.revoke(a)
+    expect(s.isValid(a)).toBe(false)
+    expect(s.isValid(b)).toBe(true)
+  })
+})

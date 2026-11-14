@@ -34,10 +34,13 @@ const GUARD_EXEMPT = new Set(['/dev/admin-mode', '/admin/session'])
 
 let adminSessions: AdminSessions | null = null
 
-/** Liga (PIN válido) ou desliga (vazio) o modo PIN. Chamado na subida da API; PIN curto lança erro. */
-export function configureAdminPin(raw: string | undefined): boolean {
+/**
+ * Liga (PIN válido) ou desliga (vazio) o modo PIN. Chamado na subida da API; PIN curto lança erro.
+ * `secret` (ADMIN_SESSION_SECRET) entra na chave que assina os tokens; obrigatório em produção.
+ */
+export function configureAdminPin(raw: string | undefined, secret = ''): boolean {
   const pin = parseAdminPin(raw)
-  adminSessions = pin ? new AdminSessions(pin) : null
+  adminSessions = pin ? new AdminSessions(pin, Date.now, secret) : null
   return adminSessions !== null
 }
 

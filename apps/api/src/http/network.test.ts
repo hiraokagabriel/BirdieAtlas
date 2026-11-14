@@ -4,7 +4,7 @@ import { registerErrorHandling } from './errors.js'
 import { READ_LIMIT_PER_MINUTE, WRITE_LIMIT_PER_MINUTE, registerNetwork } from './network.js'
 import { readServerConfig } from '../domain/server-config.js'
 
-const prod = readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0' })
+const prod = readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0', ADMIN_SESSION_SECRET: 's'.repeat(32) })
 
 async function buildApp(config = prod) {
   const app = Fastify()

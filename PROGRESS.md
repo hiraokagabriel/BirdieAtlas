@@ -45,7 +45,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Tenant padrão no servidor | ✅ | `DEFAULT_TENANT_SLUG` |
 | PIN de admin para a rede local | ✅ | `ADMIN_PIN` na API: escrita só com sessão aberta pelo PIN (12 h, token no navegador), bloqueio de 1 min após 5 erros, modo admin global desligado. Cobre o uso em rede local até o Clerk. Testes: unitários e HTTP (Fastify inject) na API; o fluxo no navegador foi verificado à mão, porque o E2E roda sem PIN |
 | Autenticação (Better Auth), papéis e seletor de tenant | ❌ | Fase 6 do plano online. Sem ela e sem `ADMIN_PIN`, nenhuma escrita é possível em produção |
-| Versão online (Vercel, Render, Neon) | 🟡 | Plano aprovado em `docs/PLANO_ONLINE.md`. Feitas: fase 0 (decisões), 1a (minimização de dados) e 1 (endurecimento: config de produção, CORS por lista, rate limit, trustProxy, /health, cabeçalhos, seed protegido). Próximas: 2 a 7 |
+| Versão online (Vercel, Render, Neon) | 🟡 | Plano aprovado em `docs/PLANO_ONLINE.md`. Feitas: fase 0 (decisões), 1a (minimização de dados) 1 (endurecimento: config de produção, CORS por lista, rate limit, trustProxy, /health, cabeçalhos, seed protegido) e 2 (sessão do PIN assinada, sobrevive a reinício). Próximas: 3 a 7 (a 3 precisa das contas Vercel, Render e Neon do usuário) |
 
 ## Phase 1 — Atletas, clubes e duplas
 

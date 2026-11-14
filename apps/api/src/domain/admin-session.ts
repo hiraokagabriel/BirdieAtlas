@@ -1,8 +1,10 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 // Sessões de admin por PIN, para a rede local. Com `ADMIN_PIN` definido, só quem digitou o PIN
 // recebe um token (enviado em `Authorization: Bearer`) e o modo admin global deixa de existir.
-// Tudo em memória: reiniciar a API derruba as sessões, e é o esperado.
+// O token é assinado (HMAC), sem guardar sessão: reiniciar a API (deploy, hibernação do provedor) não derruba
+// ninguém. A chave vem do PIN e de ADMIN_SESSION_SECRET, então trocar qualquer um dos dois revoga todas as sessões.
+// Sair revoga o token só em memória (volta a valer se a API reiniciar antes de ele expirar).
 
 // 8+: com o bloqueio por IP, mesmo vários aparelhos na rede levariam meses para testar 10^8 PINs numéricos.
 export const ADMIN_PIN_MIN_LENGTH = 8
@@ -29,11 +31,17 @@ export type LoginResult =
 
 export class AdminSessions {
   private readonly pinDigest: Buffer
-  private readonly sessions = new Map<string, number>()
+  private readonly signingKey: Buffer
+  private readonly revoked = new Map<string, number>()
   private readonly failures = new Map<string, { count: number; lockedUntil: number }>()
 
-  constructor(pin: string, private readonly now: () => number = Date.now) {
+  constructor(pin: string, private readonly now: () => number = Date.now, secret = '') {
     this.pinDigest = digest(pin)
+    this.signingKey = createHmac('sha256', `birdie-admin-session:${secret}`).update(pin).digest()
+  }
+
+  private sign(payload: string): string {
+    return createHmac('sha256', this.signingKey).update(`v1.${payload}`).digest('base64url')
   }
 
   /** `clientKey` identifica quem tenta (o IP): 5 PINs errados seguidos bloqueiam esse cliente por 1 minuto. */
@@ -53,26 +61,35 @@ export class AdminSessions {
     }
 
     this.failures.delete(clientKey)
-    for (const [token, expiresAt] of this.sessions) if (expiresAt <= now) this.sessions.delete(token)
-    const token = randomBytes(32).toString('base64url')
+    // Formato v1.<prazo em base 36>.<nonce>.<assinatura>: o nonce deixa cada sessão única (sair revoga só a sua).
     const expiresAt = now + ADMIN_SESSION_TTL_MS
-    this.sessions.set(token, expiresAt)
-    return { ok: true, token, expiresAt: new Date(expiresAt) }
+    const payload = `${expiresAt.toString(36)}.${randomBytes(9).toString('base64url')}`
+    return { ok: true, token: `v1.${payload}.${this.sign(payload)}`, expiresAt: new Date(expiresAt) }
+  }
+
+  /** Prazo do token se a assinatura confere, ou null. Não olha a revogação. */
+  private expiry(token: string | null): number | null {
+    const match = /^v1\.(([0-9a-z]{1,12})\.[A-Za-z0-9_-]{12})\.([A-Za-z0-9_-]{43})$/.exec(token ?? '')
+    const [, payload, stamp, signature] = match ?? []
+    if (!payload || !stamp || !signature) return null
+    const expected = Buffer.from(this.sign(payload))
+    if (!timingSafeEqual(Buffer.from(signature), expected)) return null
+    const expiresAt = parseInt(stamp, 36)
+    const now = this.now()
+    // Prazo além do TTL só sairia de uma chave vazada: recusa.
+    return expiresAt > now && expiresAt <= now + ADMIN_SESSION_TTL_MS ? expiresAt : null
   }
 
   isValid(token: string | null): boolean {
-    if (!token) return false
-    const expiresAt = this.sessions.get(token)
-    if (expiresAt === undefined) return false
-    if (expiresAt <= this.now()) {
-      this.sessions.delete(token)
-      return false
-    }
-    return true
+    return this.expiry(token) !== null && !this.revoked.has(token as string)
   }
 
   revoke(token: string | null): void {
-    if (token) this.sessions.delete(token)
+    const expiresAt = this.expiry(token)
+    if (expiresAt === null) return
+    const now = this.now()
+    for (const [t, exp] of this.revoked) if (exp <= now) this.revoked.delete(t)
+    this.revoked.set(token as string, expiresAt)
   }
 }
 
