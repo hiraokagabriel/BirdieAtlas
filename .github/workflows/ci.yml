@@ -36,6 +36,9 @@ jobs:
       - name: Test
         run: pnpm turbo run test
 
+      - name: Test root scripts
+        run: pnpm test:scripts
+
       - name: Build
         run: pnpm turbo run build
 

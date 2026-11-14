@@ -11,7 +11,8 @@
     "e2e": "pnpm --filter @birdie-atlas/validators build && pnpm --filter @birdie-atlas/e2e e2e",
     "e2e:install": "pnpm --filter @birdie-atlas/e2e exec playwright install chromium",
     "db:backup": "node scripts/db-backup.mjs",
-    "db:restore": "node scripts/db-restore.mjs"
+    "db:restore": "node scripts/db-restore.mjs",
+    "test:scripts": "node --test \"scripts/*.test.mjs\""
   },
   "devDependencies": {
     "prettier": "^3.7.4",

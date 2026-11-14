@@ -542,7 +542,7 @@ Os testes de ponta a ponta ficam em `apps/e2e` (Playwright, só Chromium) e roda
 
 - Mudanças de schema só por migration gerada: `db:generate` e depois `db:migrate`. `db:push` é proibido.
 - `db:reset` apaga e recria o banco a partir das migrations. Ele recusa produção e hosts não locais.
-- Backup: `pnpm db:backup` grava `backups/<banco>-<data>.dump` (`pg_dump -Fc` no contêiner); `pnpm db:restore <arquivo> --yes` restaura numa transação só, depois de um backup automático do estado atual. `backups/` fica fora do Git (dados pessoais). Detalhes em `docs/SETUP.md`.
+- Backup: `pnpm db:backup` grava `backups/<banco>-<data>.dump` (`pg_dump -Fc` no contêiner); `pnpm db:restore <arquivo> --yes` apaga os schemas `public` e `drizzle` e restaura numa transação só, depois de um backup automático do estado atual (backup antigo: rode `db:migrate` em seguida). `backups/` fica fora do Git (dados pessoais). Detalhes em `docs/SETUP.md`.
 - Índices em chaves estrangeiras e colunas de busca frequente; constraints de integridade (unique, FK, check).
 
 ### Textos
