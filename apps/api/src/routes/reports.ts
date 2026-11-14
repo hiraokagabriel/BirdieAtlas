@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
+import { z } from 'zod'
 import { tournamentRegistrationsParamsSchema } from '@birdie-atlas/validators'
 import { db } from '../db/index.js'
 import { selectRegistrations } from '../db/registrations.js'
-import { z } from 'zod'
 import { athleteAffiliations, athletes, clubs, draws, matchResults, matches, tournamentCategories, tournaments } from '../db/schema.js'
 import { buildCsv, csvAttachmentHeader } from '../domain/csv.js'
 import {

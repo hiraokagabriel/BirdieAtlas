@@ -166,7 +166,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
               </div>
             </div>
             {/* Botões de ação */}
-            <div className="mb-1 flex items-center gap-2 shrink-0">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
               <Link
                 href={`/c/${club.slug}`}
                 target="_blank"

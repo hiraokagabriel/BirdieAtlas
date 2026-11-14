@@ -7,7 +7,7 @@ Quando alguém executar, registre o resultado na tabela do fim e atualize a linh
 ## Preparação
 
 - Combinações mínimas: **NVDA + Firefox** e **NVDA + Chrome** (Windows); **VoiceOver + Safari** (macOS ou iOS); **TalkBack + Chrome** (Android). JAWS é desejável.
-- Ambiente: `docker compose up -d`, `pnpm db:reset && pnpm db:seed`, API e web em desenvolvimento (`DEV_ADMIN_MODE=true`).
+- Ambiente: `docker compose up -d`, `pnpm --filter @birdie-atlas/api db:reset && pnpm --filter @birdie-atlas/api db:seed` (apaga o banco local e recria pelas migrations), API e web em desenvolvimento (`DEV_ADMIN_MODE=true`).
 - Navegador sem extensões. Teste nos temas claro e escuro e, uma vez, com zoom de texto em 200%.
 - Use só o teclado e o leitor. Mouse não conta como passo.
 
