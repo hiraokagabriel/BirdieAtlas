@@ -10,6 +10,7 @@ Plataforma web para gestão de campeonatos de badminton: atletas, clubes, duplas
 - [Contrato de inscrições](docs/api/tournament-registrations.md): contrato do PR 3b.
 - [Fluxo de trabalho](workflow.md): da branch ao merge, com gates, verificação e checklist do PR.
 - [Instalação em máquina nova](docs/SETUP.md): roteiro para o Claude Code instalar e verificar tudo sozinho.
+- [Produção](docs/PRODUCAO.md): passo a passo para publicar a versão online (Neon, Render, Vercel) sem custo. Plano em [`docs/PLANO_ONLINE.md`](docs/PLANO_ONLINE.md).
 - [CLAUDE.md](CLAUDE.md): regras para agentes de código.
 
 ## Rodando localmente
