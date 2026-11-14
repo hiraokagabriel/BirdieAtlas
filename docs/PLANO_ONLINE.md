@@ -303,7 +303,7 @@ Cada PR roda `pnpm turbo run check-types lint test build` e passa pelo `birdie-v
 
 **Fase 3: infraestrutura e primeiro deploy (sem dados reais)**
 
-- **Muda:** contas Neon, Render e Vercel; job `deploy-api`; `.node-version` (20); nova seção "Produção" em `docs/SETUP.md` (variáveis, deploy, runbook).
+- **Muda:** contas Neon, Render e Vercel (feitas pelo usuário); workflow `deploy.yml` (migrations e Deploy Hook, depois do CI verde na `main`; sem secrets, não faz nada); `.node-version` (20); passo a passo em [`PRODUCAO.md`](PRODUCAO.md). A parte de código foi preparada antes das contas.
 - **Banco:** primeiro deploy com `db:migrate` num banco vazio e um tenant criado à mão.
 - **Pronto quando**, em produção:
   - páginas públicas abrem;
