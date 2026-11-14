@@ -105,7 +105,7 @@ const TOURNAMENT_LABELS: Record<string, keyof TournamentFields> = {
 
 /** CSV com aspas (RFC 4180), separador `;` (Excel em português) ou `,`, e BOM opcional. */
 export function parseCsv(text: string): string[][] {
-  const source = text.replace(/^﻿/, '')
+  const source = text.replace(/^\uFEFF/, '')
   const firstLine = source.split(/\r?\n/, 1)[0] ?? ''
   const delimiter = (firstLine.match(/;/g)?.length ?? 0) >= (firstLine.match(/,/g)?.length ?? 0) && firstLine.includes(';') ? ';' : ','
 
