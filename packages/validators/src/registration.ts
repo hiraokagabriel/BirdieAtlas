@@ -78,6 +78,8 @@ export const registrationResponseSchema = z.object({
   seed: z.number().int().nullable(),
   status: registrationStatusSchema,
   notes: z.string().nullable(),
+  /** Presença confirmada no dia (ISO) ou null. */
+  checkedInAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 }).strict();

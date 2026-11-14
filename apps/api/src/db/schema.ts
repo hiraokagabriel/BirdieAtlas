@@ -196,6 +196,8 @@ export const tournamentRegistrations = pgTable('tournament_registrations', {
   notes: text('notes'),
   rankingPointsAtEntry: integer('ranking_points_at_entry'),
   finalPlacement: integer('final_placement'),
+  // Presença confirmada na mesa no dia do torneio (check-in). Só inscrições aprovadas.
+  checkedInAt: timestamp('checked_in_at'),
   ...softDelete,
   ...timestamps,
 }, (table) => [

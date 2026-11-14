@@ -45,6 +45,9 @@ export type QueueMatch = {
   scheduledAt: string | null
   participant1: string
   participant2: string
+  /** Presença confirmada (check-in) de cada lado. */
+  checkedIn1: boolean
+  checkedIn2: boolean
 }
 
 export type LiveEndReason = 'finished' | 'cancelled'

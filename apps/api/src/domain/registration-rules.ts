@@ -30,6 +30,11 @@ export function validateRegistrationStatusChange(
   return null;
 }
 
+/** Check-in (presença no dia) só vale para inscrição aprovada. */
+export function checkInError(status: RegistrationStatus): string | null {
+  return status === "approved" ? null : "Só inscrições aprovadas podem fazer check-in.";
+}
+
 export function canEditRegistration(tournamentStatus: TournamentStatus): boolean {
   return !["completed", "cancelled"].includes(tournamentStatus);
 }
