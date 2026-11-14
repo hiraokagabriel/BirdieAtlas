@@ -29,7 +29,7 @@ pnpm dev
 - Web: http://localhost:3000 (admin em `/admin`)
 - API: http://localhost:3001
 
-`DEV_ADMIN_MODE=true` no `.env` da API libera as escritas enquanto não há autenticação. Em rede local com público no mesmo Wi-Fi, defina `ADMIN_PIN` (8+ caracteres): só quem digitar o PIN escreve. Para recriar o banco local do zero: `pnpm --filter @birdie-atlas/api db:reset`.
+`DEV_ADMIN_MODE=true` no `.env` da API libera as escritas enquanto não há autenticação. Em rede local com público no mesmo Wi-Fi, defina `ADMIN_PIN` (8+ caracteres): só quem digitar o PIN escreve. Para recriar o banco local do zero: `pnpm --filter @birdie-atlas/api db:reset`. Backup: `pnpm db:backup` (restaurar: `pnpm db:restore <arquivo> --yes`; ver `docs/SETUP.md`).
 
 ## Configurar em outra máquina (Claude Code)
 

@@ -43,3 +43,6 @@ birdatlas.7z
 playwright-report/
 test-results/
 .playwright-cli/
+
+# Backups do banco (contêm dados pessoais de atletas)
+backups/

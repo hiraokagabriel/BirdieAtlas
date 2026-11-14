@@ -136,6 +136,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 
 | Item | Situação | Observação |
 |---|---|---|
+| Backup e restauração do banco | ✅ | `pnpm db:backup` e `pnpm db:restore <arquivo> --yes` pelo contêiner; restauração com backup automático antes e em transação única. Sem botão no admin: a API não tem acesso ao `pg_dump` |
 | Testes unitários de domínio (Vitest) | ✅ | |
 | Testes E2E com Playwright | ✅ | `apps/e2e`, `pnpm e2e`, job `e2e` no CI. Cobre: portal público (home, busca, perfil, torneio encerrado com campeão, ranking e CSV, compartilhar, 404), ciclo de vida do torneio no admin, inscrições pela interface (inscrever, aprovar, recusar com motivo, reabrir, remover), cadastros (atletas, importação de CSV, clubes, duplas), rankings e regras de pontos no admin (criar, regra, vincular, recalcular, editar), relatórios CSV, agenda automática, placar ao vivo com SSE, tema, guard de modo admin e a auditoria de acessibilidade (axe, teclado e foco) |
 | PWA (instalável, página sem conexão) | ✅ | Manifesto, ícones, service worker mínimo; instalar exige HTTPS ou localhost |

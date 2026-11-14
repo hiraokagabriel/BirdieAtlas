@@ -23,6 +23,7 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 
 - Schema único em `apps/api/src/db/schema.ts`. Mudou o schema: `db:generate`, revise o SQL, `db:migrate`. `db:push` é proibido.
 - `db:reset` apaga o banco local e recria pelas migrations; depois rode `db:seed`. O banco local é descartável.
+- `pnpm db:backup` e `pnpm db:restore <arquivo> --yes` (raiz) fazem backup e restauração pelo contêiner. Agente nunca roda `db:restore` no banco `birdie_atlas`; para testar, use `--db birdieatlas_e2e`.
 - Em `matches`, a rodada 1 é a final e a rodada de número mais alto é a primeira fase. Use o gerador de `apps/api/src/domain/bracket.ts`; não monte chaves à mão.
 
 ## Web
