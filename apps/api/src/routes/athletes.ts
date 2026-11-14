@@ -10,12 +10,12 @@ import { paginate } from '../domain/pagination.js'
 import { getDefaultTenantId } from '../tenant.js'
 import { publicAthleteColumns } from '../db/public-columns.js'
 import { ACCENTED_CHARS, PLAIN_CHARS, athleteSearchQuerySchema, toSearchPatterns } from '../domain/athlete-search.js'
+import { optionalBirthYearSchema } from '../domain/birth-year.js'
 
 const createAthleteSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email().optional(),
   gender: z.enum(['M', 'F']),
-  birthDate: z.string().optional(),
+  birthYear: optionalBirthYearSchema().optional(),
   nationality: z.string().default('BR'),
   photoUrl: z.string().url().optional(),
 })
@@ -24,13 +24,8 @@ const createAthleteSchema = z.object({
 const csvRowSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   gender: z.enum(['M', 'F'], { errorMap: () => ({ message: 'Gênero deve ser M ou F' }) }),
-  // AAAA-MM-DD e data real do calendário (2000-02-30 não passa); vazio vira "sem data".
-  birthDate: z.string().refine((v) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
-    const d = new Date(`${v}T00:00:00Z`)
-    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v)
-  }, 'Data de nascimento deve ser AAAA-MM-DD').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
-  email: z.string().email('E-mail inválido').optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  // Vazio vira "sem ano".
+  birthYear: optionalBirthYearSchema(),
   nationality: z.string().default('BR'),
 })
 
@@ -40,15 +35,13 @@ const listAthletesQuerySchema = paginationQuerySchema.extend({
 })
 
 export async function athletesRoutes(app: FastifyInstance) {
-  // Admin: lista paginada com clube atual no tenant padrão. Inclui e-mail e data de nascimento.
+  // Admin: lista paginada com clube atual no tenant padrão. Inclui o ano de nascimento.
   app.get('/athletes', async (request) => {
     const query = listAthletesQuerySchema.parse(request.query)
     const tenantId = await getDefaultTenantId()
     const where = and(
       isNull(athletes.deletedAt),
-      query.search
-        ? or(ilike(athletes.name, `%${query.search}%`), ilike(athletes.email, `%${query.search}%`))
-        : undefined,
+      query.search ? ilike(athletes.name, `%${query.search}%`) : undefined,
       query.gender ? eq(athletes.gender, query.gender) : undefined,
     )
 
@@ -59,9 +52,8 @@ export async function athletesRoutes(app: FastifyInstance) {
           .select({
             id: athletes.id,
             name: athletes.name,
-            email: athletes.email,
             gender: athletes.gender,
-            birthDate: athletes.birthDate,
+            birthYear: athletes.birthYear,
             nationality: athletes.nationality,
             photoUrl: athletes.photoUrl,
             active: athletes.active,
@@ -92,7 +84,7 @@ export async function athletesRoutes(app: FastifyInstance) {
     )
   })
 
-  // Público: busca por nome (sem e-mail, CPF, telefone ou data de nascimento) com o clube atual no tenant padrão.
+  // Público: busca por nome (sem ano de nascimento) com o clube atual no tenant padrão.
   // Ignora caixa e acentos com translate/lower do Postgres, sem extensão. Registrada como rota estática,
   // que o Fastify prioriza sobre `/athletes/:id`.
   app.get('/athletes/search', async (request) => {
@@ -137,7 +129,7 @@ export async function athletesRoutes(app: FastifyInstance) {
     return athlete
   })
 
-  // Rota pública — não expõe dados sensíveis (email, birthDate)
+  // Rota pública: não expõe o ano de nascimento
   app.get('/athletes/:id/profile', async (request, reply) => {
     const { id } = request.params as { id: string }
 

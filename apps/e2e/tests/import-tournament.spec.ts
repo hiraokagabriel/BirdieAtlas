@@ -110,7 +110,7 @@ test.describe('importar torneio (API)', () => {
     })
     expect(ambiguous.body.ok).toBe(false)
     expect(ambiguous.body.errors).toHaveLength(1)
-    expect(ambiguous.body.errors[0]).toMatchObject({ sheet: 'Inscritos', row: 2, message: expect.stringContaining('Informe o clube ou o e-mail') })
+    expect(ambiguous.body.errors[0]).toMatchObject({ sheet: 'Inscritos', row: 2, message: expect.stringContaining('Informe o clube para eu saber qual é') })
 
     const fine = await apiCall<Report>('POST', '/import/tournament', {
       ...base,

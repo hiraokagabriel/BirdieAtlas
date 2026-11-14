@@ -83,7 +83,7 @@ const GIVEN_NAMES: Record<Gender, string[]> = {
 }
 
 export async function createAthlete(
-  options: { name?: string; gender?: Gender; email?: string; birthDate?: string } = {},
+  options: { name?: string; gender?: Gender; birthYear?: number } = {},
 ): Promise<Athlete> {
   const gender = options.gender ?? 'M'
   const given = GIVEN_NAMES[gender][Math.floor(Math.random() * 8)] ?? 'Ana'
@@ -92,8 +92,7 @@ export async function createAthlete(
     name,
     gender,
     nationality: 'BR',
-    ...(options.email ? { email: options.email } : {}),
-    ...(options.birthDate ? { birthDate: options.birthDate } : {}),
+    ...(options.birthYear ? { birthYear: options.birthYear } : {}),
   })
   return { id: athlete.id, name, gender }
 }

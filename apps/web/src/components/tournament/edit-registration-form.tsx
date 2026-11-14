@@ -132,7 +132,7 @@ export function EditRegistrationForm({ registration: reg, categories, onClose }:
         muted
         hint={total > ATHLETE_SEARCH_LIMIT ? `Mostrando os ${ATHLETE_SEARCH_LIMIT} primeiros resultados. Refine a busca.` : 'Digite parte do nome para trocar o atleta ou o(a) parceiro(a).'}
       >
-        {(props) => <input {...props} type="search" placeholder="Nome ou e-mail" value={search} onChange={(e) => setSearch(e.target.value)} className={FIELD_CONTROL_CLASS} />}
+        {(props) => <input {...props} type="search" placeholder="Nome do atleta" value={search} onChange={(e) => setSearch(e.target.value)} className={FIELD_CONTROL_CLASS} />}
       </Field>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

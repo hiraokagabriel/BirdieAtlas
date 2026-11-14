@@ -15,9 +15,8 @@ import { Upload, UserPlus } from 'lucide-react'
 export type AthleteRow = {
   id: string
   name: string
-  email: string | null
   gender: 'M' | 'F'
-  birthDate: string | null
+  birthYear: number | null
   nationality: string
   active: boolean
   clubId: string | null

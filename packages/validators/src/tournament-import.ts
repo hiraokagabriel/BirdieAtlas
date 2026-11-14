@@ -50,8 +50,6 @@ export const importTournamentSchema = z.object({
         partnerGender: cell.optional(),
         club: cell.optional(),
         partnerClub: cell.optional(),
-        email: cell.optional(),
-        partnerEmail: cell.optional(),
         seed: cell.optional(),
         /** Aprovada (padrão), Pendente ou Recusada. */
         status: cell.optional(),

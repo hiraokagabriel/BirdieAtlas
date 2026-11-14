@@ -12,15 +12,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { AthleteSheet } from './athlete-sheet'
 import { Search, Users } from 'lucide-react'
 import { GENDER_PILL } from '@/lib/discipline'
+import { ageFromBirthYear } from '@/lib/birth-year'
 
 const genderLabel = { M: 'Masculino', F: 'Feminino' }
-
-function getAge(birthDate: string | null): string {
-  if (!birthDate) return '—'
-  const birth = new Date(birthDate)
-  const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-  return `${age} anos`
-}
 
 function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()
@@ -56,8 +50,8 @@ export function AthletesTable({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
           <Input
             type="search"
-            aria-label="Buscar atletas por nome ou e-mail"
-            placeholder="Buscar por nome ou e-mail..."
+            aria-label="Buscar atletas por nome"
+            placeholder="Buscar por nome..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
@@ -119,7 +113,6 @@ export function AthletesTable({
                         className="min-h-6 rounded-sm text-left outline-offset-4"
                       >
                         <span className="block font-medium text-sm">{athlete.name}</span>
-                        {athlete.email && <span className="block text-xs text-muted-foreground">{athlete.email}</span>}
                       </button>
                     </div>
                   </TableCell>
@@ -128,7 +121,7 @@ export function AthletesTable({
                       {genderLabel[athlete.gender]}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{getAge(athlete.birthDate)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{ageFromBirthYear(athlete.birthYear)}</TableCell>
                   <TableCell>
                     {athlete.clubName ? (
                       <span className="text-sm font-medium">{athlete.clubName}</span>

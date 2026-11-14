@@ -19,10 +19,10 @@ export function registerErrorHandling(app: FastifyInstance) {
       return reply.status(400).send(body)
     }
 
-    // Violação de índice único do Postgres (slug/e-mail já em uso entre registros ativos)
+    // Violação de índice único do Postgres (slug já em uso entre registros ativos)
     if (isUniqueViolation(error)) {
       const body: ApiErrorBody = {
-        error: 'Já existe um registro com estes dados (slug ou e-mail em uso).',
+        error: 'Já existe um registro com estes dados (slug em uso).',
         code: 'UNIQUE_VIOLATION',
         details: { constraint: (error as { constraint?: string }).constraint },
       }

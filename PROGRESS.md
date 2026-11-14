@@ -45,13 +45,13 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Tenant padrão no servidor | ✅ | `DEFAULT_TENANT_SLUG` |
 | PIN de admin para a rede local | ✅ | `ADMIN_PIN` na API: escrita só com sessão aberta pelo PIN (12 h, token no navegador), bloqueio de 1 min após 5 erros, modo admin global desligado. Cobre o uso em rede local até o Clerk. Testes: unitários e HTTP (Fastify inject) na API; o fluxo no navegador foi verificado à mão, porque o E2E roda sem PIN |
 | Autenticação (Better Auth), papéis e seletor de tenant | ❌ | Fase 6 do plano online. Sem ela e sem `ADMIN_PIN`, nenhuma escrita é possível em produção |
-| Versão online (Vercel, Render, Neon) | ❌ | Plano aprovado em `docs/PLANO_ONLINE.md`, fases 0 a 7 |
+| Versão online (Vercel, Render, Neon) | 🟡 | Plano aprovado em `docs/PLANO_ONLINE.md`. Feitas: fase 0 (decisões) e 1a (minimização de dados). Próximas: 1 a 7 |
 
 ## Phase 1 — Atletas, clubes e duplas
 
 | Item | Situação | Observação |
 |---|---|---|
-| CRUD de atletas | ✅ | Soft delete, e-mail único |
+| CRUD de atletas | ✅ | Soft delete. Só nome, gênero, ano de nascimento (opcional), nacionalidade e clube: sem e-mail nem data completa (minimização para a versão online, migration 0013) |
 | Importação em lote por CSV | ✅ | Prévia e relatório de erros |
 | CRUD de clubes | ✅ | Soft delete, slug único |
 | Afiliações atleta ↔ clube | ✅ | Um clube ativo por vez |

@@ -59,10 +59,6 @@ const ENTRY_HEADERS: Record<string, Key<ImportEntryInput> | 'discipline' | 'draw
   clube: 'club',
   'clube do parceiro a': 'partnerClub',
   'clube do parceiro': 'partnerClub',
-  'e mail': 'email',
-  email: 'email',
-  'e mail do parceiro a': 'partnerEmail',
-  'email do parceiro': 'partnerEmail',
   'cabeca de chave': 'seed',
   cabeca: 'seed',
   seed: 'seed',
@@ -209,8 +205,6 @@ function entriesFrom(rows: { row: number; values: Partial<Record<string, string>
       ...(values.partnerGender ? { partnerGender: values.partnerGender } : {}),
       ...(values.club ? { club: values.club } : {}),
       ...(values.partnerClub ? { partnerClub: values.partnerClub } : {}),
-      ...(values.email ? { email: values.email } : {}),
-      ...(values.partnerEmail ? { partnerEmail: values.partnerEmail } : {}),
       ...(values.seed ? { seed: values.seed } : {}),
       ...(values.status ? { status: values.status } : {}),
     })
@@ -275,7 +269,7 @@ export async function parseImportFile(file: File): Promise<ParsedImport> {
 // Modelo para baixar
 // ---------------------------------------------------------------------------
 
-export const ENTRY_COLUMNS = ['Categoria', 'Atleta', 'Parceiro(a)', 'Sexo', 'Sexo do parceiro(a)', 'Clube', 'Clube do parceiro(a)', 'E-mail', 'E-mail do parceiro(a)', 'Cabeça de chave', 'Situação'] as const
+export const ENTRY_COLUMNS = ['Categoria', 'Atleta', 'Parceiro(a)', 'Sexo', 'Sexo do parceiro(a)', 'Clube', 'Clube do parceiro(a)', 'Cabeça de chave', 'Situação'] as const
 export const CATEGORY_COLUMNS = ['Nome', 'Disciplina', 'Formato', 'Máx. inscrições'] as const
 
 export const EXAMPLE_TOURNAMENT: [string, string, string][] = [
@@ -297,13 +291,13 @@ export const EXAMPLE_CATEGORIES: string[][] = [
 ]
 
 export const EXAMPLE_ENTRIES: string[][] = [
-  ['Simples Masculino', 'Exemplo Carlos Almeida', '', 'M', '', 'Clube Exemplo', '', '', '', '1', 'Aprovada'],
-  ['Simples Masculino', 'Exemplo Bruno Costa', '', 'M', '', 'Clube Exemplo', '', '', '', '2', 'Aprovada'],
-  ['Simples Masculino', 'Exemplo Diego Lima', '', 'M', '', 'Clube Modelo', '', '', '', '', 'Pendente'],
-  ['Simples Feminino', 'Exemplo Ana Souza', '', 'F', '', 'Clube Modelo', '', '', '', '', 'Aprovada'],
-  ['Simples Feminino', 'Exemplo Bia Martins', '', 'F', '', 'Clube Exemplo', '', '', '', '', 'Aprovada'],
-  ['Duplas Masculinas', 'Exemplo Carlos Almeida', 'Exemplo Bruno Costa', 'M', 'M', 'Clube Exemplo', 'Clube Exemplo', '', '', '1', 'Aprovada'],
-  ['Duplas Masculinas', 'Exemplo Diego Lima', 'Exemplo Eduardo Reis', 'M', 'M', 'Clube Modelo', 'Clube Modelo', '', '', '', 'Aprovada'],
+  ['Simples Masculino', 'Exemplo Carlos Almeida', '', 'M', '', 'Clube Exemplo', '', '1', 'Aprovada'],
+  ['Simples Masculino', 'Exemplo Bruno Costa', '', 'M', '', 'Clube Exemplo', '', '2', 'Aprovada'],
+  ['Simples Masculino', 'Exemplo Diego Lima', '', 'M', '', 'Clube Modelo', '', '', 'Pendente'],
+  ['Simples Feminino', 'Exemplo Ana Souza', '', 'F', '', 'Clube Modelo', '', '', 'Aprovada'],
+  ['Simples Feminino', 'Exemplo Bia Martins', '', 'F', '', 'Clube Exemplo', '', '', 'Aprovada'],
+  ['Duplas Masculinas', 'Exemplo Carlos Almeida', 'Exemplo Bruno Costa', 'M', 'M', 'Clube Exemplo', 'Clube Exemplo', '1', 'Aprovada'],
+  ['Duplas Masculinas', 'Exemplo Diego Lima', 'Exemplo Eduardo Reis', 'M', 'M', 'Clube Modelo', 'Clube Modelo', '', 'Aprovada'],
 ]
 
 const INSTRUCTIONS: string[] = [
@@ -314,7 +308,7 @@ const INSTRUCTIONS: string[] = [
   'Formato: Eliminação simples (padrão), Todos contra todos, Grupos + eliminatória, Suíço ou Eliminação dupla. Máx. inscrições é opcional.',
   'Aba Inscritos: uma linha por inscrição. A categoria precisa existir na aba Categorias.',
   'Duplas: preencha Parceiro(a). Simples: deixe Parceiro(a) em branco.',
-  'Atletas já cadastrados são reconhecidos pelo nome (sem diferenciar acentos). Se houver nomes iguais, informe o Clube ou o E-mail.',
+  'Atletas já cadastrados são reconhecidos pelo nome (sem diferenciar acentos). Se houver nomes iguais, informe o Clube.',
   'Atleta novo: em Simples o Sexo vem da categoria (Masculino = M, Feminino = F) e pode ficar em branco; em Duplas informe o Sexo (M ou F) do atleta e do parceiro(a). O clube é criado se ainda não existir.',
   'Cabeça de chave (opcional): 1, 2, 3... Situação: Aprovada (padrão), Pendente ou Recusada.',
   'Arquivo CSV: uma tabela só, com as colunas da aba Inscritos mais Disciplina, Formato e Máx. inscrições (valem para a categoria na primeira linha dela). Os dados do torneio são preenchidos na tela.',

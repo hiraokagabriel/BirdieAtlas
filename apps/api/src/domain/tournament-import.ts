@@ -111,7 +111,6 @@ export interface PersonRef {
   name: string
   gender: Gender | null
   club: string | null
-  email: string | null
 }
 
 export interface NormalizedTournament {
@@ -157,13 +156,13 @@ const blank = (value: string | undefined): string | null => {
   return text === '' ? null : text
 }
 
-function person(name: string, gender: Gender | null, club: string | undefined, email: string | undefined): PersonRef {
-  return { name: name.trim().replace(/\s+/g, ' '), gender, club: blank(club), email: blank(email)?.toLowerCase() ?? null }
+function person(name: string, gender: Gender | null, club: string | undefined): PersonRef {
+  return { name: name.trim().replace(/\s+/g, ' '), gender, club: blank(club) }
 }
 
-/** Identifica a mesma pessoa dentro da planilha: e-mail, se houver; senão nome + clube. */
+/** Identifica a mesma pessoa dentro da planilha: nome + clube. */
 export function personKey(p: PersonRef): string {
-  return p.email ? `email:${p.email}` : `nome:${fold(p.name)}|${fold(p.club)}`
+  return `nome:${fold(p.name)}|${fold(p.club)}`
 }
 
 export function validateImportInput(input: ImportTournamentInput): ValidatedImport {
@@ -235,8 +234,6 @@ export function validateImportInput(input: ImportTournamentInput): ValidatedImpo
     if (!status) error('Inscritos', e.row, 'Situação', 'Situação inválida. Use Aprovada, Pendente ou Recusada.')
     const seed = parsePositiveInt(e.seed)
     if (seed === null) error('Inscritos', e.row, 'Cabeça de chave', 'Use um número inteiro maior que zero (ou deixe em branco).')
-    if (e.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.email.trim())) error('Inscritos', e.row, 'E-mail', 'E-mail inválido.')
-    if (e.partnerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.partnerEmail.trim())) error('Inscritos', e.row, 'E-mail do parceiro(a)', 'E-mail inválido.')
 
     const doubles = isDoublesDiscipline(category.discipline)
     const partnerName = (e.partner ?? '').trim()
@@ -251,8 +248,8 @@ export function validateImportInput(input: ImportTournamentInput): ValidatedImpo
       error('Inscritos', e.row, 'Sexo', `A categoria "${category.name}" é ${impliedGender === 'M' ? 'masculina' : 'feminina'}, mas o sexo informado é ${gender}.`)
       continue
     }
-    const athlete = person(e.athlete, gender ?? impliedGender, e.club, e.email)
-    const partner = doubles ? person(partnerName, partnerGender ?? null, e.partnerClub ?? e.club, e.partnerEmail) : null
+    const athlete = person(e.athlete, gender ?? impliedGender, e.club)
+    const partner = doubles ? person(partnerName, partnerGender ?? null, e.partnerClub ?? e.club) : null
     const keys = [personKey(athlete), ...(partner ? [personKey(partner)] : [])]
     if (partner && keys[0] === keys[1]) { error('Inscritos', e.row, 'Parceiro(a)', 'O(a) parceiro(a) não pode ser a mesma pessoa.'); continue }
 

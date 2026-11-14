@@ -65,7 +65,7 @@ export async function importTournamentRoutes(app: FastifyInstance) {
 
     // ----- Atletas e clubes existentes (carregados uma vez; a conferência de nomes ignora acento e caixa)
     const athleteRows = await db
-      .select({ id: athletes.id, name: athletes.name, email: athletes.email, gender: athletes.gender, active: athletes.active, clubName: clubs.name })
+      .select({ id: athletes.id, name: athletes.name, gender: athletes.gender, active: athletes.active, clubName: clubs.name })
       .from(athletes)
       .leftJoin(athleteAffiliations, and(
         eq(athleteAffiliations.athleteId, athletes.id),
@@ -75,10 +75,8 @@ export async function importTournamentRoutes(app: FastifyInstance) {
       .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
       .where(isNull(athletes.deletedAt))
     const byName = new Map<string, typeof athleteRows>()
-    const byEmail = new Map<string, (typeof athleteRows)[number]>()
     for (const a of athleteRows) {
       byName.set(fold(a.name), [...(byName.get(fold(a.name)) ?? []), a])
-      if (a.email) byEmail.set(a.email.toLowerCase(), a)
     }
     const clubRows = await db.select({ id: clubs.id, name: clubs.name, slug: clubs.slug }).from(clubs)
       .where(and(eq(clubs.tenantId, tenantId), isNull(clubs.deletedAt)))
@@ -96,7 +94,6 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         current.rows.push(row)
         current.person.gender ??= p.gender
         current.person.club ??= p.club
-        current.person.email ??= p.email
       }
     }
     for (const e of validated.entries) { collect(e.athlete, e.row); collect(e.partner, e.row) }
@@ -107,18 +104,15 @@ export async function importTournamentRoutes(app: FastifyInstance) {
       const at = (message: string, field = 'Atleta') => errors.push({ sheet: 'Inscritos', row: rows[0]!, field, message })
       let match: (typeof athleteRows)[number] | undefined
 
-      if (person.email) match = byEmail.get(person.email)
-      if (!match) {
-        const candidates = (byName.get(fold(person.name)) ?? []).filter((c) => !person.email || !c.email)
-        if (candidates.length === 1) match = candidates[0]
-        else if (candidates.length > 1) {
-          const narrowed = person.club ? candidates.filter((c) => c.clubName && fold(c.clubName) === fold(person.club)) : []
-          if (narrowed.length === 1) match = narrowed[0]
-          else {
-            const clubsSeen = [...new Set(candidates.map((c) => c.clubName ?? 'sem clube'))].join(', ')
-            at(`Há ${candidates.length} atletas chamados "${person.name}" (${clubsSeen}). Informe o clube ou o e-mail para eu saber qual é.`)
-            continue
-          }
+      const candidates = byName.get(fold(person.name)) ?? []
+      if (candidates.length === 1) match = candidates[0]
+      else if (candidates.length > 1) {
+        const narrowed = person.club ? candidates.filter((c) => c.clubName && fold(c.clubName) === fold(person.club)) : []
+        if (narrowed.length === 1) match = narrowed[0]
+        else {
+          const clubsSeen = [...new Set(candidates.map((c) => c.clubName ?? 'sem clube'))].join(', ')
+          at(`Há ${candidates.length} atletas chamados "${person.name}" (${clubsSeen}). Informe o clube para eu saber qual é.`)
+          continue
         }
       }
 
@@ -224,7 +218,6 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         const id = randomUUID()
         await tx.insert(athletes).values({
           id, name: person.ref_person.name, gender: person.gender, nationality: 'BR', active: true,
-          ...(person.ref_person.email ? { email: person.ref_person.email } : {}),
         })
         athleteIdByRef.set(person.ref, id)
         const clubId = person.ref_person.club ? clubIdByKey.get(fold(person.ref_person.club)) : undefined

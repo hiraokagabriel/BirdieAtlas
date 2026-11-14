@@ -265,7 +265,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                 <input
                   {...props}
                   type="search"
-                  placeholder="Nome ou e-mail"
+                  placeholder="Nome do atleta"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className={FIELD_CONTROL_CLASS}

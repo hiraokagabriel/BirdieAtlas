@@ -230,7 +230,6 @@ async function seed() {
 
   // -------------------------------------------------------------------------
   // 5. ATHLETES
-  // Email inclui RUN_ID para ser único entre execuções.
   // -------------------------------------------------------------------------
   console.log('🏃 Criando atletas...')
   const athleteData: typeof athletes.$inferInsert[] = []
@@ -245,9 +244,8 @@ async function seed() {
     athleteData.push({
       id: uid(),
       name,
-      email: `atleta${i + 1}-${RUN_ID}@birdieatlas.dev`,
       gender: gender as 'M' | 'F',
-      birthDate: `${birthYear}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+      birthYear,
       nationality: 'BR',
       active: true,
     })

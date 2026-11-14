@@ -30,7 +30,7 @@ function parseCsv(text: string): CsvRow[] {
 
 // Gera e faz download de um CSV template
 function downloadTemplate() {
-  const content = 'name,gender,birthDate,email,nationality\nJoão Silva,M,1995-03-20,joao@email.com,BR\nMaria Santos,F,1998-07-15,,BR'
+  const content = 'name,gender,birthYear,nationality\nJoão Silva,M,1995,BR\nMaria Santos,F,,BR'
   const blob = new Blob([content], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

@@ -460,7 +460,7 @@ test.describe('formulários', () => {
     await page.goto('/admin/athletes')
     await page.getByRole('button', { name: 'Novo atleta' }).click()
     const dialog = page.getByRole('dialog', { name: 'Novo atleta' })
-    await dialog.getByLabel('E-mail').fill('sem-arroba')
+    await dialog.getByLabel('Ano de nascimento').fill('1800')
     await dialog.getByRole('button', { name: 'Criar atleta' }).click()
 
     const name = dialog.getByLabel('Nome completo')
@@ -472,13 +472,13 @@ test.describe('formulários', () => {
     await expect(message).toHaveText('Nome é obrigatório')
     await expect(message).toHaveAttribute('role', 'alert')
 
-    const email = dialog.getByLabel('E-mail')
-    await expect(email).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.locator(`[id="${(await email.getAttribute('aria-describedby')) ?? ''}"]`)).toHaveText('E-mail inválido')
+    const year = dialog.getByLabel('Ano de nascimento')
+    await expect(year).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.locator(`[id="${(await year.getAttribute('aria-describedby')) ?? ''}"]`)).toHaveText(/^Ano de nascimento deve estar entre 1900 e/)
 
     // Corrigir o erro tira o estado inválido no próximo envio.
     await name.fill(`Valida ${data.tag}`)
-    await email.fill('')
+    await year.fill('')
     await dialog.getByRole('button', { name: 'Criar atleta' }).click()
     await expect(dialog).toBeHidden()
   })

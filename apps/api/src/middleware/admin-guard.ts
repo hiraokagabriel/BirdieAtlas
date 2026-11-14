@@ -13,7 +13,7 @@ import { AdminSessions, bearerToken, parseAdminPin } from '../domain/admin-sessi
 //   DEV_ADMIN_MODE é ignorado e PATCH /dev/admin-mode responde 403.
 //
 // O guard roda como hook global (ver adminGuardHook): toda escrita exige admin,
-// e leituras com dados pessoais (e-mail, data de nascimento) também.
+// e leituras com dados pessoais (ano de nascimento) e notas internas também.
 // ---------------------------------------------------------------------------
 
 const READ_METHODS = new Set(['GET', 'HEAD'])

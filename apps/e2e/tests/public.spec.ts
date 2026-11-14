@@ -37,7 +37,8 @@ let prepared: PreparedTournament
 let ranking: Ranking
 let champion: Athlete
 let runnerUp: Athlete
-let secretEmail: string
+// Ano improvável no texto visível das páginas; nas respostas JSON a checagem é pela chave, não pelo número.
+const SECRET_BIRTH_YEAR = 1931
 let liveTournament: PreparedTournament
 
 function findAthlete(id: string): Athlete {
@@ -48,11 +49,10 @@ function findAthlete(id: string): Athlete {
 
 test.beforeAll(async () => {
   tag = uniqueTag()
-  secretEmail = `segredo-${tag}@example.com`
   club = await createClub({ name: `Clube Público ${tag}` })
 
   athletes = [
-    await createAthlete({ name: `José Ávila ${tag}`, email: secretEmail, birthDate: '1990-05-17' }),
+    await createAthlete({ name: `José Ávila ${tag}`, birthYear: SECRET_BIRTH_YEAR }),
     await createAthlete({ name: `André Cândido ${tag}` }),
     await createAthlete({ name: `Hélio Nóbrega ${tag}` }),
     await createAthlete({ name: `Álvaro Gonçalves ${tag}` }),
@@ -173,9 +173,8 @@ test.describe('busca de atletas', () => {
     await expect(hit).toBeVisible()
     await expect(hit).toContainText(club.name)
 
-    // E-mail e data de nascimento nunca chegam ao HTML público.
-    await expect(page.locator('body')).not.toContainText(secretEmail)
-    await expect(page.locator('body')).not.toContainText('1990')
+    // O ano de nascimento nunca chega ao HTML público.
+    await expect(page.locator('body')).not.toContainText(String(SECRET_BIRTH_YEAR))
 
     await hit.click()
     await expect(page).toHaveURL(new RegExp(`/a/${athletes[0]?.id}$`))
@@ -209,9 +208,7 @@ test.describe('busca de atletas', () => {
     expect(ok.status).toBe(200)
     expect(ok.body.data).toHaveLength(1)
     const hit = ok.body.data[0] ?? {}
-    expect(Object.keys(hit)).not.toEqual(expect.arrayContaining(['email']))
-    expect(JSON.stringify(ok.body)).not.toContain(secretEmail)
-    expect(JSON.stringify(ok.body)).not.toContain('1990-05-17')
+    expect(Object.keys(hit)).not.toEqual(expect.arrayContaining(['birthYear']))
   })
 })
 
@@ -253,16 +250,14 @@ test.describe('perfil do atleta', () => {
     await expect(page.getByRole('region', { name: 'Histórico de torneios' }).getByText('2º lugar')).toBeAttached()
   })
 
-  test('a página e a API pública não expõem e-mail nem nascimento', async ({ page }) => {
+  test('a página e a API pública não expõem o ano de nascimento', async ({ page }) => {
     const owner = athletes[0]
     if (!owner) throw new Error('fixture sem atletas')
     await page.goto(`/a/${owner.id}`)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(owner.name)
-    await expect(page.locator('body')).not.toContainText(secretEmail)
+    await expect(page.locator('body')).not.toContainText(String(SECRET_BIRTH_YEAR))
     const json = JSON.stringify(await api.get(`/athletes/${owner.id}/profile`))
-    expect(json).not.toContain(secretEmail)
-    expect(json).not.toContain('1990-05-17')
-    expect(json).not.toContain('birthDate')
+    expect(json).not.toContain('birthYear')
   })
 
   test('atleta inexistente mostra a página 404', async ({ page }) => {
@@ -350,7 +345,7 @@ test.describe('ranking público', () => {
     const lines = text.trim().split('\r\n')
     expect(lines[0]).toBe('Posição;Atleta;Parceiro(a);Pontos;Torneios')
     expect(lines[1]).toContain(`1;${champion.name};`)
-    expect(text).not.toContain(secretEmail)
+    expect(text).not.toContain(String(SECRET_BIRTH_YEAR))
     expect(lines).toHaveLength(5)
   })
 

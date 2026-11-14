@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { focusFirstInvalid } from '@/lib/focus-invalid'
+import { birthYearError } from '@/lib/birth-year'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChoiceGroup } from '@/components/ui/choice-group'
@@ -23,7 +24,7 @@ const GENDERS = [
 
 type Gender = (typeof GENDERS)[number]['value']
 
-const EMPTY_FORM = { name: '', gender: 'M' as Gender, email: '', birthDate: '', nationality: 'BR' }
+const EMPTY_FORM = { name: '', gender: 'M' as Gender, birthYear: '', nationality: 'BR' }
 
 export function CreateAthleteModal({ open, onClose }: Props) {
   const queryClient = useQueryClient()
@@ -32,13 +33,12 @@ export function CreateAthleteModal({ open, onClose }: Props) {
 
   const mutation = useMutation({
     mutationFn: () => {
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | number> = {
         name: form.name.trim(),
         gender: form.gender,
         nationality: form.nationality || 'BR',
       }
-      if (form.email.trim()) payload.email = form.email.trim()
-      if (form.birthDate) payload.birthDate = form.birthDate
+      if (form.birthYear.trim()) payload.birthYear = Number(form.birthYear.trim())
       return apiFetch('/athletes', { method: 'POST', json: payload })
     },
     onSuccess: () => {
@@ -50,7 +50,8 @@ export function CreateAthleteModal({ open, onClose }: Props) {
   function validate() {
     const e: Record<string, string> = {}
     if (!form.name.trim()) e.name = 'Nome é obrigatório'
-    if (form.email.trim() && !/^[^@]+@[^@]+\.[^@]+$/.test(form.email)) e.email = 'E-mail inválido'
+    const yearError = birthYearError(form.birthYear)
+    if (yearError) e.birthYear = yearError
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -101,21 +102,17 @@ export function CreateAthleteModal({ open, onClose }: Props) {
             optionClassName="flex-1"
           />
 
-          <Field label="E-mail (opcional)" muted error={errors.email}>
+          <Field label="Ano de nascimento (opcional)" muted error={errors.birthYear}>
             {(props) => (
               <Input
                 {...props}
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="ex: joao@email.com"
+                inputMode="numeric"
+                maxLength={4}
+                value={form.birthYear}
+                onChange={(e) => setForm({ ...form, birthYear: e.target.value })}
+                placeholder="ex: 1998"
+                autoComplete="off"
               />
-            )}
-          </Field>
-
-          <Field label="Data de nascimento (opcional)" muted>
-            {(props) => (
-              <Input {...props} type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
             )}
           </Field>
 
