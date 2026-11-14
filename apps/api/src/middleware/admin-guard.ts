@@ -17,6 +17,7 @@ const READ_METHODS = new Set(['GET', 'HEAD'])
 const ADMIN_ONLY_READS = new Set([
   '/athletes',
   '/athletes/export.csv',
+  '/clubs/:id/athletes/export.csv',
   '/athletes/:id',
   '/registrations/tournament/:tournamentId',
   '/tournaments/:id/registrations/export.csv',

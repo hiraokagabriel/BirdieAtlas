@@ -36,3 +36,30 @@ export function joinClubs(clubNames: readonly (string | undefined)[]): string {
 export function sortByPlacement<T extends { finalPlacement: number | null; id: string }>(list: readonly T[]): T[] {
   return [...list].sort((a, b) => (a.finalPlacement ?? 0) - (b.finalPlacement ?? 0) || a.id.localeCompare(b.id))
 }
+
+/** Fuso das exportações: o produto atende a federação paulista, então o horário sai em Brasília. */
+export const REPORT_TIME_ZONE = 'America/Sao_Paulo'
+
+const reportDateTime = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: REPORT_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+
+/** "27/10/2026 14:30", no horário de Brasília. */
+export function formatReportDateTime(date: Date): string {
+  const p = Object.fromEntries(reportDateTime.formatToParts(date).map((part) => [part.type, part.value]))
+  return `${p['day']}/${p['month']}/${p['year']} ${p['hour']}:${p['minute']}`
+}
+
+/** Coluna `date` ("2026-03-15") vira "15/03/2026". */
+export function formatReportDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-')
+  return year && month && day ? `${day}/${month}/${year}` : isoDate
+}
+
+/** Agenda: por horário, depois quadra (sem quadra por último) e ordem da chave. */
+export function sortScheduleForReport<T extends { scheduledAt: Date; courtNumber: number | null; round: number; position: number }>(list: readonly T[]): T[] {
+  return [...list].sort((a, b) =>
+    a.scheduledAt.getTime() - b.scheduledAt.getTime()
+    || (a.courtNumber ?? Number.MAX_SAFE_INTEGER) - (b.courtNumber ?? Number.MAX_SAFE_INTEGER)
+    || b.round - a.round || a.position - b.position)
+}

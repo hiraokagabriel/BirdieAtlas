@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { use, useCallback, useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import { EditClubModal } from '@/components/club/edit-club-modal'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { MapPin, Trophy, TrendingUp, Users, Search, ExternalLink, ChevronLeft, Pencil, Globe } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -184,6 +185,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                 <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                 Editar clube
               </button>
+              <ExportCsvButton path={`/clubs/${club.id}/athletes/export.csv`} fallbackName="atletas-do-clube.csv" label="Exportar atletas" />
             </div>
           </div>
         </div>
