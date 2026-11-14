@@ -1,6 +1,12 @@
 # Plano: BirdieAtlas online com custo zero
 
-> Base: commit `91110cd` (main). Fontes dos provedores consultadas em **14/11/2026**. **Proposta, ainda não aprovada:** as decisões que mudam a especificação (Clerk, Redis, infra) só valem depois do aceite e da Fase 0.
+> Base: commit `91110cd` (main). Fontes dos provedores consultadas em **14/11/2026**. **Aprovado em 14/11/2026**, com as decisões abaixo.
+
+## 0. Decisões do usuário (14/11/2026)
+
+- **Plano aprovado** como está, com dois ajustes:
+- **Sem domínio próprio:** a versão online usa os subdomínios dos provedores (`*.vercel.app` para o web e `*.onrender.com` para a API). Clerk fica descartado de vez (exige domínio). Decidir o nome do projeto na Vercel antes da Fase 3: ele vira o endereço dos QR codes e das súmulas impressas.
+- **Minimização de dados:** o atleta guarda só **nome e sobrenome** e **ano de nascimento**, além dos dados esportivos que as chaves exigem (gênero da categoria, clube, nacionalidade). **E-mail sai** e a **data de nascimento completa vira ano** (nova Fase 1a). Não há CPF, telefone nem upload de foto. Isso reduz o peso da LGPD (§6): continuam sendo dados pessoais, inclusive de menores, mas nenhum é sensível nem de contato.
 > Legenda: **[F]** = fato verificado (no código, com caminho:linha, ou na fonte citada). **[S]** = suposição ou dado não reconferido; confirme antes de depender dele.
 
 ---
@@ -269,6 +275,13 @@ Cada PR roda `pnpm turbo run check-types lint test build` e passa pelo `birdie-v
   - `PROGRESS.md` (a diretriz passa a prever a build online; linhas de Clerk, Redis e gestão de usuários).
 - **Pronto quando:** a spec e o PROGRESS não contradizem o plano.
 - **Risco:** nenhum.
+
+**Fase 1a: minimização de dados (schema)**
+
+- **Muda:** migration que cria `athletes.birth_year` (smallint, preenchido a partir de `birth_date`) e remove `birth_date`, `email` e o índice `athletes_email_unique`. API, validators, importações (CSV de atletas, planilha de torneio: o atleta passa a ser reconhecido pelo nome, com o clube para desempatar), formulário e telas de atleta, seed e testes.
+- **Banco:** `pnpm db:backup` antes do `db:migrate` local (a remoção de colunas apaga os e-mails e as datas completas).
+- **Docs:** spec (dados pessoais, tabela `athletes`, importação), `PROGRESS.md`.
+- **Pronto quando:** nenhuma rota, tela, exportação ou importação lê ou grava e-mail ou data completa; gates e E2E verdes.
 
 **Fase 1: endurecimento de produção (código, sem schema)**
 
