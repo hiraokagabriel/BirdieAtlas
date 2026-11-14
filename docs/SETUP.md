@@ -89,6 +89,8 @@ Copie só se o destino não existir (nunca sobrescreva um `.env` já presente):
 
 Confira que `apps/api/.env` tem `DEFAULT_TENANT_SLUG=fpb-sp` e `DEV_ADMIN_MODE=true`. Os valores padrão já apontam para o Postgres do `docker-compose.yml` (`postgres:postgres@127.0.0.1:5432/birdie_atlas`).
 
+Para abrir o site de outro aparelho na rede local (celular, telão), use em `apps/web/.env.local` o IP do PC em `NEXT_PUBLIC_API_URL` (porta 3001) e `NEXT_PUBLIC_SITE_URL` (porta 3000), e em `pnpm dev` também `ALLOWED_DEV_ORIGINS=<IP>`: sem ele o Next bloqueia os scripts e a página abre sem funcionar. Na rede, ponha `ADMIN_PIN` em `apps/api/.env`.
+
 ## 6. Banco de dados
 
 1. Confira se a porta 5432 está livre (`netstat -ano | findstr :5432` no Windows; `lsof -i :5432` no macOS/Linux). Ocupada por outro Postgres: **pare e pergunte** (nunca pare o Postgres que já está lá). Se o usuário preferir manter o outro Postgres, use o Docker na 5433, ver "Porta 5432 ocupada" abaixo.
