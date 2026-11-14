@@ -74,6 +74,9 @@ export default defineConfig({
         DATABASE_URL,
         DEFAULT_TENANT_SLUG: TENANT_SLUG,
         DEV_ADMIN_MODE: 'true',
+        // Vazio de propósito: o dotenv não sobrescreve variável já definida, então um ADMIN_PIN no
+        // apps/api/.env do desenvolvedor não liga o PIN na API de teste (que usa o modo admin global).
+        ADMIN_PIN: '',
       },
     },
     {

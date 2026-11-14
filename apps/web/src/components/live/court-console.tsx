@@ -559,12 +559,10 @@ export function CourtConsole() {
 
   const tournamentsQuery = useQuery({
     queryKey: ['live-tournaments'],
-    queryFn: () => apiFetch<Paginated<TournamentOption>>('/tournaments?pageSize=100'),
+    // Filtro no servidor: com mais de 100 torneios, um em andamento antigo sumiria da primeira página.
+    queryFn: () => apiFetch<Paginated<TournamentOption>>('/tournaments?status=in_progress&pageSize=100'),
   })
-  const options = useMemo(
-    () => (tournamentsQuery.data?.data ?? []).filter((t) => t.status === 'in_progress'),
-    [tournamentsQuery.data],
-  )
+  const options = useMemo(() => tournamentsQuery.data?.data ?? [], [tournamentsQuery.data])
 
   useEffect(() => {
     if (options.length === 0) return

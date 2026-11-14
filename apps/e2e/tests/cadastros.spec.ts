@@ -21,7 +21,7 @@ test.describe('atletas', () => {
     await dialog.getByRole('button', { name: 'Criar atleta' }).click()
     await expect(dialog).toBeHidden()
 
-    await page.getByRole('searchbox', { name: 'Buscar atletas por nome ou e-mail' }).fill(name)
+    await page.getByRole('searchbox', { name: 'Buscar atletas por nome' }).fill(name)
     await expect(page.getByRole('button', { name })).toBeVisible()
 
     const found = await api.get<Page<{ name: string; gender: string }>>(`/athletes?search=${encodeURIComponent(name)}`)
@@ -41,9 +41,9 @@ test.describe('atletas', () => {
   test('a busca filtra a lista por nome', async ({ page }) => {
     const athlete = await createAthlete({ name: `Busca Unica ${uniqueTag()}` })
     await page.goto('/admin/athletes')
-    await page.getByRole('searchbox', { name: 'Buscar atletas por nome ou e-mail' }).fill(athlete.name)
+    await page.getByRole('searchbox', { name: 'Buscar atletas por nome' }).fill(athlete.name)
     await expect(page.getByRole('button', { name: athlete.name })).toBeVisible()
-    await page.getByRole('searchbox', { name: 'Buscar atletas por nome ou e-mail' }).fill(`inexistente-${uniqueTag()}`)
+    await page.getByRole('searchbox', { name: 'Buscar atletas por nome' }).fill(`inexistente-${uniqueTag()}`)
     await expect(page.getByRole('button', { name: athlete.name })).toHaveCount(0)
   })
 })
@@ -52,10 +52,10 @@ test.describe('importação de atletas por CSV', () => {
   test('mostra a prévia, importa as linhas válidas e relata a linha com erro', async ({ page }) => {
     const tag = uniqueTag()
     const csv = [
-      'name,gender,birthDate,email,nationality',
-      `Importada Um ${tag},F,1995-03-20,,BR`,
-      `Importado Dois ${tag},M,,,BR`,
-      `Sem Genero ${tag},X,,,BR`,
+      'name,gender,birthYear,nationality',
+      `Importada Um ${tag},F,1995,BR`,
+      `Importado Dois ${tag},M,,BR`,
+      `Sem Genero ${tag},X,,BR`,
     ].join('\n')
 
     await page.goto('/admin/athletes')
@@ -78,17 +78,17 @@ test.describe('importação de atletas por CSV', () => {
     await expect(dialog).toBeHidden()
   })
 
-  test('a API recusa data fora do formato AAAA-MM-DD e aceita data vazia', async () => {
+  test('a API recusa ano de nascimento inválido e aceita ano vazio', async () => {
     const tag = uniqueTag()
     const res = await apiCall<{ created: number; failed: number; errors: { row: number; reason: string }[] }>('POST', '/athletes/import-csv', [
-      { name: `Data Ruim ${tag}`, gender: 'M', birthDate: '20/03/1995' },
-      { name: `Data Vazia ${tag}`, gender: 'F', birthDate: '' },
-      { name: `Data Impossivel ${tag}`, gender: 'F', birthDate: '2000-02-30' },
+      { name: `Ano Data ${tag}`, gender: 'M', birthYear: '1995-03-20' },
+      { name: `Ano Vazio ${tag}`, gender: 'F', birthYear: '' },
+      { name: `Ano Antigo ${tag}`, gender: 'F', birthYear: '1800' },
     ])
     expect(res.body.created).toBe(1)
     expect(res.body.errors).toEqual([
-      { row: 1, reason: 'Data de nascimento deve ser AAAA-MM-DD' },
-      { row: 3, reason: 'Data de nascimento deve ser AAAA-MM-DD' },
+      { row: 1, reason: 'Ano de nascimento deve ser um número' },
+      { row: 3, reason: expect.stringMatching(/^Ano de nascimento deve estar entre 1900 e/) },
     ])
   })
 

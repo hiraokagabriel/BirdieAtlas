@@ -146,7 +146,7 @@ export async function rankingsRoutes(app: FastifyInstance) {
     }
   })
 
-  // Público: atletas saem só com colunas públicas (sem e-mail/data de nascimento).
+  // Público: atletas saem só com colunas públicas (sem ano de nascimento).
   app.get('/rankings/:rankingId/entries', async (request, reply) => {
     const { rankingId } = request.params as { rankingId: string }
     const query = paginationQuerySchema.parse(request.query)
@@ -180,7 +180,7 @@ export async function rankingsRoutes(app: FastifyInstance) {
     return { ...page, ranking }
   })
 
-  // Público, como a lista de entradas: só posição, nomes e pontos (nada de e-mail ou data de nascimento).
+  // Público, como a lista de entradas: só posição, nomes e pontos (nada de ano de nascimento).
   app.get('/rankings/:rankingId/entries/export.csv', async (request, reply) => {
     const { rankingId } = z.object({ rankingId: z.string().min(1) }).parse(request.params)
 

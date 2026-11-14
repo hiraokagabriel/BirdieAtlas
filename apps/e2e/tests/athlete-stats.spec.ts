@@ -75,7 +75,7 @@ test.describe('estatísticas de partidas (API)', () => {
     expect((await apiCall('GET', '/athletes/nao-existe/stats')).status).toBe(404)
 
     const raw = JSON.stringify((await apiCall('GET', `/athletes/${champion.id}/stats`)).body)
-    expect(raw).not.toMatch(/@|birthDate|email/i)
+    expect(raw).not.toMatch(/@|birthDate|birthYear|email/i)
   })
 })
 

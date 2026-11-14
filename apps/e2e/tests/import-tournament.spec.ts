@@ -110,7 +110,7 @@ test.describe('importar torneio (API)', () => {
     })
     expect(ambiguous.body.ok).toBe(false)
     expect(ambiguous.body.errors).toHaveLength(1)
-    expect(ambiguous.body.errors[0]).toMatchObject({ sheet: 'Inscritos', row: 2, message: expect.stringContaining('Informe o clube ou o e-mail') })
+    expect(ambiguous.body.errors[0]).toMatchObject({ sheet: 'Inscritos', row: 2, message: expect.stringContaining('Informe o clube para eu saber qual é') })
 
     const fine = await apiCall<Report>('POST', '/import/tournament', {
       ...base,
@@ -119,7 +119,26 @@ test.describe('importar torneio (API)', () => {
     expect(fine.body).toMatchObject({ ok: true })
     expect(fine.body.summary.athletes).toEqual({ existing: 2, created: 0 })
     expect(fine.body.summary.clubs.created).toBe(0)
-    void solo
+
+    // Nome único com outro clube na planilha: usa o cadastro existente e avisa.
+    await affiliate(solo.id, clubA.id)
+    const moved = await apiCall<Report>('POST', '/import/tournament', {
+      ...base,
+      entries: [{ row: 2, category: 'F', athlete: name, club: `Clube Beta ${tag}` }, { row: 3, category: 'M', athlete: `Joaquim Único ${tag}`, club: `Clube Beta ${tag}` }],
+    })
+    expect(moved.body).toMatchObject({ ok: true })
+    expect(moved.body.summary.athletes).toEqual({ existing: 2, created: 0 })
+    expect(moved.body.warnings).toContainEqual(expect.objectContaining({ message: expect.stringContaining(`já está cadastrado(a) no clube Clube Alfa ${tag}`) }))
+
+    // Homônimos no mesmo clube: sem e-mail, só diferenciando o nome no cadastro.
+    const c = await createAthlete({ name, gender: 'F' })
+    await affiliate(c.id, clubB.id)
+    const sameClub = await apiCall<Report>('POST', '/import/tournament', {
+      ...base,
+      entries: [{ row: 2, category: 'F', athlete: name, club: `Clube Beta ${tag}` }],
+    })
+    expect(sameClub.body.ok).toBe(false)
+    expect(sameClub.body.errors[0]).toMatchObject({ row: 2, message: expect.stringContaining(`no clube Clube Beta ${tag}. Diferencie o nome no cadastro`) })
   })
 
   test('erros apontam aba, linha e campo; importar de verdade com erro responde 422 e não grava', async () => {

@@ -42,7 +42,7 @@
 | Backup e restauração | `scripts/db-backup.mjs`, `scripts/db-restore.mjs` (rodam `docker compose exec`) | **Não servem contra o Neon.** O backup na nuvem roda `pg_dump` direto (§7). |
 | Seed | `apps/api/src/scripts/seed.ts:156-172` | **Não tem proteção contra produção:** `--reset` apaga tabelas em qualquer `DATABASE_URL`. `reset-db.ts:12-16` e `create-db.ts:12-16` têm proteção. |
 | Uploads de arquivo | nenhum (não há multipart; a planilha é lida no navegador) | Não precisa de storage (Cloudinary e Uploadthing saem do plano). |
-| Dados pessoais no schema | `apps/api/src/db/schema.ts:108,110` (`email`, `birthDate`) | Não há CPF nem telefone hoje. Esses campos só saem por rotas em `ADMIN_ONLY_READS` (`admin-guard.ts:22-30`). |
+| Dados pessoais no schema | `apps/api/src/db/schema.ts` (`birthYear`; `email` e `birthDate` saíram na Fase 1a) | Não há CPF nem telefone hoje. Esses campos só saem por rotas em `ADMIN_ONLY_READS` (`admin-guard.ts:22-30`). |
 
 ---
 
@@ -174,7 +174,7 @@ Por que assim:
 2. **`DEV_ADMIN_MODE` impossível em produção:** C2. Também vale conferir o botão de modo admin (`apps/web/src/components/dashboard/admin-mode-toggle.tsx:24`), que já se esconde em produção sem PIN.
 3. **CORS, `trustProxy` e rate limit:** C3, C4 e §4.3.
 4. **HTTPS:** automático em `*.vercel.app` e `*.onrender.com` **[S]**. Cabeçalhos de segurança no `next.config.ts` (HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`). Um CSP completo pode vir depois: o token em localStorage torna XSS o risco principal.
-5. **Privacidade dos endpoints:** a regra de `publicAthleteColumns` não muda. Acrescentar um teste HTTP na API (`app.inject`) que percorre as rotas GET públicas e falha se aparecer `email` ou `birthDate`. É barato e trava regressões antes de o site ficar exposto.
+5. **Privacidade dos endpoints:** a regra de `publicAthleteColumns` não muda. Acrescentar um teste HTTP na API (`app.inject`) que percorre as rotas GET públicas e falha se aparecer `birthYear` (ou `email` e `birthDate`, se um dia voltarem). É barato e trava regressões antes de o site ficar exposto.
 6. **LGPD:** a federação é a controladora; Vercel, Render e Neon são operadores.
    - Publicar `/privacidade` (finalidade, base legal, retenção, contato do encarregado).
    - Procedimento para pedido do titular. O soft delete guarda os dados, então pedido de eliminação pede anonimização dos campos pessoais. Isso pode virar endpoint admin depois.
@@ -278,7 +278,7 @@ Cada PR roda `pnpm turbo run check-types lint test build` e passa pelo `birdie-v
 
 **Fase 1a: minimização de dados (schema)**
 
-- **Muda:** migration que cria `athletes.birth_year` (smallint, preenchido a partir de `birth_date`) e remove `birth_date`, `email` e o índice `athletes_email_unique`. API, validators, importações (CSV de atletas, planilha de torneio: o atleta passa a ser reconhecido pelo nome, com o clube para desempatar), formulário e telas de atleta, seed e testes.
+- **Muda:** migration que cria `athletes.birth_year` (integer, preenchido a partir de `birth_date`) e remove `birth_date`, `email` e o índice `athletes_email_unique`. API, validators, importações (CSV de atletas, planilha de torneio: o atleta passa a ser reconhecido pelo nome, com o clube para desempatar), formulário e telas de atleta, seed e testes.
 - **Banco:** `pnpm db:backup` antes do `db:migrate` local (a remoção de colunas apaga os e-mails e as datas completas).
 - **Docs:** spec (dados pessoais, tabela `athletes`, importação), `PROGRESS.md`.
 - **Pronto quando:** nenhuma rota, tela, exportação ou importação lê ou grava e-mail ou data completa; gates e E2E verdes.

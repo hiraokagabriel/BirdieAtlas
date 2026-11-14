@@ -29,7 +29,7 @@ function useDebounced<T>(value: T, delayMs: number): T {
   return debounced
 }
 
-/** Busca de atletas no servidor para pickers (nome ou e-mail, filtro opcional de gênero). */
+/** Busca de atletas no servidor para pickers (nome, filtro opcional de gênero). */
 export function useAthleteSearch(search: string, gender?: 'M' | 'F') {
   const term = useDebounced(search.trim(), 250)
 

@@ -13,7 +13,6 @@ import { liveRoutes } from './routes/live.js'
 import { rankingsRoutes } from './routes/rankings.js'
 import { dashboardRoutes } from './routes/dashboard.js'
 import { affiliationsRoutes } from './routes/affiliations.js'
-import { importAthletesRoutes } from './routes/import-athletes.js'
 import { tenantsRoutes } from './routes/tenants.js'
 import { pointRulesRoutes } from './routes/point-rules.js'
 import { pairsRoutes } from './routes/pairs.js'
@@ -51,7 +50,6 @@ await app.register(liveRoutes)
 await app.register(rankingsRoutes)
 await app.register(dashboardRoutes)
 await app.register(affiliationsRoutes)
-await app.register(importAthletesRoutes)
 await app.register(tenantsRoutes)
 await app.register(pointRulesRoutes)
 await app.register(pairsRoutes)

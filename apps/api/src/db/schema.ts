@@ -26,7 +26,7 @@ const timestamps = {
 const softDelete = {
   deletedAt: timestamp('deleted_at'),
 }
-/** Unicidade só entre registros não excluídos, para um slug/e-mail poder ser reutilizado após exclusão. */
+/** Unicidade só entre registros não excluídos, para um slug poder ser reutilizado após exclusão. */
 const notDeleted = sql`deleted_at IS NULL`
 
 // ---------------------------------------------------------------------------
@@ -105,17 +105,15 @@ export const clubs = pgTable('clubs', {
 export const athletes = pgTable('athletes', {
   id: id(),
   name: text('name').notNull(),
-  email: text('email'),
   gender: genderEnum('gender').notNull(),
-  birthDate: date('birth_date'),
+  // Só o ano: a versão online guarda o mínimo de dados pessoais (sem e-mail nem data completa).
+  birthYear: integer('birth_year'),
   nationality: text('nationality').notNull().default('BR'),
   photoUrl: text('photo_url'),
   active: boolean('active').notNull().default(true),
   ...softDelete,
   ...timestamps,
-}, (table) => [
-  uniqueIndex('athletes_email_unique').on(table.email).where(notDeleted),
-])
+})
 
 // ---------------------------------------------------------------------------
 // Athlete Affiliations

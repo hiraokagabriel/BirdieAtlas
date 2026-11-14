@@ -117,7 +117,7 @@ export async function registrationsRoutes(app: FastifyInstance) {
   })
 
   // Admin (ADMIN_ONLY_READS): inscritos por categoria em CSV. Só nome, clube, categoria e status:
-  // sem e-mail, data de nascimento nem o motivo interno (`notes`).
+  // sem ano de nascimento nem o motivo interno (`notes`).
   app.get('/tournaments/:id/registrations/export.csv', async (request, reply) => {
     const { tournamentId: id } = tournamentRegistrationsParamsSchema.parse({ tournamentId: (request.params as { id: string }).id })
     const tournament = await loadTournament(id)

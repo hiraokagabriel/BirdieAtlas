@@ -202,6 +202,6 @@ test.describe('regras do placar ao vivo na API', () => {
     const semi = prepared.matches.find((m) => m.round === 2 && m.position === 1)
     await api.post(`/draws/matches/${semi?.id}/live/start`, {})
     const json = JSON.stringify(await listLiveMatches(prepared.tournament.id))
-    expect(json).not.toMatch(/email|birthDate|cpf|phone/i)
+    expect(json).not.toMatch(/email|birthDate|birthYear|cpf|phone/i)
   })
 })

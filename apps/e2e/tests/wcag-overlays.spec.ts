@@ -184,7 +184,7 @@ const overlays: OverlayCase[] = [
     open: async (page) => {
       await page.goto('/admin/athletes')
       await page.getByRole('button', { name: 'Novo atleta' }).click()
-      await dialog(page).getByLabel('E-mail').fill('sem-arroba')
+      await dialog(page).getByLabel('Ano de nascimento').fill('1800')
       await dialog(page).getByRole('button', { name: 'Criar atleta' }).click()
       await expect(dialog(page).getByText('Nome é obrigatório')).toBeVisible()
     },
@@ -198,7 +198,7 @@ const overlays: OverlayCase[] = [
       await dialog(page).locator('input[type="file"]').setInputFiles({
         name: 'atletas.csv',
         mimeType: 'text/csv',
-        buffer: Buffer.from('name,gender,birthDate,email,nationality\nJoão Silva,M,1995-03-20,joao@email.com,BR\nMaria Santos,F,1998-07-15,,BR'),
+        buffer: Buffer.from('name,gender,birthYear,nationality\nJoão Silva,M,1995,BR\nMaria Santos,F,,BR'),
       })
       await expect(dialog(page).getByRole('table')).toBeVisible()
     },

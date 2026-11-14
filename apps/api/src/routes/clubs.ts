@@ -48,7 +48,7 @@ export async function clubsRoutes(app: FastifyInstance) {
     return club
   })
 
-  // Perfil público do clube — não expõe email nem birthDate dos atletas
+  // Perfil público do clube: atletas só com colunas públicas (sem ano de nascimento)
   app.get('/clubs/:id/profile', async (request, reply) => {
     const { id } = request.params as { id: string }
     const [club] = await db.select().from(clubs).where(and(eq(clubs.id, id), isNull(clubs.deletedAt)))
@@ -66,7 +66,7 @@ export async function clubsRoutes(app: FastifyInstance) {
 
     const athleteIds = currentAffiliations.map((a) => a.athleteId)
 
-    // Seleciona apenas campos públicos dos atletas (sem email, birthDate)
+    // Seleciona apenas campos públicos dos atletas (sem ano de nascimento)
     const rosterAthletes = await db
       .select({
         id: athletes.id,

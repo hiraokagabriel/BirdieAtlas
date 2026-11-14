@@ -2,7 +2,7 @@ import { athletes } from './schema.js'
 
 /**
  * Colunas de atleta que podem sair em qualquer resposta, inclusive pública.
- * E-mail e data de nascimento são dados pessoais: só as rotas administrativas de atletas os devolvem.
+ * O ano de nascimento fica de fora: só as rotas administrativas de atletas o devolvem.
  */
 export const publicAthleteColumns = {
   id: athletes.id,

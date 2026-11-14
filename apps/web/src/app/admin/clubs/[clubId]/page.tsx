@@ -15,7 +15,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 
 type RosterAthlete = {
   id: string; name: string; gender: 'M' | 'F'
-  birthDate: string | null; photoUrl: string | null; active: boolean
+  photoUrl: string | null; active: boolean
   totalPoints: number
   byDiscipline: Record<string, number>
 }
@@ -267,7 +267,6 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
                             <p className="font-medium">{athlete.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {athlete.gender === 'M' ? 'Masculino' : 'Feminino'}
-                              {athlete.birthDate ? ` · ${new Date(athlete.birthDate).getFullYear()}` : ''}
                             </p>
                           </div>
                         </div>

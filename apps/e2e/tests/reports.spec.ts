@@ -63,7 +63,7 @@ test.describe('relatórios CSV', () => {
 
   test('atletas do clube (admin): afiliados ativos com a data de início, sem dados pessoais', async ({ request }) => {
     const club = await createClub()
-    const athlete = await createAthlete({ email: `clube-${Date.now()}@exemplo.com`, birthDate: '2000-05-10' })
+    const athlete = await createAthlete({ birthYear: 2000 })
     await affiliate(athlete.id, club.id)
     const lines = await csvLines(request, `/clubs/${club.id}/athletes/export.csv`)
     expect(lines).toEqual(['Clube;Atleta;Afiliado desde', `${club.name};${athlete.name};01/01/2024`])
@@ -78,7 +78,7 @@ test.describe('relatórios CSV', () => {
     }
   })
 
-  test('atletas (admin): sem e-mail nem nascimento', async ({ request }) => {
+  test('atletas (admin): sem ano de nascimento', async ({ request }) => {
     const lines = await csvLines(request, '/athletes/export.csv')
     expect(lines[0]).toBe('Atleta;Gênero;Clube;Situação')
     expect(lines.join('\n')).not.toMatch(/@/)

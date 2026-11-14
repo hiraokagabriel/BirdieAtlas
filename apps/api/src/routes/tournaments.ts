@@ -14,6 +14,7 @@ import {
   dedicatedTransitionEndpoint,
   paginationQuerySchema,
   tournamentTransitionBodySchema,
+  tournamentStatusSchema,
 } from '@birdie-atlas/validators'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
@@ -24,6 +25,7 @@ import { getDefaultTenantId } from '../tenant.js'
 
 const listTournamentsQuerySchema = paginationQuerySchema.extend({
   public: z.enum(['true', 'false']).optional(),
+  status: tournamentStatusSchema.optional(),
 })
 
 const createTournamentSchema = z.object({
@@ -47,7 +49,7 @@ const createCategorySchema = z.object({
 })
 
 export async function tournamentsRoutes(app: FastifyInstance) {
-  // Lista paginada do tenant padrão. `public=true` esconde rascunhos (portal público).
+  // Lista paginada do tenant padrão. `public=true` esconde rascunhos (portal público); `status` filtra por situação.
   app.get('/tournaments', async (request) => {
     const query = listTournamentsQuerySchema.parse(request.query)
     const tenantId = await getDefaultTenantId()
@@ -55,6 +57,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       eq(tournaments.tenantId, tenantId),
       isNull(tournaments.deletedAt),
       query.public === 'true' ? ne(tournaments.status, 'draft') : undefined,
+      query.status ? eq(tournaments.status, query.status) : undefined,
     )
     return paginate(
       query,

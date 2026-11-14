@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Building2, Calendar, Mail, MapPin, ExternalLink } from 'lucide-react'
+import { Building2, Calendar, MapPin, ExternalLink } from 'lucide-react'
+import { ageFromBirthYear } from '@/lib/birth-year'
 import Link from 'next/link'
 import { GENDER_PILL } from '@/lib/discipline'
 
@@ -26,13 +27,6 @@ type Affiliation = {
 
 function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()
-}
-
-function getAge(birthDate: string | null): string {
-  if (!birthDate) return '—'
-  const birth = new Date(birthDate)
-  const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-  return `${age} anos`
 }
 
 const genderLabel = { M: 'Masculino', F: 'Feminino' }
@@ -101,17 +95,11 @@ export function AthleteSheet({
                     {athlete.active ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
-                {athlete.email && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="w-3.5 h-3.5 shrink-0" />
-                    {athlete.email}
-                  </div>
-                )}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5 shrink-0" />
-                  {athlete.birthDate
-                    ? `${new Date(athlete.birthDate).toLocaleDateString('pt-BR')} (${getAge(athlete.birthDate)})`
-                    : 'Data de nascimento não informada'}
+                  {athlete.birthYear != null
+                    ? `Nascido(a) em ${athlete.birthYear} (${ageFromBirthYear(athlete.birthYear)})`
+                    : 'Ano de nascimento não informado'}
                 </div>
               </div>
             </div>
