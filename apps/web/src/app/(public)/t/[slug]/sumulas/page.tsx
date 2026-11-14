@@ -28,9 +28,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 const SETS = [1, 2, 3] as const
+// Renderizada no servidor: o horário sai no fuso da federação, não no do processo.
+const TIME_ZONE = 'America/Sao_Paulo'
 
 function Scoresheet({ match, tournamentName }: { match: QueueMatch; tournamentName: string }) {
-  const where = [match.courtNumber != null ? `Quadra ${match.courtNumber}` : 'Quadra ____', formatTvTime(match.scheduledAt) || 'Horário ____'].join(' · ')
+  const where = [match.courtNumber != null ? `Quadra ${match.courtNumber}` : 'Quadra ____', formatTvTime(match.scheduledAt, new Date(), TIME_ZONE) || 'Horário ____'].join(' · ')
   return (
     <article aria-label={`Súmula: ${match.participant1} x ${match.participant2}`} className="space-y-3">
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-2">
@@ -51,8 +53,8 @@ function Scoresheet({ match, tournamentName }: { match: QueueMatch; tournamentNa
           </tr>
         </thead>
         <tbody>
-          {[match.participant1, match.participant2].map((name) => (
-            <tr key={name}>
+          {[match.participant1, match.participant2].map((name, i) => (
+            <tr key={i}>
               <th scope="row" className="border border-border px-2 py-3 text-left font-semibold">{name}</th>
               {SETS.map((n) => (
                 <td key={n} className="h-12 border border-border" />
@@ -73,12 +75,21 @@ function Scoresheet({ match, tournamentName }: { match: QueueMatch; tournamentNa
 export default async function ScoresheetsPage({ params }: PageProps) {
   const { slug } = await params
   const tournament = await loadTournament(slug)
-  if (tournament === 'error') return <ErrorNotice>Não foi possível carregar o torneio. Tente de novo em instantes.</ErrorNotice>
+  if (tournament === 'error') {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold tracking-tight">Súmulas</h1>
+        <ErrorNotice>Não foi possível carregar o torneio. Tente de novo em instantes.</ErrorNotice>
+      </div>
+    )
+  }
 
   let queue: QueueMatch[] | null = null
   try {
     queue = tvUpcoming(await apiFetch<QueueMatch[]>(`/tournaments/${tournament.id}/live/queue`), Number.POSITIVE_INFINITY)
-  } catch {
+  } catch (err) {
+    // Torneio apagado entre as duas chamadas: mesma resposta do slug inexistente.
+    if (err instanceof ApiError && err.status === 404) notFound()
     queue = null
   }
 

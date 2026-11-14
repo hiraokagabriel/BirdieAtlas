@@ -277,13 +277,18 @@ export function tvCourtSlots(live: readonly LiveMatch[], queue: readonly QueueMa
   return slots
 }
 
-/** "14:30" no fuso do aparelho; em outro dia, "15/03 14:30". Vazio sem horário. */
-export function formatTvTime(iso: string | null, now: Date = new Date()): string {
+/**
+ * "14:30"; em outro dia, "15/03 14:30". Vazio sem horário. Sem `timeZone`, usa o fuso do aparelho (telão, no cliente);
+ * renderizado no servidor, passe o fuso (o processo pode estar em UTC).
+ */
+export function formatTvTime(iso: string | null, now: Date = new Date(), timeZone?: string): string {
   if (!iso) return ''
   const date = new Date(iso)
-  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)
-  if (date.toDateString() === now.toDateString()) return time
-  return `${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(date)} ${time}`
+  const zone = timeZone ? { timeZone } : {}
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...zone }).format(date)
+  const day = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', ...zone })
+  if (day.format(date) === day.format(now)) return time
+  return `${new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', ...zone }).format(date)} ${time}`
 }
 
 /** Próximas partidas do telão: por horário (sem horário no fim), depois quadra (sem quadra no fim). A API ordena por quadra. */

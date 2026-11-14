@@ -29,7 +29,8 @@ export function TvQrCode({ path }: { path: string }) {
   }
   return (
     <figure className="flex items-center gap-3">
-      {/* SVG gerado pela biblioteca a partir do endereço do próprio site; o texto ao lado diz o mesmo endereço. */}
+      {/* SVG gerado pela biblioteca a partir do endereço do próprio site; o texto ao lado diz o mesmo endereço.
+          bg-white fixo de propósito: o leitor de QR precisa de fundo claro nos dois temas. */}
       <span aria-hidden="true" className="block size-24 rounded-md bg-white p-1 [&>svg]:size-full" dangerouslySetInnerHTML={{ __html: state.svg }} />
       <figcaption className="max-w-40 text-sm">
         <span className="font-semibold">Acompanhe no celular</span>
