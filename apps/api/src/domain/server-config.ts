@@ -2,6 +2,8 @@ import { ADMIN_PIN_MIN_LENGTH } from './admin-session.js'
 
 /** Na internet o PIN enfrenta tentativas de muitos IPs: em produção ele precisa ser longo. */
 export const PRODUCTION_ADMIN_PIN_MIN_LENGTH = 16
+/** Segredo que assina os tokens de admin: com ele vazado, dá para forjar sessão, então é longo e aleatório. */
+export const ADMIN_SESSION_SECRET_MIN_LENGTH = 32
 
 export interface ServerConfig {
   production: boolean
@@ -39,6 +41,9 @@ export function readServerConfig(env: Env): ServerConfig {
     const pin = (env['ADMIN_PIN'] ?? '').trim()
     if (pin.length < PRODUCTION_ADMIN_PIN_MIN_LENGTH) {
       problems.push(`ADMIN_PIN é obrigatório em produção, com pelo menos ${PRODUCTION_ADMIN_PIN_MIN_LENGTH} caracteres (o mínimo na rede local é ${ADMIN_PIN_MIN_LENGTH}).`)
+    }
+    if ((env['ADMIN_SESSION_SECRET'] ?? '').trim().length < ADMIN_SESSION_SECRET_MIN_LENGTH) {
+      problems.push(`ADMIN_SESSION_SECRET é obrigatório em produção, com pelo menos ${ADMIN_SESSION_SECRET_MIN_LENGTH} caracteres aleatórios (assina as sessões de admin).`)
     }
     if (origins.length === 0) problems.push('CORS_ORIGINS é obrigatório em produção (origens do site, separadas por vírgula).')
     // Sem declarar, atrás de um proxy todo mundo teria o IP do proxy: um balde só no rate limit e no bloqueio de PIN.

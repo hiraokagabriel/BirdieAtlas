@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readServerConfig } from './server-config.js'
 
-const prod = { NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://birdieatlas.vercel.app', TRUST_PROXY: '0' }
+const prod = { NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://birdieatlas.vercel.app', TRUST_PROXY: '0', ADMIN_SESSION_SECRET: 's'.repeat(32) }
 
 describe('readServerConfig', () => {
   it('fora de produção: qualquer origem, sem proxy, sem exigir PIN', () => {
@@ -28,6 +28,7 @@ describe('readServerConfig', () => {
     )
     expect(() => readServerConfig({ ...prod, ADMIN_PIN: '' })).toThrow(/ADMIN_PIN/)
     expect(() => readServerConfig({ ...prod, TRUST_PROXY: '' })).toThrow(/TRUST_PROXY é obrigatório/)
+    expect(() => readServerConfig({ ...prod, ADMIN_SESSION_SECRET: 'curto' })).toThrow(/ADMIN_SESSION_SECRET/)
   })
 
   it('TRUST_PROXY inválido', () => {

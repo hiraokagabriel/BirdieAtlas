@@ -27,7 +27,7 @@ const config = readServerConfig(process.env)
 const app = Fastify({ logger: true, trustProxy: config.trustProxy })
 
 // Com ADMIN_PIN, o acesso admin passa a ser por sessão (PIN); PIN curto impede a subida.
-if (configureAdminPin(process.env['ADMIN_PIN'])) app.log.info('PIN de admin ativo: DEV_ADMIN_MODE é ignorado.')
+if (configureAdminPin(process.env['ADMIN_PIN'], process.env['ADMIN_SESSION_SECRET']?.trim())) app.log.info('PIN de admin ativo: DEV_ADMIN_MODE é ignorado.')
 
 await registerNetwork(app, config)
 
