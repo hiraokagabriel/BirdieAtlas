@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatScore, joinClubs, pickWinner, roundLabel, sortByPlacement, sortMatchesForReport } from './report-format.js'
+import { formatReportDate, formatReportDateTime, formatScore, joinClubs, pickWinner, roundLabel, sortByPlacement, sortMatchesForReport, sortScheduleForReport } from './report-format.js'
 
 describe('roundLabel', () => {
   it('rodada 1 é a final', () => {
@@ -49,5 +49,32 @@ describe('sortByPlacement', () => {
       { id: 'b', finalPlacement: 3 }, { id: 'a', finalPlacement: 3 }, { id: 'c', finalPlacement: 1 },
     ])
     expect(out.map((r) => r.id)).toEqual(['c', 'a', 'b'])
+  })
+})
+
+describe('formatReportDateTime', () => {
+  it('sai no horário de Brasília, 24 h', () => {
+    expect(formatReportDateTime(new Date('2026-10-27T17:30:00Z'))).toBe('27/10/2026 14:30')
+    expect(formatReportDateTime(new Date('2026-01-02T03:05:00Z'))).toBe('02/01/2026 00:05')
+  })
+})
+
+describe('formatReportDate', () => {
+  it('converte a data ISO e deixa valor inesperado como veio', () => {
+    expect(formatReportDate('2026-03-15')).toBe('15/03/2026')
+    expect(formatReportDate('x')).toBe('x')
+  })
+})
+
+describe('sortScheduleForReport', () => {
+  it('horário, depois quadra (sem quadra por último), depois a chave', () => {
+    const at = (h: number) => new Date(`2026-10-27T${String(h).padStart(2, '0')}:00:00Z`)
+    const out = sortScheduleForReport([
+      { id: 'd', scheduledAt: at(11), courtNumber: 1, round: 1, position: 1 },
+      { id: 'c', scheduledAt: at(10), courtNumber: null, round: 2, position: 1 },
+      { id: 'b', scheduledAt: at(10), courtNumber: 2, round: 2, position: 2 },
+      { id: 'a', scheduledAt: at(10), courtNumber: 1, round: 2, position: 1 },
+    ])
+    expect(out.map((m) => m.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 })

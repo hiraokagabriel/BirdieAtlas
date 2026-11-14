@@ -116,6 +116,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <ExportCsvButton path={`/tournaments/${tournament.id}/results/export.csv`} fallbackName="resultados.csv" label="Exportar resultados" />
+          <ExportCsvButton path={`/tournaments/${tournament.id}/schedule/export.csv`} fallbackName="agenda.csv" label="Exportar agenda" />
           {isCompleted && (
             <ExportCsvButton path={`/tournaments/${tournament.id}/standings/export.csv`} fallbackName="classificacao.csv" label="Exportar classificação" />
           )}
