@@ -250,7 +250,7 @@ export function MatchResultDialog({
             <span className={`text-sm flex-1 truncate ${
               winner === 1 ? 'font-semibold' : winner === 2 ? 'text-muted-foreground' : 'font-medium'
             }`}>{player1Name}{winner === 1 && <span className="sr-only"> (vencedor)</span>}</span>
-            <span className="text-xs text-muted-foreground font-mono">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {displayGames.filter((g) => getGameWinner(g) === 1).length} games
             </span>
           </div>
@@ -261,7 +261,7 @@ export function MatchResultDialog({
             <span className={`text-sm flex-1 truncate ${
               winner === 2 ? 'font-semibold' : winner === 1 ? 'text-muted-foreground' : 'font-medium'
             }`}>{player2Name}{winner === 2 && <span className="sr-only"> (vencedor)</span>}</span>
-            <span className="text-xs text-muted-foreground font-mono">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {displayGames.filter((g) => getGameWinner(g) === 2).length} games
             </span>
           </div>
@@ -307,7 +307,7 @@ export function MatchResultDialog({
                     aria-describedby={showValidationError ? ERROR_ID : undefined}
                     value={game.score1}
                     onChange={(e) => updateGame(idx, 'score1', e.target.value)}
-                    className={`text-center font-mono ${
+                    className={`text-center tabular-nums ${
                       gw === 1 ? 'border-success bg-success/10 font-bold' : ''
                     }`}
                   />
@@ -321,7 +321,7 @@ export function MatchResultDialog({
                     aria-describedby={showValidationError ? ERROR_ID : undefined}
                     value={game.score2}
                     onChange={(e) => updateGame(idx, 'score2', e.target.value)}
-                    className={`text-center font-mono ${
+                    className={`text-center tabular-nums ${
                       gw === 2 ? 'border-success bg-success/10 font-bold' : ''
                     }`}
                   />

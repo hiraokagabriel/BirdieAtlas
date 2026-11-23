@@ -153,7 +153,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                     <div className="w-24 shrink-0 text-center">
                       {match.scheduledAt ? (
                         <>
-                          <p className="text-sm font-semibold font-mono">
+                          <p className="text-sm font-semibold tabular-nums">
                             {new Date(match.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                           {match.courtNumber && (

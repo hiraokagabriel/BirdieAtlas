@@ -311,7 +311,7 @@ export function AutoScheduleDialog({ tournamentId, defaultStartDate, open, onClo
                       <TableBody>
                         {day.rows.map((row) => (
                           <TableRow key={row.time}>
-                            <TableHead scope="row" className="font-mono">{row.time}</TableHead>
+                            <TableHead scope="row" className="tabular-nums">{row.time}</TableHead>
                             {day.courts.map((court) => (
                               <TableCell key={court} className="align-top whitespace-normal">
                                 <PreviewCell assignment={row.cells.get(court)} />
