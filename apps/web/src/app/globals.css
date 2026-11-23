@@ -96,7 +96,7 @@
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
   --radius-xl: var(--radius);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-2xl: var(--radius);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }

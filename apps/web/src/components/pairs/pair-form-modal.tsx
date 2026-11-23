@@ -76,7 +76,7 @@ function AthleteSelector({
           aria-controls={panelId}
           aria-labelledby={`${labelId} ${valueId}`}
           onClick={() => setOpen((o) => !o)}
-          className="flex h-9 w-full items-center gap-2 rounded-lg border border-field-border bg-background px-3 text-left text-sm transition-colors hover:bg-muted/50"
+          className="flex h-(--control-h) w-full items-center gap-2 rounded-md border border-field-border bg-background px-3 text-left text-sm transition-colors hover:bg-muted/50"
         >
           <span id={valueId} className="flex min-w-0 flex-1 items-center gap-2">
             {selected ? (
@@ -106,7 +106,7 @@ function AthleteSelector({
                   autoFocus
                   type="search"
                   placeholder="Buscar atleta..."
-                  className="h-8 w-full rounded-md border border-field-border bg-background pl-8 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+                  className="h-(--control-h) w-full rounded-md border border-field-border bg-background pl-8 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />

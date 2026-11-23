@@ -243,7 +243,7 @@ Cantos discretos, como os de uma súmula impressa: 4 px em chips e marcadores, 6
 
 ### Buttons
 - **Shape:** cantos suaves (6 px).
-- **Altura:** 44 px no portal público, 36 px no admin, nunca menos. O `h-8` (32 px) de hoje sai.
+- **Altura:** 44 px no portal público e 36 px no admin, pela variável `--control-h`. O `h-8` (32 px) de hoje sai. Exceção de densidade: `size="sm"`/`"xs"` (28 e 24 px, mínimo WCAG de 24 px) só para ações secundárias dentro de tabelas e cartões do admin, nunca como ação principal nem no portal público.
 - **Primary:** verde-quadra com texto papel; hover em verde forte; 150 ms ease-out.
 - **Outline:** cartão com borda de campo, para ações secundárias.
 - **Ghost:** só para ações de linha em tabela e ícones de barra.

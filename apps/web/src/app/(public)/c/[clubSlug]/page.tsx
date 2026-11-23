@@ -303,7 +303,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
               type="search"
               aria-label="Buscar atleta do plantel"
               placeholder="Buscar atleta..."
-              className="w-full h-9 rounded-lg border border-field-border bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+              className="w-full h-(--control-h) rounded-md border border-field-border bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

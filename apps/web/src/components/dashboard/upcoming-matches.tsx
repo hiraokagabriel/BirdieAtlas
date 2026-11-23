@@ -22,7 +22,7 @@ type UpcomingMatch = {
 }
 
 const statusConfig = {
-  in_progress: { label: 'Ao vivo', className: 'bg-live hover:bg-live text-live-foreground' },
+  in_progress: { label: 'Ao vivo', className: '' },
   pending:     { label: 'Aguardando', className: 'bg-muted text-muted-foreground' },
 }
 
@@ -69,7 +69,7 @@ export function UpcomingMatches() {
                     </span>
                     <span className="text-xs text-muted-foreground">{match.roundLabel ?? roundLabel(match.round)}</span>
                   </div>
-                  <Badge className={status.className} variant="secondary">
+                  <Badge className={status.className} variant={match.status === 'in_progress' ? 'live' : 'secondary'}>
                     {match.status === 'in_progress' && <span aria-hidden="true" className="size-1.5 rounded-full bg-background motion-safe:animate-pulse" />}
                     {status.label}
                   </Badge>
