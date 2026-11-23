@@ -41,7 +41,7 @@ const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
 type SortField = 'name' | 'totalPoints' | 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
 type SortDir  = 'asc' | 'desc'
 
-const selectCls = 'h-9 rounded-lg border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
+const selectCls = 'h-(--control-h) rounded-md border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
 
 function StatCard({ label, value, sub, icon: Icon, primary }: {
   label: string; value: string | number; sub?: string

@@ -22,7 +22,7 @@ type UpcomingMatch = {
 }
 
 const statusConfig = {
-  in_progress: { label: 'Ao vivo', className: 'bg-success hover:bg-success text-background' },
+  in_progress: { label: 'Ao vivo', className: 'bg-live hover:bg-live text-live-foreground' },
   pending:     { label: 'Aguardando', className: 'bg-muted text-muted-foreground' },
 }
 

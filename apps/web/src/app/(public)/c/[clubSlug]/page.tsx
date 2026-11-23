@@ -196,7 +196,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
   const primary   = club.primaryColor   ?? '#01696f'
   const secondary = club.secondaryColor ?? primary
 
-  const selectCls = 'h-9 rounded-lg border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
+  const selectCls = 'h-(--control-h) rounded-md border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
 
   return (
     <div className="space-y-8">

@@ -7,7 +7,7 @@ export function PagerLinks({ pagination, basePath }: { pagination: Pagination; b
   const { page, totalPages, total } = pagination
   if (totalPages <= 1) return null
 
-  const linkCls = 'inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-border text-sm hover:bg-muted transition-colors'
+  const linkCls = 'inline-flex items-center gap-1 h-(--control-h) px-3 rounded-md border border-border text-sm hover:bg-muted transition-colors'
   const disabledCls = `${linkCls} opacity-40 pointer-events-none`
 
   return (
