@@ -33,7 +33,7 @@ test.beforeAll(async () => {
 })
 
 const publicPages: PageCase[] = [
-  { name: 'início', path: () => '/', ready: (p) => p.getByRole('region', { name: 'Top 10 dos rankings' }).getByRole('tablist') },
+  { name: 'início', path: () => '/', ready: (p) => p.getByRole('region', { name: 'Ranking', exact: true }).getByRole('tablist') },
   { name: 'ranking', path: () => '/r/fpb-sp', ready: (p) => p.getByRole('radio', { name: /Simples|Duplas/ }).first() },
   { name: 'torneio', path: () => `/t/${prepared.tournament.slug}`, ready: (p) => p.getByRole('region', { name: /^Chave de/ }) },
   { name: 'atleta', path: () => `/a/${athlete.id}`, ready: (p) => p.getByRole('heading', { level: 1, name: athlete.name }) },

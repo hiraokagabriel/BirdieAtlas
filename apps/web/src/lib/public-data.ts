@@ -3,6 +3,7 @@ import { unstable_rethrow } from 'next/navigation'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import type { Loaded, TournamentSummary } from '@/lib/home-data'
+import type { LiveMatch } from '@/lib/live'
 
 // Leituras públicas do portal. Todas rodam no servidor e devolvem `{ ok: false }` em vez de lançar,
 // para cada bloco da home falhar sozinho sem derrubar a página.
@@ -20,6 +21,11 @@ async function safe<T>(run: () => Promise<T>): Promise<Loaded<T>> {
 export const loadTournaments = cache(() =>
   // public=true: a API já esconde rascunhos. 100 é o máximo por página.
   safe(async () => (await apiFetch<Paginated<TournamentSummary>>('/tournaments?public=true&pageSize=100')).data),
+)
+
+/** Partidas em quadra de um torneio, no momento da requisição (a home não usa o stream). */
+export const loadLiveMatches = cache((tournamentId: string) =>
+  safe(() => apiFetch<LiveMatch[]>(`/tournaments/${tournamentId}/live/matches`)),
 )
 
 export interface PublicClub {

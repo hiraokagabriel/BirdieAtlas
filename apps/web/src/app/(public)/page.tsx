@@ -2,6 +2,8 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { Search } from 'lucide-react'
 import {
+  LiveNowHome,
+  LiveSkeleton,
   RankingsSkeleton,
   RecentTournaments,
   SearchResults,
@@ -34,20 +36,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const query = firstValue((await searchParams).q)
 
   return (
-    <div className="space-y-12">
-      <section aria-labelledby="hero-title" className="rounded-2xl bg-primary px-5 py-8 text-primary-foreground md:px-10 md:py-12">
-        <p className="text-sm font-semibold uppercase tracking-widest text-primary-foreground/90">BirdieAtlas</p>
-        <h1 id="hero-title" className="mt-2 max-w-3xl text-4xl leading-none md:text-6xl">
-          Todo o badminton das federações num só lugar
-        </h1>
-        <p className="mt-4 max-w-xl text-base text-primary-foreground/90 md:text-lg">
-          Torneios, chaves, resultados e rankings atualizados, com o perfil de cada atleta e clube.
-        </p>
+    <div className="space-y-8">
+      <h1 className="sr-only">Torneios, resultados e rankings de badminton</h1>
 
-        <form action="/" method="get" role="search" className="mt-6 flex max-w-xl flex-col gap-2 sm:flex-row">
-          <label htmlFor="home-search" className="sr-only">
-            Buscar atletas e clubes
-          </label>
+      {/* Busca no topo: a forma mais curta de chegar a um atleta ou clube (docs/DESIGN.md, A Regra dos Dois Toques). */}
+      <form id="busca" action="/" method="get" role="search" className="flex scroll-mt-20 gap-2">
+        <label htmlFor="home-search" className="sr-only">
+          Buscar atletas e clubes
+        </label>
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             id="home-search"
             name="q"
@@ -56,17 +54,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             maxLength={80}
             placeholder="Buscar atleta ou clube"
             autoComplete="off"
-            className="h-11 min-w-0 rounded-lg border border-transparent bg-background sm:flex-1 px-4 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="h-13 w-full rounded-lg border border-field-border bg-card pr-4 pl-12 text-base text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-accent px-5 text-base font-semibold text-accent-foreground transition-colors hover:bg-accent/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
-          >
-            <Search className="size-4" aria-hidden="true" />
-            Buscar
-          </button>
-        </form>
-      </section>
+        </div>
+        <button
+          type="submit"
+          className="inline-flex h-13 shrink-0 items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-strong"
+        >
+          Buscar
+        </button>
+      </form>
 
       {query && (
         <Section id="search-title" title={`Resultados para “${query}”`}>
@@ -76,23 +73,31 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </Section>
       )}
 
-      <Section id="upcoming-title" title="Próximos torneios">
-        <Suspense fallback={<TournamentsSkeleton />}>
-          <UpcomingTournaments />
-        </Suspense>
-      </Section>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] [&>*]:min-w-0">
+        <div className="space-y-8">
+          <Suspense fallback={<LiveSkeleton />}>
+            <LiveNowHome />
+          </Suspense>
 
-      <Section id="recent-title" title="Resultados recentes">
-        <Suspense fallback={<TournamentsSkeleton />}>
-          <RecentTournaments />
-        </Suspense>
-      </Section>
+          <Section id="upcoming-title" title="Próximos torneios">
+            <Suspense fallback={<TournamentsSkeleton />}>
+              <UpcomingTournaments />
+            </Suspense>
+          </Section>
 
-      <Section id="rankings-title" title="Top 10 dos rankings">
-        <Suspense fallback={<RankingsSkeleton />}>
-          <TopRankings />
-        </Suspense>
-      </Section>
+          <Section id="recent-title" title="Resultados recentes">
+            <Suspense fallback={<TournamentsSkeleton />}>
+              <RecentTournaments />
+            </Suspense>
+          </Section>
+        </div>
+
+        <Section id="rankings-title" anchor="ranking" title="Ranking">
+          <Suspense fallback={<RankingsSkeleton />}>
+            <TopRankings />
+          </Suspense>
+        </Section>
+      </div>
     </div>
   )
 }

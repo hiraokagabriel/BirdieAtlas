@@ -22,7 +22,7 @@ export function publicPages(data: () => WcagData): PageCase[] {
     name: 'início',
     path: () => '/',
     ready: async (p) => {
-      await expect(p.getByRole('region', { name: 'Top 10 dos rankings' }).getByRole('tablist')).toBeVisible()
+      await expect(p.getByRole('region', { name: 'Ranking', exact: true }).getByRole('tablist')).toBeVisible()
     },
   },
   {

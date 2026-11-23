@@ -2,66 +2,100 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Building2, MapPin, User } from 'lucide-react'
 import { selectRecent, selectUpcoming } from '@/lib/home-data'
-import { loadAthleteSearch, loadClubs, loadRankingBoards, loadTournaments } from '@/lib/public-data'
+import { DISCIPLINE_PILL, disciplineShort } from '@/lib/discipline'
+import { sortLive, type LiveMatch } from '@/lib/live'
+import { loadAthleteSearch, loadClubs, loadLiveMatches, loadRankingBoards, loadTournaments } from '@/lib/public-data'
 import { matchesQuery } from '@/lib/search'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { EmptyNotice, ErrorNotice } from './notices'
 import { RankingTabs } from './ranking-tabs'
-import { TournamentCard } from './tournament-card'
+import { TournamentRow } from './tournament-card'
 
 export const TOP_N = 10
 const TOURNAMENT_LIMIT = 6
+/** Quantos torneios em andamento e partidas por torneio a home mostra em "Ao vivo agora". */
+const LIVE_TOURNAMENT_LIMIT = 2
+const LIVE_MATCH_LIMIT = 4
 /** Mesmo mínimo que a API exige em `GET /athletes/search`. */
 export const SEARCH_MIN_LENGTH = 2
 const SEARCH_RESULT_LIMIT = 8
 
-export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+/** Lista com divisórias, o contêiner padrão de coleções (docs/DESIGN.md, Cards / Containers). */
+const ROWS = 'divide-y divide-border overflow-hidden rounded-lg border border-border bg-card'
+const ROW_LINK = 'transition-colors hover:bg-muted/60 focus-visible:outline-offset-[-2px]'
+
+export function Section({
+  id,
+  title,
+  action,
+  anchor,
+  children,
+}: {
+  id: string
+  title: string
+  action?: ReactNode
+  /** Âncora da barra inferior do celular (`/#ao-vivo`, `/#ranking`). */
+  anchor?: string
+  children: ReactNode
+}) {
   return (
-    <section aria-labelledby={id} className="space-y-4">
-      <h2 id={id} className="text-2xl">
-        {title}
-      </h2>
+    <section id={anchor} aria-labelledby={id} className="scroll-mt-20 space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id={id} className="text-2xl">
+          {title}
+        </h2>
+        {action}
+      </div>
       {children}
     </section>
   )
 }
 
-function CardsSkeleton({ count }: { count: number }) {
+function RowsSkeleton({ count, rowClass = 'h-16' }: { count: number; rowClass?: string }) {
   return (
-    <div role="status" aria-busy="true" aria-label="Carregando" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div role="status" aria-busy="true" aria-label="Carregando" className={ROWS}>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="h-32 motion-safe:animate-pulse rounded-xl border border-border bg-card" />
+        <div key={i} className={cn('flex items-center gap-3 px-4', rowClass)}>
+          <div className="h-8 w-12 motion-safe:animate-pulse rounded-sm bg-muted" />
+          <div className="h-4 flex-1 motion-safe:animate-pulse rounded-sm bg-muted" />
+        </div>
       ))}
     </div>
   )
 }
 
 export function TournamentsSkeleton() {
-  return <CardsSkeleton count={3} />
+  return <RowsSkeleton count={3} />
+}
+
+export function LiveSkeleton() {
+  return <RowsSkeleton count={2} rowClass="h-20" />
 }
 
 export function RankingsSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-label="Carregando" className="space-y-4">
-      <div className="h-9 w-64 motion-safe:animate-pulse rounded-full bg-muted" />
-      <div className="h-96 motion-safe:animate-pulse rounded-xl border border-border bg-card" />
+    <div role="status" aria-busy="true" aria-label="Carregando" className="space-y-3">
+      <div className="h-10 w-64 motion-safe:animate-pulse rounded-md bg-muted" />
+      <RowsSkeleton count={5} rowClass="h-14" />
     </div>
   )
 }
 
 export function SearchSkeleton() {
-  return <div role="status" aria-busy="true" aria-label="Buscando" className="h-24 motion-safe:animate-pulse rounded-xl border border-border bg-card" />
+  return <RowsSkeleton count={2} rowClass="h-12" />
 }
 
 export async function UpcomingTournaments() {
   const result = await loadTournaments()
   if (!result.ok) return <ErrorNotice>Não foi possível carregar os torneios agora. Tente novamente em instantes.</ErrorNotice>
   const upcoming = selectUpcoming(result.data, TOURNAMENT_LIMIT)
-  if (upcoming.length === 0) return <EmptyNotice>Nenhum torneio com inscrições abertas ou em andamento no momento.</EmptyNotice>
+  if (upcoming.length === 0) return <EmptyNotice>Nenhum torneio com inscrições abertas ou em andamento no momento. Os próximos aparecem aqui assim que forem publicados.</EmptyNotice>
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <ul className={ROWS}>
       {upcoming.map((t) => (
         <li key={t.id}>
-          <TournamentCard tournament={t} />
+          <TournamentRow tournament={t} />
         </li>
       ))}
     </ul>
@@ -74,13 +108,89 @@ export async function RecentTournaments() {
   const recent = selectRecent(result.data, TOURNAMENT_LIMIT)
   if (recent.length === 0) return <EmptyNotice>Nenhum torneio encerrado ainda.</EmptyNotice>
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <ul className={ROWS}>
       {recent.map((t) => (
         <li key={t.id}>
-          <TournamentCard tournament={t} />
+          <TournamentRow tournament={t} />
         </li>
       ))}
     </ul>
+  )
+}
+
+function LiveMatchRow({ match: m }: { match: LiveMatch }) {
+  // Sets fechados e o set em andamento, na ordem; o em andamento fica em verde.
+  const sets = [...m.sets.map((s) => [s.score1, s.score2] as const), ...(m.currentSet ? [[m.currentSet.score1, m.currentSet.score2] as const] : [])]
+  const current = m.currentSet ? sets.length - 1 : -1
+  const leader = m.setsWon.side1 === m.setsWon.side2 ? 0 : m.setsWon.side1 > m.setsWon.side2 ? 1 : 2
+  return (
+    <div className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3">
+      <span className="row-span-2 self-start font-heading text-xs font-bold uppercase leading-tight tracking-wide text-muted-foreground">
+        {m.courtNumber ? (
+          <>
+            Quadra
+            <span className="block text-[1.75rem] leading-none tracking-normal text-foreground tabular-nums">{m.courtNumber}</span>
+          </>
+        ) : (
+          <span className={cn('inline-flex rounded-sm px-1.5 py-0.5 tracking-normal', DISCIPLINE_PILL[m.discipline])}>{disciplineShort(m.discipline)}</span>
+        )}
+      </span>
+      {([1, 2] as const).map((side) => (
+        <div key={side} className="contents">
+          <span className={cn('min-w-0 truncate', leader === side ? 'font-semibold' : leader === 0 ? undefined : 'text-muted-foreground')}>
+            {(side === 1 ? m.participant1 : m.participant2) ?? 'A definir'}
+          </span>
+          <span className="flex justify-end gap-2.5 font-heading text-xl font-bold tabular-nums">
+            {sets.map((s, i) => (
+              <span key={i} className={i === current ? 'text-primary' : undefined}>
+                {side === 1 ? s[0] : s[1]}
+              </span>
+            ))}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * "Ao vivo agora": partidas em quadra dos torneios em andamento (`GET /tournaments/:id/live/matches`).
+ * Sem partida em quadra a seção não aparece. O placar é o do momento em que a página carregou; o ao
+ * vivo com atualização contínua fica na página do torneio, para onde o cabeçalho de cada bloco leva.
+ */
+export async function LiveNowHome() {
+  const tournaments = await loadTournaments()
+  if (!tournaments.ok) return null
+  const running = tournaments.data.filter((t) => t.status === 'in_progress').slice(0, LIVE_TOURNAMENT_LIMIT)
+  if (running.length === 0) return null
+  const loaded = await Promise.all(running.map(async (t) => ({ tournament: t, live: await loadLiveMatches(t.id) })))
+  // Torneio em andamento sem partida em quadra (intervalo, fim do dia) não ocupa espaço na home.
+  const boards = loaded.filter(({ live }) => !live.ok || live.data.length > 0)
+  if (boards.length === 0) return null
+  return (
+    <Section id="live-title" anchor="ao-vivo" title="Ao vivo agora">
+      <div className="space-y-3">
+        {boards.map(({ tournament: t, live }) => (
+          <div key={t.id} className={ROWS}>
+            <Link href={`/t/${t.slug}`} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3', ROW_LINK)}>
+              <Badge variant="live">Ao vivo</Badge>
+              <span className="font-semibold">{t.name}</span>
+              {live.ok && (
+                <span className="text-xs text-muted-foreground">
+                  {live.data.length === 1 ? '1 partida em quadra' : `${live.data.length} partidas em quadra`}
+                </span>
+              )}
+            </Link>
+            {!live.ok && (
+              <p role="alert" className="px-4 py-3 text-sm text-destructive">
+                Não foi possível carregar o placar agora. Tente novamente em instantes.
+              </p>
+            )}
+            {live.ok && sortLive(live.data).slice(0, LIVE_MATCH_LIMIT).map((m) => <LiveMatchRow key={m.matchId} match={m} />)}
+          </div>
+        ))}
+      </div>
+    </Section>
   )
 }
 
@@ -113,13 +223,10 @@ export async function SearchResults({ query }: { query: string }) {
       {athleteHits.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-lg">Atletas</h3>
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className={ROWS}>
             {athleteHits.map((a) => (
               <li key={a.id} className="min-w-0">
-                <Link
-                  href={`/a/${a.id}`}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                <Link href={`/a/${a.id}`} className={cn('flex min-h-12 items-center gap-3 px-4 py-2 font-medium', ROW_LINK)}>
                   <User className="size-4 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{a.name}</span>
                   {a.clubName && <span className="truncate text-xs font-normal text-muted-foreground">{a.clubName}</span>}
@@ -132,13 +239,10 @@ export async function SearchResults({ query }: { query: string }) {
       {clubHits.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-lg">Clubes</h3>
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className={ROWS}>
             {clubHits.map((c) => (
               <li key={c.id} className="min-w-0">
-                <Link
-                  href={`/c/${c.slug}`}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                <Link href={`/c/${c.slug}`} className={cn('flex min-h-12 items-center gap-3 px-4 py-2 font-medium', ROW_LINK)}>
                   <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{c.name}</span>
                   {(c.city || c.state) && (

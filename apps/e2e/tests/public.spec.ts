@@ -83,7 +83,7 @@ test.describe('home', () => {
   test('carrega os três blocos com dados reais da API', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Todo o badminton das federações/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Torneios, resultados e rankings de badminton')
 
     const upcoming = page.getByRole('region', { name: 'Próximos torneios' })
     await expect(upcoming.getByRole('link', { name: new RegExp(liveTournament.tournament.name) })).toBeVisible()
@@ -95,7 +95,7 @@ test.describe('home', () => {
     await expect(recentCard).toHaveAttribute('href', `/t/${prepared.tournament.slug}`)
     await expect(recentCard.getByText('Encerrado')).toBeVisible()
 
-    const top10 = page.getByRole('region', { name: 'Top 10 dos rankings' })
+    const top10 = page.getByRole('region', { name: 'Ranking', exact: true })
     await expect(top10.getByRole('tablist', { name: 'Rankings' })).toBeVisible()
     await expect(top10.getByRole('tab', { name: new RegExp(`Simples masculino ${RANKING_YEAR}`) })).toBeVisible()
 
@@ -117,7 +117,7 @@ test.describe('home', () => {
 
   test('top 10: abas pelo teclado e classificação do ranking', async ({ page }) => {
     await page.goto('/')
-    const top10 = page.getByRole('region', { name: 'Top 10 dos rankings' })
+    const top10 = page.getByRole('region', { name: 'Ranking', exact: true })
     const tabs = top10.getByRole('tab')
     await expect(tabs.first()).toBeVisible()
     const count = await tabs.count()
