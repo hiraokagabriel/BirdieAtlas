@@ -161,16 +161,16 @@ Paleta contida: um verde de ação, um amarelo de "agora" e neutros quentes de p
 
 ### Primary
 - **Verde-quadra** (`court-green`): botão principal, link, aba selecionada, item ativo do menu, foco (via `ring`). No escuro sobe para `oklch(0.7 0.14 155)`.
-- **Verde-quadra forte** (`court-green-strong`): hover do botão principal. Substitui o `primary/90` de hoje.
+- **Verde-quadra forte** (`court-green-strong`): hover do botão principal. Substitui o `primary/90` de hoje. No escuro: `oklch(0.76 0.14 155)`.
 - **Névoa de quadra** (`court-green-mist`, token `secondary`): fundo de destaque calmo, como vitória, item ativo do menu do admin e caixa "Encontre sua próxima partida". O texto sobre ela usa **verde-quadra profundo** (`court-green-deep`, token `secondary-foreground`).
 
 ### Secondary
-- **Amarelo-peteca** (`shuttle-yellow` com texto `shuttle-ink`): só para estado vivo, como "Ao vivo", "Chamada", contador de partidas em quadra e set em andamento no telão. Vira o token novo `live` / `live-foreground`. Não reutiliza `accent`, que o shadcn usa no hover de menus.
+- **Amarelo-peteca** (`shuttle-yellow` com texto `shuttle-ink`): só para estado vivo, como "Ao vivo", "Chamada", contador de partidas em quadra e set em andamento no telão. Vira o token novo `live` / `live-foreground`. Não reutiliza `accent`, que o shadcn usa no hover de menus. No escuro: `oklch(0.86 0.15 97)` com texto `oklch(0.22 0.04 95)` (11,4:1). Contra o fundo da página o amarelo dá só 1,2:1, então nunca é o único indicador: sempre vem com texto ("Ao vivo", "Chamada").
 
 ### Neutral
 - **Papel** (`paper`): fundo da página. **Cartão** (`card`): superfícies. **Tinta** (`ink`): texto. **Tinta suave** (`ink-muted`): texto secundário, sempre com 4,5:1 contra papel e cartão.
 - **Linha** (`line`): divisórias e bordas de superfície. **Linha de campo** (`field-line`): borda de input, com 3:1 (WCAG 1.4.11).
-- **Linha de quadra** (`court-line`): conectores da chave e réguas finas. Cor de linha, nunca de fundo.
+- **Linha de quadra** (`court-line`): conectores da chave e réguas finas. Cor de linha, nunca de fundo. No escuro: `oklch(0.7 0.14 155 / 0.25)`.
 - **Noite** (`night`, `night-card`): fundo e superfície do escuro e do telão.
 
 - **Papel do menu** (`sidebar-paper`, token `sidebar`): fundo do menu lateral do admin, um tom mais verde que o papel.
@@ -230,6 +230,7 @@ Plano por padrão. A profundidade vem do contraste entre papel e cartão e das l
 ### Shadow Vocabulary
 - **Raised** (`0 1px 2px ink/6%, 0 4px 12px -4px ink/10%`): menus, popovers e toasts.
 - **Overlay** (`0 2px 4px ink/8%, 0 16px 40px -8px ink/22%`): diálogos e sheets, sobre scrim `night/45%`.
+- No escuro, as duas usam preto (`0 0 0`) a 30/40% (raised) e 35/60% (overlay). Tokens `--elevation-raised` e `--elevation-overlay`, utilitários `shadow-raised` e `shadow-overlay`.
 
 ### Named Rules
 **A Regra do Plano.** Cartão em repouso não tem sombra. Se parece precisar, use uma linha divisória.
@@ -276,7 +277,7 @@ Cantos discretos, como os de uma súmula impressa: 4 px em chips e marcadores, 6
 Rótulo de quadra em Barlow Condensed, com "QUADRA" pequeno e o número grande à esquerda, e os dois lados um embaixo do outro. O vencedor fica em 700 e o perdedor em tinta suave. Os sets ficam à direita, tabulares, com o set corrente em verde (amarelo no telão). O mesmo desenho aparece na home, na agenda, no painel e no telão, só muda a escala.
 
 ### Chave
-Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px e conectores de 1 px em `court-line`. Partida ao vivo com contorno amarelo-peteca. Rodada 1 é a final (ver `CLAUDE.md`).
+Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px e conectores de 1 px em `court-line`. Partida ao vivo com contorno amarelo-peteca e o chip "Ao vivo" (o contorno sozinho não tem 3:1). Rodada 1 é a final (ver `CLAUDE.md`).
 
 ### Estados (obrigatórios em toda tela)
 - **Carregando:** skeleton no formato do conteúdo real (linhas, não spinner no meio).
@@ -313,7 +314,7 @@ Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px
 Ordem dos PRs (um por linha, trilha completa do [`workflow.md`](../workflow.md)):
 
 1. **Tokens e fontes:** trocar Geist por Barlow em `layout.tsx`; `--radius` para 0.5rem; adicionar `--primary-strong`, `--live`, `--live-foreground`, `--court-line` e as duas sombras em `globals.css` (claro e escuro).
-2. **Componentes `ui`:** alturas de `button`, `input` e `select` (44/36 px), hover do primário, chips de status e `tabs` no novo desenho.
+2. **Componentes `ui`:** fixar a escala de raio em 4/6/8 px (hoje `--radius-sm` e `--radius-md` derivam para 4,8 e 6,4 px, e `rounded-xl` dá 11,2 px); alturas de `button`, `input` e `select` (44/36 px), hover do primário, chips de status e `tabs` no novo desenho.
 3. **Portal público:** barra inferior no celular (via `navigation.ts`), home, torneio, atleta, clube e ranking.
 4. **Admin:** painel com quadras e "Precisa de você", tabelas, diálogo de resultado.
 5. **Telão e impressão:** `/telao` no desenho de 3×2 e `print.css` com a mesma tipografia.

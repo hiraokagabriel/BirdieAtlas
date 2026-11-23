@@ -12,12 +12,6 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "web", "dev"],
       "port": 3000
-    },
-    {
-      "name": "web-verify",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "web", "exec", "next", "dev", "-p", "3210"],
-      "port": 3210
     }
   ]
 }

@@ -148,7 +148,7 @@ export default function ClubProfilePage({ params }: { params: Promise<{ clubId: 
             <div className="w-20 h-20 rounded-2xl border-4 border-background shadow-lg flex items-center justify-center overflow-hidden shrink-0 bg-white">
               {club.logoUrl
                 ? <Image unoptimized src={club.logoUrl} alt={club.name} width={80} height={80} className="w-full h-full object-contain p-1" />
-                : <span aria-hidden="true" className="text-3xl font-black" style={{ color: clubInkOnWhite(primary) }}>{club.name.charAt(0)}</span>}
+                : <span aria-hidden="true" className="text-3xl font-bold" style={{ color: clubInkOnWhite(primary) }}>{club.name.charAt(0)}</span>}
             </div>
             <div className="pb-1 flex-1 min-w-0">
               <h2 className="text-2xl font-bold tracking-tight">{club.name}</h2>
