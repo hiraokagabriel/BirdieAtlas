@@ -15,6 +15,21 @@ colors:
   field-line: "oklch(0.62 0.012 95)"
   court-line: "oklch(0.48 0.115 155 / 0.22)"
   fault-red: "oklch(0.48 0.21 27)"
+  court-green-deep: "oklch(0.3 0.06 155)"
+  sidebar-paper: "oklch(0.975 0.012 110)"
+  medal-gold: "oklch(0.84 0.15 92)"
+  medal-silver: "oklch(0.85 0.01 250)"
+  medal-bronze: "oklch(0.7 0.12 55)"
+  discipline-ms: "oklch(0.42 0.13 245)"
+  discipline-ms-soft: "oklch(0.95 0.03 245)"
+  discipline-ws: "oklch(0.42 0.13 305)"
+  discipline-ws-soft: "oklch(0.95 0.03 305)"
+  discipline-md: "oklch(0.42 0.13 200)"
+  discipline-md-soft: "oklch(0.95 0.03 200)"
+  discipline-wd: "oklch(0.42 0.13 350)"
+  discipline-wd-soft: "oklch(0.95 0.03 350)"
+  discipline-xd: "oklch(0.42 0.13 55)"
+  discipline-xd-soft: "oklch(0.95 0.03 55)"
   night: "oklch(0.17 0.02 160)"
   night-card: "oklch(0.21 0.025 160)"
 typography:
@@ -147,7 +162,7 @@ Paleta contida: um verde de ação, um amarelo de "agora" e neutros quentes de p
 ### Primary
 - **Verde-quadra** (`court-green`): botão principal, link, aba selecionada, item ativo do menu, foco (via `ring`). No escuro sobe para `oklch(0.7 0.14 155)`.
 - **Verde-quadra forte** (`court-green-strong`): hover do botão principal. Substitui o `primary/90` de hoje.
-- **Névoa de quadra** (`court-green-mist`, token `secondary`): fundo de destaque calmo, como vitória, item ativo do menu do admin e caixa "Encontre sua próxima partida".
+- **Névoa de quadra** (`court-green-mist`, token `secondary`): fundo de destaque calmo, como vitória, item ativo do menu do admin e caixa "Encontre sua próxima partida". O texto sobre ela usa **verde-quadra profundo** (`court-green-deep`, token `secondary-foreground`).
 
 ### Secondary
 - **Amarelo-peteca** (`shuttle-yellow` com texto `shuttle-ink`): só para estado vivo, como "Ao vivo", "Chamada", contador de partidas em quadra e set em andamento no telão. Vira o token novo `live` / `live-foreground`. Não reutiliza `accent`, que o shadcn usa no hover de menus.
@@ -158,9 +173,12 @@ Paleta contida: um verde de ação, um amarelo de "agora" e neutros quentes de p
 - **Linha de quadra** (`court-line`): conectores da chave e réguas finas. Cor de linha, nunca de fundo.
 - **Noite** (`night`, `night-card`): fundo e superfície do escuro e do telão.
 
+- **Papel do menu** (`sidebar-paper`, token `sidebar`): fundo do menu lateral do admin, um tom mais verde que o papel.
+
 ### Funcionais (mantidas como estão em `globals.css`)
-- Disciplinas SM, SF, DM, DF, DX: cinco matizes (245, 305, 200, 350, 55), cada uma em versão suave (chip) e sólida.
-- Medalhas ouro, prata e bronze; níveis local a internacional; `success`, `warning`, `info` e `destructive` (`fault-red`).
+- **Disciplinas** (`discipline-*` para o texto, `discipline-*-soft` para o fundo do chip): SM azul (245), SF violeta (305), DM ciano (200), DF rosa (350) e DX laranja (55). Também têm versão sólida e versão escura em `globals.css`. Só identificam a disciplina, sempre junto da sigla.
+- **Medalhas** (`medal-gold`, `medal-silver`, `medal-bronze`): marcador de 1º, 2º e 3º lugares no ranking e no pódio, com o número escrito.
+- Níveis local a internacional; `success`, `warning`, `info` e `destructive` (`fault-red`): valores em `globals.css`.
 
 ### Named Rules
 **A Regra do Agora.** O amarelo-peteca marca só o que está acontecendo neste momento. Se a partida não está em quadra nem foi chamada, ela não fica amarela.
