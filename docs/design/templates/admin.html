@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template — Painel do admin</title>
+<link rel="stylesheet" href="system.css"><link rel="stylesheet" href="admin.css">
+<script>if (location.search.includes('dark')) document.documentElement.dataset.theme = 'dark'</script>
+<style>
+  .grid2 { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+  .courts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); }
+  .ct { background: var(--card); padding: 12px 14px; display: grid; gap: 6px; min-height: 112px; align-content: start; }
+  .ct .top2 { display: flex; justify-content: space-between; align-items: center; }
+  .ct .q { font: 700 1rem var(--font-display); text-transform: uppercase; letter-spacing: .03em; }
+  .ct .pl { font-size: .875rem; line-height: 1.35; }
+  .ct .sc { font: 700 1.25rem var(--font-display); font-variant-numeric: tabular-nums; }
+  .ct.free { background: color-mix(in oklch, var(--muted) 60%, var(--card)); }
+  .todo { display: flex; gap: 12px; align-items: center; padding: 12px 16px; }
+  .todo .n { font: 700 1.5rem/1 var(--font-display); width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
+  .todo .grow { flex: 1; min-width: 0; font-size: .9375rem; }
+</style>
+</head>
+<body class="admin">
+<script src="icons.js"></script>
+<aside class="sb">
+  <a class="brand" href="#"><svg class="i"><use href="#shuttle"/></svg><span>Birdie<b>Atlas</b></span></a>
+  <a class="it" aria-current="page" href="#"><svg class="i"><use href="#dashboard"/></svg>Dashboard</a>
+  <a class="it" href="#"><svg class="i"><use href="#users"/></svg>Atletas</a>
+  <a class="it" href="#"><svg class="i"><use href="#pairs"/></svg>Duplas</a>
+  <a class="it" href="#"><svg class="i"><use href="#shield"/></svg>Clubes</a>
+  <a class="it" href="#"><svg class="i"><use href="#trophy"/></svg>Torneios</a>
+  <a class="it" href="#"><svg class="i"><use href="#radio"/></svg>Ao vivo<span class="n">6</span></a>
+  <a class="it" href="#"><svg class="i"><use href="#ranking"/></svg>Rankings</a>
+  <div class="foot"><a class="it" href="#"><svg class="i"><use href="#home"/></svg>Portal público</a></div>
+</aside>
+<div class="ad-main">
+  <div class="ad-bar"><span class="crumb2"><b>Dashboard</b></span><div class="end"><span class="pin-ok"><svg class="i"><use href="#check"/></svg>Modo admin</span><button class="btn btn-ghost btn-sm btn-icon" aria-label="Alternar tema"><svg class="i"><use href="#moon"/></svg></button></div></div>
+  <div class="ad-body">
+    <div class="pg-head">
+      <div><h1 class="h1">Open de Campinas</h1><div class="body-sm muted">Sábado, 22 de novembro · Rodada 3 de 6 · 41 de 96 partidas encerradas</div></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm"><svg class="i"><use href="#printer"/></svg>Imprimir súmulas</button><button class="btn btn-primary btn-sm"><svg class="i"><use href="#plus"/></svg>Lançar resultado</button></div>
+    </div>
+
+    <div class="grid2">
+      <section class="surface" style="overflow:hidden">
+        <div class="panel-h"><span class="h3">Quadras</span><span class="caption">Atualizado agora</span></div>
+        <div class="courts">
+          <div class="ct"><div class="top2"><span class="q">Quadra 1</span><span class="chip chip-ms">SM</span></div><div class="pl"><b>R. Mendes</b><br>T. Araújo</div><div class="sc">15–21 · 8–5</div></div>
+          <div class="ct"><div class="top2"><span class="q">Quadra 2</span><span class="chip chip-wd">DF</span></div><div class="pl">Ribeiro / Prado<br>Nunes / Lopes</div><div class="sc">11–9</div></div>
+          <div class="ct"><div class="top2"><span class="q">Quadra 3</span><span class="live">Chamada</span></div><div class="pl">Lima / Sá<br>Faria / Rocha</div><div class="caption">Chamada há 3 min</div></div>
+          <div class="ct"><div class="top2"><span class="q">Quadra 4</span><span class="chip chip-ws">SF</span></div><div class="pl">L. Kim<br>S. Castro</div><div class="sc">21–18 · 4–2</div></div>
+          <div class="ct free"><div class="top2"><span class="q">Quadra 5</span><span class="chip chip-neutral">Livre</span></div><div class="caption">Próxima: DM Sub-17 · Tanaka / Ferreira x Okada / Souza</div><button class="btn btn-outline btn-sm" style="justify-self:start">Chamar partida</button></div>
+          <div class="ct"><div class="top2"><span class="q">Quadra 6</span><span class="chip chip-xd">DX</span></div><div class="pl">Duarte / Kim<br>Martins / Castro</div><div class="sc">6–3</div></div>
+        </div>
+      </section>
+
+      <section class="surface">
+        <div class="panel-h"><span class="h3">Precisa de você</span></div>
+        <div class="rows">
+          <div class="todo"><span class="n">4</span><div class="grow">inscrições aguardando aprovação</div><button class="btn btn-outline btn-sm">Revisar</button></div>
+          <div class="todo"><span class="n">2</span><div class="grow">resultados lançados sem conferência</div><button class="btn btn-outline btn-sm">Conferir</button></div>
+          <div class="todo"><span class="n" style="color:var(--destructive)"><svg class="i" style="width:22px;height:22px"><use href="#alert"/></svg></span><div class="grow">Chave DX Sub-17 ainda não foi gerada</div><button class="btn btn-outline btn-sm">Gerar</button></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="surface" style="overflow:hidden">
+      <div class="panel-h"><span class="h3">Próximas partidas</span><div class="tabs" style="border:0"><span class="tab" aria-selected="true" style="padding:6px 10px">Todas</span><span class="tab" style="padding:6px 10px">Atrasadas</span></div></div>
+      <table>
+        <thead><tr><th>Hora</th><th>Quadra</th><th>Categoria</th><th>Partida</th><th>Situação</th><th class="r"></th></tr></thead>
+        <tbody>
+          <tr class="sel"><td class="num">10:40</td><td class="num">3</td><td><span class="chip chip-xd">DX</span> Principal</td><td>Pedro Lima / Marina Sá <span class="muted">x</span> Lucas Faria / Elisa Rocha</td><td><span class="live">Chamada</span></td><td class="r"><button class="btn btn-ghost btn-sm">Resultado</button></td></tr>
+          <tr><td class="num">10:40</td><td class="num">5</td><td><span class="chip chip-md">DM</span> Sub-17</td><td>Tanaka / Ferreira <span class="muted">x</span> Okada / Souza</td><td><span class="chip chip-neutral">Aguardando</span></td><td class="r"><button class="btn btn-ghost btn-sm">Chamar</button></td></tr>
+          <tr><td class="num">11:20</td><td class="num">1</td><td><span class="chip chip-ms">SM</span> Principal</td><td>Vencedor Q1 <span class="muted">x</span> Gustavo Tanaka</td><td><span class="chip chip-neutral">Prevista</span></td><td class="r"></td></tr>
+          <tr><td class="num">11:20</td><td class="num">2</td><td><span class="chip chip-ws">SF</span> Principal</td><td>Laura Kim <span class="muted">x</span> Vencedora Q2</td><td><span class="chip chip-neutral">Prevista</span></td><td class="r"></td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+</body>
+</html>

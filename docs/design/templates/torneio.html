@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template — Torneio</title>
+<link rel="stylesheet" href="system.css"><link rel="stylesheet" href="public.css">
+<script>if (location.search.includes('dark')) document.documentElement.dataset.theme = 'dark'</script>
+<style>
+  main { max-width: 1200px; margin: 0 auto; padding: 16px 16px 32px; display: grid; gap: 24px; }
+  .head { display: grid; gap: 10px; }
+  .find { display: grid; gap: 8px; padding: 16px; background: var(--secondary); border-radius: var(--r-lg); }
+  .find .label { color: var(--secondary-foreground); }
+  .find .input { border-color: color-mix(in oklch, var(--primary) 45%, var(--field-border)); }
+  .slot { display: flex; align-items: baseline; gap: 10px; margin: 20px 0 8px; }
+  .slot .h3 { font-family: var(--font-display); font-size: 1.25rem; }
+  .game { display: grid; grid-template-columns: 52px 1fr; gap: 2px 12px; padding: 12px 16px; }
+  .game .q { grid-row: span 3; font-family: var(--font-display); font-weight: 700; font-size: 0.75rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .04em; line-height: 1.1; }
+  .game .q b { display: block; font-size: 1.625rem; color: var(--foreground); letter-spacing: 0; }
+  .game .tags { display: flex; gap: 6px; align-items: center; margin-bottom: 2px; }
+  .vs { color: var(--muted-foreground); font-size: .8125rem; }
+  .st-call { background: var(--live); color: var(--live-foreground); }
+  /* Chave */
+  .bracket { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 28px; padding: 16px; }
+  .round { display: grid; grid-template-rows: auto 1fr; gap: 8px; }
+  .round .caption { font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .round .list { display: flex; flex-direction: column; justify-content: space-around; gap: 12px; }
+  .bm { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); position: relative; }
+  .bm > div { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; font-size: .875rem; }
+  .bm > div + div { border-top: 1px solid var(--border); }
+  .bm .w { font-weight: 700; } .bm .l { color: var(--muted-foreground); }
+  .bm .s { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .round:not(:last-child) .bm::after { content: ''; position: absolute; right: -15px; top: 50%; width: 14px; height: 1px; background: var(--court-line); }
+  .bm.live-m { border-color: color-mix(in oklch, var(--live) 70%, var(--border)); box-shadow: 0 0 0 1px var(--live); }
+  .side { display: none; }
+  @media (min-width: 900px) {
+    main { grid-template-columns: 1fr 1.1fr; align-items: start; padding-top: 24px; column-gap: 32px; }
+    .head, .tabs-wrap { grid-column: 1 / -1; }
+    .side { display: block; }
+    .head { grid-template-columns: 1fr 380px; align-items: end; }
+  }
+</style>
+</head>
+<body>
+<script src="icons.js"></script>
+<header class="top"><div class="in">
+  <a class="brand" href="#"><svg class="i"><use href="#shuttle"/></svg><span>Birdie<b>Atlas</b></span></a>
+  <nav class="nav" aria-label="Principal"><a href="#">Início</a><a aria-current="page" href="#">Torneios</a><a href="#">Ranking</a><a href="#">Atletas</a><a href="#">Clubes</a></nav>
+  <div class="end"><button class="btn btn-ghost btn-icon" aria-label="Compartilhar QR code"><svg class="i"><use href="#qr"/></svg></button></div>
+</div></header>
+
+<main>
+  <div class="head">
+    <div style="display:grid;gap:8px">
+      <a class="crumb" href="#"><svg class="i"><use href="#chevron"/></svg>Torneios</a>
+      <h1 class="h1">Open de Campinas</h1>
+      <div class="meta"><span><svg class="i"><use href="#calendar"/></svg>22 e 23 de novembro</span><span><svg class="i"><use href="#pin"/></svg>Ginásio do Taquaral, Campinas</span><span class="live">Ao vivo</span></div>
+    </div>
+    <label class="find"><span class="label">Encontre sua próxima partida</span><span class="input" style="display:flex;align-items:center;gap:8px;color:var(--muted-foreground)"><svg class="i"><use href="#search"/></svg>Seu nome ou o da sua dupla</span></label>
+  </div>
+
+  <div class="tabs-wrap"><div class="tabs" role="tablist"><span class="tab" role="tab" aria-selected="true">Agenda</span><span class="tab" role="tab">Chaves</span><span class="tab" role="tab">Inscritos</span><span class="tab" role="tab">Resultados</span></div></div>
+
+  <section>
+    <div class="slot" style="margin-top:0"><span class="h3">Em quadra agora</span><span class="caption">6 de 6 quadras</span></div>
+    <div class="surface rows">
+      <div class="game"><div class="q">Quadra<b>1</b></div><div class="tags"><span class="chip chip-ms">SM</span><span class="caption">Principal · Quartas</span></div><div>Rafael Mendes <span class="vs">x</span> Thiago Araújo</div><div class="caption num">2º set · 15–21, 8–5</div></div>
+      <div class="game"><div class="q">Quadra<b>2</b></div><div class="tags"><span class="chip chip-wd">DF</span><span class="caption">Principal · Semifinal</span></div><div>Ana Ribeiro / Júlia Prado <span class="vs">x</span> Carla Nunes / Bia Lopes</div><div class="caption num">1º set · 11–9</div></div>
+    </div>
+    <div class="slot"><span class="h3 num">10:40</span><span class="caption">A seguir</span></div>
+    <div class="surface rows">
+      <div class="game"><div class="q">Quadra<b>3</b></div><div class="tags"><span class="chip chip-xd">DX</span><span class="chip st-call">Chamada</span></div><div>Pedro Lima / Marina Sá <span class="vs">x</span> Lucas Faria / Elisa Rocha</div><div class="caption">Apresente-se na mesa de controle</div></div>
+      <div class="game"><div class="q">Quadra<b>4</b></div><div class="tags"><span class="chip chip-ws">SF</span><span class="caption">Sub-17 · Quartas</span></div><div>Laura Kim <span class="vs">x</span> Sofia Castro</div><div class="caption">Aguardando a quadra</div></div>
+    </div>
+    <div class="slot"><span class="h3 num">11:20</span></div>
+    <div class="surface rows">
+      <div class="game"><div class="q">Quadra<b>1</b></div><div class="tags"><span class="chip chip-md">DM</span><span class="caption">Principal · Semifinal</span></div><div>Vencedor Q1 <span class="vs">x</span> Gustavo Tanaka / Caio Ferreira</div><div class="caption">Previsto</div></div>
+    </div>
+  </section>
+
+  <section class="side">
+    <div class="sec-head" style="margin-bottom:8px"><h2 class="h2">Chave · SM Principal</h2><a href="#">Abrir chave</a></div>
+    <div class="surface">
+      <div class="bracket">
+        <div class="round"><span class="caption">Quartas</span><div class="list">
+          <div class="bm live-m"><div class="w"><span>R. Mendes</span><span class="s">15 · 8</span></div><div><span>T. Araújo</span><span class="s">21 · 5</span></div></div>
+          <div class="bm"><div class="w"><span>G. Tanaka</span><span class="s">21 21</span></div><div class="l"><span>D. Martins</span><span class="s">17 14</span></div></div>
+          <div class="bm"><div class="w"><span>C. Ferreira</span><span class="s">21 22</span></div><div class="l"><span>B. Souza</span><span class="s">19 20</span></div></div>
+          <div class="bm"><div class="l"><span>M. Okada</span><span class="s">12 21 18</span></div><div class="w"><span>F. Duarte</span><span class="s">21 16 21</span></div></div>
+        </div></div>
+        <div class="round"><span class="caption">Semifinal</span><div class="list">
+          <div class="bm"><div class="l"><span>A definir</span><span></span></div><div><span>G. Tanaka</span><span></span></div></div>
+          <div class="bm"><div><span>C. Ferreira</span><span></span></div><div><span>F. Duarte</span><span></span></div></div>
+        </div></div>
+        <div class="round"><span class="caption">Final</span><div class="list">
+          <div class="bm"><div class="l"><span>A definir</span><span></span></div><div class="l"><span>A definir</span><span></span></div></div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<nav class="bottom" aria-label="Principal">
+  <a href="#"><svg class="i"><use href="#home"/></svg>Início</a><a aria-current="page" href="#"><svg class="i"><use href="#calendar"/></svg>Torneios</a><a href="#"><svg class="i"><use href="#ranking"/></svg>Ranking</a><a href="#"><svg class="i"><use href="#search"/></svg>Buscar</a>
+</nav>
+</body>
+</html>

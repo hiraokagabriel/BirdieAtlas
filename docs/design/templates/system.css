@@ -1,0 +1,154 @@
+/* BirdieAtlas — folha dos templates visuais. Espelha os tokens propostos em docs/DESIGN.md. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
+
+:root {
+  --background: oklch(0.985 0.006 95);
+  --foreground: oklch(0.22 0.03 160);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.48 0.115 155);
+  --primary-strong: oklch(0.42 0.11 155);
+  --primary-foreground: oklch(0.985 0.006 95);
+  --secondary: oklch(0.95 0.025 145);
+  --secondary-foreground: oklch(0.3 0.06 155);
+  --muted: oklch(0.955 0.01 95);
+  --muted-foreground: oklch(0.47 0.02 150);
+  --live: oklch(0.92 0.11 97);
+  --live-foreground: oklch(0.28 0.05 95);
+  --destructive: oklch(0.48 0.21 27);
+  --border: oklch(0.9 0.012 95);
+  --field-border: oklch(0.62 0.012 95);
+  --court-line: oklch(0.48 0.115 155 / 0.22);
+  --ring: oklch(0.6 0.12 155);
+  --success: oklch(0.48 0.13 150);
+  --warning: oklch(0.5 0.12 70);
+  --sidebar: oklch(0.975 0.012 110);
+  --medal-gold: oklch(0.84 0.15 92);
+  --medal-silver: oklch(0.85 0.01 250);
+  --medal-bronze: oklch(0.7 0.12 55);
+  --ms: oklch(0.42 0.13 245); --ms-bg: oklch(0.95 0.03 245);
+  --ws: oklch(0.42 0.13 305); --ws-bg: oklch(0.95 0.03 305);
+  --md: oklch(0.42 0.13 200); --md-bg: oklch(0.95 0.03 200);
+  --wd: oklch(0.42 0.13 350); --wd-bg: oklch(0.95 0.03 350);
+  --xd: oklch(0.42 0.13 55);  --xd-bg: oklch(0.95 0.03 55);
+  --shadow-raised: 0 1px 2px oklch(0.22 0.03 160 / 0.06), 0 4px 12px -4px oklch(0.22 0.03 160 / 0.10);
+  --shadow-overlay: 0 2px 4px oklch(0.22 0.03 160 / 0.08), 0 16px 40px -8px oklch(0.22 0.03 160 / 0.22);
+
+  --font-display: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
+  --font-sans: 'Barlow', system-ui, sans-serif;
+  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+[data-theme='dark'] {
+  --background: oklch(0.17 0.02 160);
+  --foreground: oklch(0.95 0.01 95);
+  --card: oklch(0.21 0.025 160);
+  --primary: oklch(0.7 0.14 155);
+  --primary-strong: oklch(0.76 0.14 155);
+  --primary-foreground: oklch(0.18 0.03 160);
+  --secondary: oklch(0.27 0.03 155);
+  --secondary-foreground: oklch(0.92 0.03 145);
+  --muted: oklch(0.25 0.025 160);
+  --muted-foreground: oklch(0.74 0.02 150);
+  --live: oklch(0.86 0.15 97);
+  --live-foreground: oklch(0.22 0.04 95);
+  --destructive: oklch(0.74 0.17 22);
+  --border: oklch(0.95 0.01 95 / 12%);
+  --field-border: oklch(0.58 0.02 160);
+  --court-line: oklch(0.7 0.14 155 / 0.25);
+  --ring: oklch(0.65 0.13 155);
+  --success: oklch(0.75 0.15 150);
+  --warning: oklch(0.8 0.14 80);
+  --sidebar: oklch(0.2 0.022 160);
+  --ms: oklch(0.87 0.09 245); --ms-bg: oklch(0.3 0.06 245);
+  --ws: oklch(0.87 0.09 305); --ws-bg: oklch(0.3 0.06 305);
+  --md: oklch(0.87 0.09 200); --md-bg: oklch(0.3 0.06 200);
+  --wd: oklch(0.87 0.09 350); --wd-bg: oklch(0.3 0.06 350);
+  --xd: oklch(0.87 0.09 55);  --xd-bg: oklch(0.3 0.06 55);
+  --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px -4px oklch(0 0 0 / 0.4);
+  --shadow-overlay: 0 2px 4px oklch(0 0 0 / 0.35), 0 16px 40px -8px oklch(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; }
+html { font-family: var(--font-sans); font-size: 16px; line-height: 1.5; color: var(--foreground); background: var(--background); -webkit-font-smoothing: antialiased; }
+body { min-height: 100vh; }
+::selection { background: var(--secondary); color: var(--secondary-foreground); }
+a { color: inherit; text-decoration: none; }
+svg.i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted-foreground); }
+
+/* Tipografia: escala 1.2 a partir de 16px */
+.display { font-family: var(--font-display); font-weight: 700; font-size: 2.5rem; line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance; }
+.h1 { font-family: var(--font-display); font-weight: 700; font-size: 2rem; line-height: 1.1; text-wrap: balance; }
+.h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; line-height: 1.15; }
+.h3 { font-weight: 600; font-size: 1.125rem; line-height: 1.3; }
+.body-sm { font-size: 0.875rem; line-height: 1.45; }
+.label { font-size: 0.8125rem; font-weight: 600; line-height: 1.3; }
+.caption { font-size: 0.75rem; line-height: 1.35; color: var(--muted-foreground); }
+
+/* Marca */
+.brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 1.375rem; letter-spacing: 0.005em; }
+.brand svg { width: 26px; height: 26px; color: var(--primary); }
+.brand b { color: var(--primary); font-weight: 700; }
+
+/* Botões: 44px no público, 36px no admin (.btn-sm) */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: var(--r-md); border: 1px solid transparent; font: 600 0.9375rem/1 var(--font-sans); cursor: pointer; white-space: nowrap; transition: background-color 150ms var(--ease-out), transform 100ms; }
+.btn-sm { height: 36px; padding: 0 12px; font-size: 0.875rem; }
+.btn-primary { background: var(--primary); color: var(--primary-foreground); }
+.btn-primary:hover { background: var(--primary-strong); }
+.btn-outline { background: var(--card); border-color: var(--field-border); color: var(--foreground); }
+.btn-ghost { background: transparent; color: var(--foreground); }
+.btn-icon { width: 44px; padding: 0; }
+.btn-sm.btn-icon { width: 36px; }
+.btn:focus-visible, .focus-demo { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* Chips de disciplina e status */
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-sm); font: 700 0.75rem/1 var(--font-sans); letter-spacing: 0.02em; white-space: nowrap; }
+.chip-ms { background: var(--ms-bg); color: var(--ms); }
+.chip-ws { background: var(--ws-bg); color: var(--ws); }
+.chip-md { background: var(--md-bg); color: var(--md); }
+.chip-wd { background: var(--wd-bg); color: var(--wd); }
+.chip-xd { background: var(--xd-bg); color: var(--xd); }
+.chip-neutral { background: var(--muted); color: var(--muted-foreground); }
+.chip-ok { background: var(--secondary); color: var(--secondary-foreground); }
+.live { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: var(--r-sm); background: var(--live); color: var(--live-foreground); font: 700 0.75rem/1 var(--font-sans); letter-spacing: 0.04em; text-transform: uppercase; }
+.live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Superfícies */
+.surface { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.raised { box-shadow: var(--shadow-raised); }
+.rule { height: 1px; background: var(--border); border: 0; }
+
+/* Linhas de lista (no lugar de grade de cards) */
+.rows > * + * { border-top: 1px solid var(--border); }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-height: 56px; }
+
+/* Placar */
+.score { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.player.win { font-weight: 700; }
+.player.lose { color: var(--muted-foreground); }
+
+/* Campos */
+.field { display: grid; gap: 6px; }
+.input { height: 44px; padding: 0 12px; border: 1px solid var(--field-border); border-radius: var(--r-md); background: var(--card); font: 500 1rem var(--font-sans); color: var(--foreground); width: 100%; }
+.input-sm { height: 36px; font-size: 0.9375rem; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab { padding: 10px 14px; font-weight: 600; font-size: 0.9375rem; color: var(--muted-foreground); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab[aria-selected='true'] { color: var(--foreground); border-color: var(--primary); }
+
+/* Tabelas */
+table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+th { text-align: left; font-size: 0.8125rem; font-weight: 600; color: var(--muted-foreground); padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); height: 44px; }
+td.r, th.r { text-align: right; }
+tr.sel td { background: color-mix(in oklch, var(--primary) 7%, transparent); }
+
+/* Skeleton */
+.sk { background: linear-gradient(90deg, var(--muted), color-mix(in oklch, var(--muted) 60%, var(--card)), var(--muted)); border-radius: var(--r-sm); }
+
+/* Faixa de quadra: a assinatura visual (linhas de quadra finas) */
+.court-lines { background-image: linear-gradient(var(--court-line), var(--court-line)), linear-gradient(var(--court-line), var(--court-line)); background-size: 100% 1px, 1px 100%; background-position: 0 50%, 50% 0; background-repeat: no-repeat; }

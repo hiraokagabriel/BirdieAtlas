@@ -96,6 +96,8 @@ Resultado `FALHOU` ou `PASSOU COM RESSALVAS`: corrija, volte ao passo 5 e verifi
 
 Antes de abrir o PR, com o diff final (`git diff main...HEAD`). Corrija todo 🔴 e 🟡; 🔵 é opcional. Se corrigir algo que muda comportamento, volte ao passo 6.
 
+**PR que muda UI** (tokens, componentes ou telas) passa também pelo `birdie-designer`, que confere as telas renderizadas contra [`docs/DESIGN.md`](docs/DESIGN.md) em 375 e 1440 px, claro e escuro. Mesmas regras de briefing do passo 6. Corrija todo 🔴 e 🟡 antes do PR.
+
 ## 8. Abra o PR
 
 Antes de abrir, confira:

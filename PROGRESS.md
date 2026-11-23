@@ -30,6 +30,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Home pública e perfil do atleta | ✅ PR #21 |
 | Chave visual (admin e pública) | ✅ PR #22 |
 | Dark mode (toggle claro/escuro/sistema) | ✅ PR #24 |
+| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | 🟡 Documento pronto; migração em 5 PRs (tokens, `ui`, público, admin, telão e impressão) |
 
 ## Phase 0 — Fundação
 

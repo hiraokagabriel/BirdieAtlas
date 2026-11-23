@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template — Telão</title>
+<link rel="stylesheet" href="system.css">
+<style>
+  /* Telão: sempre escuro, leitura a 10 m. Texto mínimo de 28px. */
+  body { padding: 40px 48px; display: grid; grid-template-rows: auto 1fr auto; gap: 32px; height: 100vh; overflow: hidden; }
+  .hd { display: flex; align-items: center; gap: 24px; }
+  .hd .brand { font-size: 2rem; } .hd .brand svg { width: 36px; height: 36px; }
+  .hd .t { font: 700 2.5rem var(--font-display); }
+  .hd .clock { margin-left: auto; font: 700 3rem var(--font-display); font-variant-numeric: tabular-nums; }
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 20px; min-height: 0; }
+  .c { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px 28px; display: grid; grid-template-rows: auto 1fr 1fr; gap: 8px; }
+  .c .top2 { display: flex; justify-content: space-between; align-items: center; }
+  .c .q { font: 700 2rem var(--font-display); text-transform: uppercase; letter-spacing: .03em; color: var(--muted-foreground); }
+  .c .q b { color: var(--foreground); }
+  .c .chip { height: 34px; font-size: 1.25rem; padding: 0 12px; }
+  .c .ln { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border); }
+  .c .nm { font-size: 1.875rem; font-weight: 600; line-height: 1.15; }
+  .c .sc { font: 700 4.5rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .c .sc small { font-size: 2rem; color: var(--muted-foreground); margin-right: 14px; }
+  .c .lead .sc { color: var(--live); }
+  .c.call { border-color: var(--live); box-shadow: inset 0 0 0 1px var(--live); }
+  .c.call .msg { font: 700 2.25rem var(--font-display); color: var(--live); align-self: center; }
+  .next { display: flex; align-items: center; gap: 32px; font-size: 1.75rem; border-top: 1px solid var(--border); padding-top: 24px; white-space: nowrap; overflow: hidden; }
+  .next .h { font: 700 2rem var(--font-display); color: var(--muted-foreground); }
+  .next b { font-family: var(--font-display); color: var(--live); margin-right: 10px; }
+</style>
+</head>
+<body>
+<script src="icons.js"></script>
+<header class="hd"><span class="brand"><svg class="i"><use href="#shuttle"/></svg><span>Birdie<b>Atlas</b></span></span><span class="t">Open de Campinas</span><span class="clock">10:42</span></header>
+<main class="board">
+  <div class="c"><div class="top2"><span class="q">Quadra <b>1</b></span><span class="chip chip-ms">SM</span></div>
+    <div class="ln lead"><span class="nm">Rafael Mendes</span><span class="sc"><small>15</small>8</span></div>
+    <div class="ln"><span class="nm">Thiago Araújo</span><span class="sc"><small>21</small>5</span></div></div>
+  <div class="c"><div class="top2"><span class="q">Quadra <b>2</b></span><span class="chip chip-wd">DF</span></div>
+    <div class="ln lead"><span class="nm">Ribeiro / Prado</span><span class="sc">11</span></div>
+    <div class="ln"><span class="nm">Nunes / Lopes</span><span class="sc">9</span></div></div>
+  <div class="c call"><div class="top2"><span class="q">Quadra <b>3</b></span><span class="chip chip-xd">DX</span></div>
+    <div class="msg">Chamada: apresentem-se</div>
+    <div class="ln"><span class="nm">Lima / Sá <span class="muted">x</span> Faria / Rocha</span></div></div>
+  <div class="c"><div class="top2"><span class="q">Quadra <b>4</b></span><span class="chip chip-ws">SF</span></div>
+    <div class="ln lead"><span class="nm">Laura Kim</span><span class="sc"><small>21</small>4</span></div>
+    <div class="ln"><span class="nm">Sofia Castro</span><span class="sc"><small>18</small>2</span></div></div>
+  <div class="c"><div class="top2"><span class="q">Quadra <b>5</b></span><span class="chip chip-neutral">Livre</span></div>
+    <div class="ln" style="border:0"><span class="nm muted">Aguardando a próxima partida</span></div><div></div></div>
+  <div class="c"><div class="top2"><span class="q">Quadra <b>6</b></span><span class="chip chip-xd">DX</span></div>
+    <div class="ln lead"><span class="nm">Duarte / Kim</span><span class="sc">6</span></div>
+    <div class="ln"><span class="nm">Martins / Castro</span><span class="sc">3</span></div></div>
+</main>
+<footer class="next"><span class="h">A seguir</span><span><b>Q5</b>Tanaka / Ferreira x Okada / Souza</span><span><b>Q1</b>Vencedor Q1 x Gustavo Tanaka</span></footer>
+</body>
+</html>
