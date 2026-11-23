@@ -12,13 +12,16 @@ export function PublicNavLinks() {
     <>
       {PUBLIC_NAV.map(({ label, href }) => {
         const active = isNavItemActive(pathname, href, '/')
+        // No celular, Início e Ranking estão na barra inferior; só a Administração fica no topo.
+        const mobile = href === '/admin'
         return (
           <Link
             key={href}
             href={href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold transition-colors hover:bg-muted hover:text-foreground',
+              'h-11 items-center rounded-md px-3 text-sm font-semibold transition-colors hover:bg-muted hover:text-foreground',
+              mobile ? 'inline-flex' : 'hidden md:inline-flex',
               active ? 'bg-muted text-foreground' : 'text-muted-foreground',
             )}
           >

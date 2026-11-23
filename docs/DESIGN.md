@@ -213,7 +213,7 @@ Escala de 1,2 a partir de 16 px, em rem fixo (sem `clamp`).
 
 - **Grade de 4 px:** espaçamentos 4, 8, 12, 16, 24, 32 e 48. Nada fora da escala.
 - **Ritmo:** 8 a 12 px dentro de um grupo, 24 a 32 px entre seções, e mais espaço acima de um título do que abaixo dele.
-- **Público:** contêiner de 1200 px com margem de 16 px. Celular em coluna única com barra inferior fixa (Início, Torneios, Ranking, Buscar). A partir de 900 px, navegação no topo e duas colunas (conteúdo e ranking ou chave).
+- **Público:** contêiner de 1200 px com margem de 16 px. Celular em coluna única com barra inferior fixa (Início, Ao vivo, Ranking, Buscar). A partir de 768 px, navegação no topo e duas colunas (conteúdo e ranking ou chave).
 - **Admin:** menu lateral de 232 px (`navigation.ts`), barra superior de 56 px e conteúdo com padding de 24 px, até 1400 px. No tablet, o menu recolhe para ícones.
 - **Telão:** 1920×1080, grade de 3×2 quadras, margem de 40 a 48 px e faixa "A seguir" no rodapé.
 - **Pontos de quebra verificados:** 375, 768, 1024 e 1440 (e 1920 no telão).
@@ -268,7 +268,7 @@ Cantos discretos, como os de uma súmula impressa: 4 px em chips e marcadores, 6
 - **Placar:** célula de 64×56 px, Barlow Condensed 1.75rem tabular, `inputmode="numeric"`. O set vencido ganha fundo névoa. O vencedor é calculado e mostrado antes de salvar.
 
 ### Navigation
-- **Público:** topo com marca e 5 links (desktop) e barra inferior com 4 destinos (celular), item ativo em verde-quadra com `aria-current`.
+- **Público:** topo com marca e links Início, Ranking e Administração (no celular, só Administração) e barra inferior com Início, Ao vivo, Ranking e Buscar, item ativo em verde-quadra com `aria-current`. Enquanto não houver páginas de lista de torneios, atletas e clubes, os destinos são âncoras da home (`/#ao-vivo`, `/#ranking`, `/#busca`) e só "Início" fica marcado como ativo. Quando as listas existirem, "Torneios" entra no lugar de "Ao vivo" e o topo ganha os cinco links do template.
 - **Admin:** menu lateral de `navigation.ts`, item ativo em névoa de quadra e contador amarelo só em "Ao vivo".
 - **Abas:** `Tabs`, com sublinhado de 2 px verde na aba ativa e rolagem horizontal no celular.
 - **Voltar:** link "‹ Torneios" acima do título. O nível pai sempre tem nome.

@@ -105,6 +105,21 @@ test.describe('home', () => {
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
   })
 
+  test('"Ao vivo agora" mostra a partida em quadra com placar e leva ao torneio', async ({ page }) => {
+    // Início bem no futuro: a lista vem por data decrescente e a home mostra só os 2 primeiros com partida.
+    const playing = await prepareTournament({ name: `Em Quadra Home ${tag}`, startDate: '2999-01-01', endDate: '2999-01-03' })
+    const semi = playing.matches.find((m) => m.round === 2 && m.position === 1)
+    if (!semi) throw new Error('semifinal 1 não encontrada')
+    const started = await api.post<{ version: number }>(`/draws/matches/${semi.id}/live/start`, { courtNumber: 7 })
+    await api.post(`/draws/matches/${semi.id}/live/point`, { side: 1, version: started.version })
+
+    await page.goto('/')
+    const live = page.getByRole('region', { name: 'Ao vivo agora' })
+    const header = live.getByRole('link', { name: new RegExp(playing.tournament.name) })
+    await expect(header).toHaveAttribute('href', `/t/${playing.tournament.slug}`)
+    await expect(live.getByText(/^Quadra 7, Simples masculino: .+ contra .+, 0 a 0 em sets\. Set atual: 1 a 0\.$/)).toBeAttached()
+  })
+
   test('card de resultado recente leva ao torneio', async ({ page }) => {
     await page.goto('/')
     await page

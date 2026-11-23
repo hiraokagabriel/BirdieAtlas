@@ -40,7 +40,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <h1 className="sr-only">Torneios, resultados e rankings de badminton</h1>
 
       {/* Busca no topo: a forma mais curta de chegar a um atleta ou clube (docs/DESIGN.md, A Regra dos Dois Toques). */}
-      <form id="busca" action="/" method="get" role="search" className="flex scroll-mt-20 gap-2">
+      <form id="busca" action="/" method="get" role="search" className="flex gap-2">
         <label htmlFor="home-search" className="sr-only">
           Buscar atletas e clubes
         </label>
@@ -54,12 +54,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             maxLength={80}
             placeholder="Buscar atleta ou clube"
             autoComplete="off"
-            className="h-13 w-full rounded-lg border border-field-border bg-card pr-4 pl-12 text-base text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="h-11 w-full rounded-md border border-field-border bg-card pr-4 pl-12 text-base text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
         </div>
         <button
           type="submit"
-          className="inline-flex h-13 shrink-0 items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-strong"
+          className="inline-flex h-11 shrink-0 items-center justify-center rounded-md bg-primary px-5 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-strong"
         >
           Buscar
         </button>

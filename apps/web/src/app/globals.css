@@ -306,6 +306,14 @@
   }
   html {
     @apply font-sans;
+    /* Foco e âncoras não param atrás do cabeçalho fixo nem da barra inferior do celular (WCAG 2.4.11). */
+    scroll-padding-top: 4.5rem;
+    scroll-padding-bottom: 5rem;
+  }
+  @media (min-width: 48rem) {
+    html {
+      scroll-padding-bottom: 0;
+    }
   }
   h1,
   h2,

@@ -27,11 +27,11 @@ export function TournamentRow({ tournament: t }: { tournament: TournamentSummary
         <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <StatusBadge status={t.status} />
           <KindBadge kind={(t as { kind?: string }).kind} />
+          <LevelBadge level={t.level} className="bg-muted text-muted-foreground" />
           <span>{formatDateRange(t.startDate, t.endDate)}</span>
           {place && <span>{place}</span>}
         </span>
       </span>
-      <LevelBadge level={t.level} className="bg-muted text-muted-foreground" />
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
   )

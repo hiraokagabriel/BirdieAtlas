@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Building2, MapPin, User } from 'lucide-react'
-import { selectRecent, selectUpcoming } from '@/lib/home-data'
+import { selectLiveBoards, selectRecent, selectUpcoming } from '@/lib/home-data'
 import { DISCIPLINE_PILL, disciplineShort } from '@/lib/discipline'
+import { disciplineLabel } from '@/lib/labels'
 import { sortLive, type LiveMatch } from '@/lib/live'
 import { loadAthleteSearch, loadClubs, loadLiveMatches, loadRankingBoards, loadTournaments } from '@/lib/public-data'
 import { matchesQuery } from '@/lib/search'
@@ -40,7 +41,7 @@ export function Section({
   children: ReactNode
 }) {
   return (
-    <section id={anchor} aria-labelledby={id} className="scroll-mt-20 space-y-3">
+    <section id={anchor} aria-labelledby={id} className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id={id} className="text-2xl">
           {title}
@@ -70,7 +71,12 @@ export function TournamentsSkeleton() {
 }
 
 export function LiveSkeleton() {
-  return <RowsSkeleton count={2} rowClass="h-20" />
+  return (
+    <section aria-label="Ao vivo agora" className="space-y-3">
+      <div className="h-8 w-48 motion-safe:animate-pulse rounded-sm bg-muted" />
+      <RowsSkeleton count={2} rowClass="h-20" />
+    </section>
+  )
 }
 
 export function RankingsSkeleton() {
@@ -118,78 +124,103 @@ export async function RecentTournaments() {
   )
 }
 
+function setsText(m: LiveMatch, side: 1 | 2): string {
+  return m.sets.map((s) => (side === 1 ? `${s.score1} a ${s.score2}` : `${s.score2} a ${s.score1}`)).join(', ')
+}
+
+/** Resumo para leitor de tela: a grade visual do placar não tem estrutura (WCAG 1.3.1). */
+function liveSummary(m: LiveMatch): string {
+  const p1 = m.participant1 ?? 'A definir'
+  const p2 = m.participant2 ?? 'A definir'
+  const where = m.courtNumber ? `Quadra ${m.courtNumber}, ${disciplineLabel(m.discipline)}` : disciplineLabel(m.discipline)
+  const closed = m.sets.length > 0 ? ` Sets: ${setsText(m, 1)}.` : ''
+  const current = m.currentSet ? ` Set atual: ${m.currentSet.score1} a ${m.currentSet.score2}.` : ''
+  return `${where}: ${p1} contra ${p2}, ${m.setsWon.side1} a ${m.setsWon.side2} em sets.${closed}${current}`
+}
+
 function LiveMatchRow({ match: m }: { match: LiveMatch }) {
   // Sets fechados e o set em andamento, na ordem; o em andamento fica em verde.
   const sets = [...m.sets.map((s) => [s.score1, s.score2] as const), ...(m.currentSet ? [[m.currentSet.score1, m.currentSet.score2] as const] : [])]
   const current = m.currentSet ? sets.length - 1 : -1
   const leader = m.setsWon.side1 === m.setsWon.side2 ? 0 : m.setsWon.side1 > m.setsWon.side2 ? 1 : 2
   return (
-    <div className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3">
-      <span className="row-span-2 self-start font-heading text-xs font-bold uppercase leading-tight tracking-wide text-muted-foreground">
-        {m.courtNumber ? (
-          <>
-            Quadra
-            <span className="block text-[1.75rem] leading-none tracking-normal text-foreground tabular-nums">{m.courtNumber}</span>
-          </>
-        ) : (
-          <span className={cn('inline-flex rounded-sm px-1.5 py-0.5 tracking-normal', DISCIPLINE_PILL[m.discipline])}>{disciplineShort(m.discipline)}</span>
-        )}
-      </span>
-      {([1, 2] as const).map((side) => (
-        <div key={side} className="contents">
-          <span className={cn('min-w-0 truncate', leader === side ? 'font-semibold' : leader === 0 ? undefined : 'text-muted-foreground')}>
-            {(side === 1 ? m.participant1 : m.participant2) ?? 'A definir'}
-          </span>
-          <span className="flex justify-end gap-2.5 font-heading text-xl font-bold tabular-nums">
-            {sets.map((s, i) => (
-              <span key={i} className={i === current ? 'text-primary' : undefined}>
-                {side === 1 ? s[0] : s[1]}
-              </span>
-            ))}
-          </span>
-        </div>
-      ))}
-    </div>
+    <li className="px-4 py-3">
+      <p className="sr-only">{liveSummary(m)}</p>
+      <div aria-hidden="true" className="grid grid-cols-[3.25rem_1fr_auto] items-center gap-x-3 gap-y-1">
+        <span className="row-span-2 self-start font-heading text-xs font-bold uppercase leading-tight tracking-wide text-muted-foreground">
+          {m.courtNumber ? (
+            <>
+              Quadra
+              <span className="block text-[1.75rem] leading-none tracking-normal text-foreground tabular-nums">{m.courtNumber}</span>
+            </>
+          ) : (
+            <span className={cn('inline-flex rounded-sm px-1.5 py-0.5 tracking-normal', DISCIPLINE_PILL[m.discipline])}>{disciplineShort(m.discipline)}</span>
+          )}
+        </span>
+        {([1, 2] as const).map((side) => (
+          <div key={side} className="contents">
+            <span className={cn('min-w-0 break-words leading-snug', leader === side ? 'font-semibold' : leader === 0 ? undefined : 'text-muted-foreground')}>
+              {(side === 1 ? m.participant1 : m.participant2) ?? 'A definir'}
+            </span>
+            <span className="flex justify-end gap-2.5 font-heading text-xl font-bold tabular-nums">
+              {sets.map((s, i) => (
+                <span key={i} className={i === current ? 'text-primary' : undefined}>
+                  {side === 1 ? s[0] : s[1]}
+                </span>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
+    </li>
   )
 }
 
 /**
  * "Ao vivo agora": partidas em quadra dos torneios em andamento (`GET /tournaments/:id/live/matches`).
- * Sem partida em quadra a seção não aparece. O placar é o do momento em que a página carregou; o ao
- * vivo com atualização contínua fica na página do torneio, para onde o cabeçalho de cada bloco leva.
+ * A seção sempre existe, porque a barra inferior aponta para ela (`/#ao-vivo`); sem partida em quadra,
+ * diz isso. O placar é o do momento em que a página carregou; o ao vivo com atualização contínua fica na
+ * página do torneio, para onde o cabeçalho de cada bloco leva.
  */
 export async function LiveNowHome() {
   const tournaments = await loadTournaments()
-  if (!tournaments.ok) return null
-  const running = tournaments.data.filter((t) => t.status === 'in_progress').slice(0, LIVE_TOURNAMENT_LIMIT)
-  if (running.length === 0) return null
+  const running = tournaments.ok ? tournaments.data.filter((t) => t.status === 'in_progress') : []
   const loaded = await Promise.all(running.map(async (t) => ({ tournament: t, live: await loadLiveMatches(t.id) })))
-  // Torneio em andamento sem partida em quadra (intervalo, fim do dia) não ocupa espaço na home.
-  const boards = loaded.filter(({ live }) => !live.ok || live.data.length > 0)
-  if (boards.length === 0) return null
+  const boards = selectLiveBoards(loaded, LIVE_TOURNAMENT_LIMIT)
   return (
     <Section id="live-title" anchor="ao-vivo" title="Ao vivo agora">
-      <div className="space-y-3">
-        {boards.map(({ tournament: t, live }) => (
-          <div key={t.id} className={ROWS}>
-            <Link href={`/t/${t.slug}`} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3', ROW_LINK)}>
-              <Badge variant="live">Ao vivo</Badge>
-              <span className="font-semibold">{t.name}</span>
-              {live.ok && (
-                <span className="text-xs text-muted-foreground">
-                  {live.data.length === 1 ? '1 partida em quadra' : `${live.data.length} partidas em quadra`}
-                </span>
+      {!tournaments.ok ? (
+        <ErrorNotice>Não foi possível carregar os placares agora. Tente novamente em instantes.</ErrorNotice>
+      ) : boards.length === 0 ? (
+        <EmptyNotice>Nenhuma partida em quadra agora. Quando um torneio estiver em jogo, os placares aparecem aqui.</EmptyNotice>
+      ) : (
+        <div className="space-y-3">
+          {boards.map(({ tournament: t, live }) => (
+            <div key={t.id} className={ROWS}>
+              <Link href={`/t/${t.slug}`} className={cn('flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3', ROW_LINK)}>
+                <Badge variant="live">Ao vivo</Badge>
+                <span className="font-semibold">{t.name}</span>
+                {live.ok && (
+                  <span className="text-xs text-muted-foreground">
+                    {live.data.length === 1 ? '1 partida em quadra' : `${live.data.length} partidas em quadra`}
+                  </span>
+                )}
+              </Link>
+              {live.ok ? (
+                <ul className="divide-y divide-border border-t border-border">
+                  {sortLive(live.data).slice(0, LIVE_MATCH_LIMIT).map((m) => (
+                    <LiveMatchRow key={m.matchId} match={m} />
+                  ))}
+                </ul>
+              ) : (
+                <p role="alert" className="px-4 py-3 text-sm text-destructive">
+                  Não foi possível carregar o placar agora. Tente novamente em instantes.
+                </p>
               )}
-            </Link>
-            {!live.ok && (
-              <p role="alert" className="px-4 py-3 text-sm text-destructive">
-                Não foi possível carregar o placar agora. Tente novamente em instantes.
-              </p>
-            )}
-            {live.ok && sortLive(live.data).slice(0, LIVE_MATCH_LIMIT).map((m) => <LiveMatchRow key={m.matchId} match={m} />)}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Section>
   )
 }
@@ -227,9 +258,11 @@ export async function SearchResults({ query }: { query: string }) {
             {athleteHits.map((a) => (
               <li key={a.id} className="min-w-0">
                 <Link href={`/a/${a.id}`} className={cn('flex min-h-12 items-center gap-3 px-4 py-2 font-medium', ROW_LINK)}>
-                  <User className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{a.name}</span>
-                  {a.clubName && <span className="truncate text-xs font-normal text-muted-foreground">{a.clubName}</span>}
+                  <User className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words">{a.name}</span>
+                    {a.clubName && <span className="block text-xs font-normal text-muted-foreground">{a.clubName}</span>}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -243,14 +276,16 @@ export async function SearchResults({ query }: { query: string }) {
             {clubHits.map((c) => (
               <li key={c.id} className="min-w-0">
                 <Link href={`/c/${c.slug}`} className={cn('flex min-h-12 items-center gap-3 px-4 py-2 font-medium', ROW_LINK)}>
-                  <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                  {(c.city || c.state) && (
-                    <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
-                      <MapPin className="size-3" aria-hidden="true" />
-                      {[c.city, c.state].filter(Boolean).join(' / ')}
-                    </span>
-                  )}
+                  <Building2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words">{c.name}</span>
+                    {(c.city || c.state) && (
+                      <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                        <MapPin className="size-3" aria-hidden="true" />
+                        {[c.city, c.state].filter(Boolean).join(' / ')}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               </li>
             ))}

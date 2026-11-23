@@ -34,3 +34,12 @@ export function selectRecent(tournaments: readonly TournamentSummary[], limit: n
 }
 
 export type Loaded<T> = { ok: true; data: T } | { ok: false }
+
+/**
+ * Torneios para "Ao vivo agora": os com partida em quadra (ou cujo placar falhou, para mostrar o erro),
+ * na ordem da lista, até `limit`. O limite vem depois do filtro: um torneio em intervalo não toma a vaga
+ * de outro com jogo.
+ */
+export function selectLiveBoards<B extends { live: Loaded<readonly unknown[]> }>(boards: readonly B[], limit: number): B[] {
+  return boards.filter(({ live }) => !live.ok || live.data.length > 0).slice(0, limit)
+}
