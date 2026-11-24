@@ -18,8 +18,9 @@ import { AdminSessions, bearerToken, parseAdminPin } from '../domain/admin-sessi
 
 const READ_METHODS = new Set(['GET', 'HEAD'])
 
-/** Leituras que devolvem dados pessoais de atletas ou notas internas: só para admin. */
+/** Leituras que devolvem dados pessoais de atletas ou notas internas (inclui as pendências do painel): só para admin. */
 const ADMIN_ONLY_READS = new Set([
+  '/dashboard/attention',
   '/athletes',
   '/athletes/export.csv',
   '/clubs/:id/athletes/export.csv',

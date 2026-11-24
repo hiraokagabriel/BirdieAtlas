@@ -22,6 +22,8 @@ describe('requiresAdmin', () => {
     expect(requiresAdmin('GET', '/tournaments/:id/standings/export.csv')).toBe(false)
     expect(requiresAdmin('GET', '/tournaments/:id/schedule/export.csv')).toBe(false)
     expect(requiresAdmin('GET', '/clubs/:id/athletes/export.csv')).toBe(true)
+    expect(requiresAdmin('GET', '/dashboard/attention')).toBe(true)
+    expect(requiresAdmin('GET', '/dashboard/stats')).toBe(false)
     expect(requiresAdmin('GET', '/registrations/tournament/:tournamentId')).toBe(true)
     expect(requiresAdmin('GET', '/draws/matches/:matchId/result-history')).toBe(true)
     expect(requiresAdmin('GET', '/tournaments/categories/:categoryId/registrations')).toBe(false)
