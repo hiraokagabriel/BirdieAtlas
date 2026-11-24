@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 import { LevelBadge } from '@/components/public/level-badge'
 import { KindBadge } from '@/components/shared/kind-badge'
@@ -10,11 +11,13 @@ import { ErrorNotice, EmptyNotice } from '@/components/public/notices'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { LiveNow } from '@/components/live/live-now'
 import { useLiveMatches } from '@/components/live/use-live-matches'
-import {
-  Calendar, MapPin, Lock, Users, User,
-  Trophy, CheckCircle2, Clock,
-} from 'lucide-react'
-import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { Calendar, CheckCircle2, ChevronLeft, Clock, Lock, MapPin, Users, User } from 'lucide-react'
+import { DISCIPLINE_PILL, disciplineShort } from '@/lib/discipline'
+import { formatDateRange } from '@/lib/format'
+import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
+import { cn } from '@/lib/utils'
+import { StatusBadge } from '@/components/public/status-badge'
+import { ROWS } from '@/components/public/rows'
 import { PrintButton } from '@/components/shared/print-button'
 import { ShareControl } from '@/components/shared/share-control'
 import { shareImageFilename, shareImagePath } from '@/lib/share'
@@ -57,20 +60,16 @@ type Registration = {
 }
 type MatchResult = { matchId: string; setNumber: number; score1: number; score2: number }
 
-// ---------------------------------------------------------------------------
-// Constantes
-// ---------------------------------------------------------------------------
-const statusMap: Record<string, { label: string; color: string; dot: string }> = {
-  draft:                { label: 'Rascunho',              color: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
-  registration_open:    { label: 'Inscrições abertas',    color: 'text-info',             dot: 'bg-info' },
-  registration_closed:  { label: 'Inscrições encerradas', color: 'text-warning',          dot: 'bg-warning' },
-  in_progress:          { label: 'Em andamento',          color: 'text-success',          dot: 'bg-success motion-safe:animate-pulse' },
-  completed:            { label: 'Encerrado',             color: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
-}
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-const disciplineLabel: Record<string, string> = {
-  MS: 'Simples Masc.', WS: 'Simples Fem.',
-  MD: 'Duplas Masc.',  WD: 'Duplas Fem.', XD: 'Misto',
+/** Volta para a home: enquanto não houver a lista de torneios, o nível pai é o Início (docs/DESIGN.md, Voltar). */
+function BackLink() {
+  return (
+    <Link href="/" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-md px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
+      <ChevronLeft className="size-4" aria-hidden="true" />
+      Início
+    </Link>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -78,26 +77,15 @@ const disciplineLabel: Record<string, string> = {
 // ---------------------------------------------------------------------------
 function PageSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="space-y-8 motion-safe:animate-pulse">
+    <div role="status" aria-busy="true" className="space-y-6 motion-safe:animate-pulse">
       <span className="sr-only">Carregando torneio…</span>
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8 space-y-4">
-        <div className="h-4 w-24 bg-muted rounded" />
-        <div className="h-8 w-72 bg-muted rounded" />
-        <div className="flex gap-6">
-          <div className="h-4 w-40 bg-muted rounded" />
-          <div className="h-4 w-32 bg-muted rounded" />
-        </div>
+      <div className="space-y-3">
+        <div className="h-11 w-20 rounded-sm bg-muted" />
+        <div className="h-9 w-72 max-w-full rounded-sm bg-muted" />
+        <div className="h-5 w-96 max-w-full rounded-sm bg-muted" />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <div className="h-3 w-16 bg-muted rounded" />
-            <div className="h-7 w-10 bg-muted rounded" />
-          </div>
-        ))}
-      </div>
-      <div className="h-10 w-64 bg-muted rounded" />
-      <div className="rounded-xl border border-border bg-card h-64" />
+      <div className="h-11 w-80 max-w-full rounded-sm bg-muted" />
+      <div className="h-64 rounded-lg border border-border bg-card" />
     </div>
   )
 }
@@ -107,25 +95,15 @@ function PageSkeleton() {
 // ---------------------------------------------------------------------------
 function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-      <Trophy className="w-12 h-12 text-muted-foreground/40" />
-      <h1 className="text-xl font-semibold">Torneio não encontrado</h1>
-      <p className="text-sm text-muted-foreground max-w-xs">
-        O link que você acessou não corresponde a nenhum torneio. Verifique se o endereço está correto.
+    <div className="space-y-3">
+      <BackLink />
+      <h1 className="font-heading text-3xl font-bold leading-tight">Torneio não encontrado</h1>
+      <p className="max-w-prose text-muted-foreground">
+        O link que você acessou não corresponde a nenhum torneio. Confira o endereço ou busque o torneio na página inicial.
       </p>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Card de Estatística
-// ---------------------------------------------------------------------------
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-0.5">
-      <p className="text-xs text-muted-foreground font-medium">{label}</p>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      <Link href="/#busca" className="inline-flex h-11 items-center rounded-md bg-primary px-4 font-semibold text-primary-foreground transition-colors hover:bg-primary-strong">
+        Buscar torneios e atletas
+      </Link>
     </div>
   )
 }
@@ -135,64 +113,73 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 // ---------------------------------------------------------------------------
 function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDoubles: boolean }) {
   const [regs, setRegs]       = useState<Registration[] | null>(null)
+  const [error, setError]     = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Troca rápida de categoria: a resposta de uma categoria antiga não sobrescreve a atual.
+    let cancelled = false
     setLoading(true)
+    setError(null)
     apiFetch<Registration[]>(`/tournaments/categories/${categoryId}/registrations`)
-      .then(setRegs).finally(() => setLoading(false))
+      .then((data) => { if (!cancelled) setRegs(data) })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Erro inesperado.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [categoryId])
 
   if (loading) return (
     <div role="status" aria-busy="true" className="space-y-2 motion-safe:animate-pulse">
       <span className="sr-only">Carregando inscritos…</span>
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-10 rounded-lg bg-muted" />
+        <div key={i} className="h-14 rounded-lg bg-muted" />
       ))}
     </div>
   )
 
+  if (error) return <ErrorNotice>Não foi possível carregar os inscritos: {error}</ErrorNotice>
+
   if (!regs?.length) return (
-    <p className="text-sm text-muted-foreground py-4 text-center">Nenhum inscrito ainda.</p>
+    <EmptyNotice>Nenhum inscrito ainda. Os nomes aparecem aqui assim que houver inscrições nesta categoria.</EmptyNotice>
   )
 
   const confirmed = regs.filter((r) => r.status === 'approved')
   const pending   = regs.filter((r) => r.status === 'pending')
 
   const renderRow = (r: Registration) => (
-    <li key={r.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+    <li key={r.id} className="flex min-h-14 items-center gap-3 px-4 py-2">
       {isDoubles
-        ? <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        : <User  className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-      <span className="flex-1 text-sm font-medium">
+        ? <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        : <User  className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+      <span className="min-w-0 flex-1 break-words font-medium">
         {isDoubles
           ? `${r.athleteName ?? '—'} & ${r.athlete2Name ?? '—'}`
           : (r.athleteName ?? '—')}
       </span>
       {r.seed != null && (
-        <span className="text-xs font-semibold text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">
+        <span className="inline-flex h-5.5 items-center rounded-sm bg-muted px-1.5 text-xs font-semibold tabular-nums text-muted-foreground">
           <span className="sr-only">Cabeça de chave </span>#{r.seed}
         </span>
       )}
       {r.status === 'approved'
-        ? <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-        : <Clock        className="w-4 h-4 text-warning shrink-0" />}
+        ? <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden="true" />
+        : <Clock        className="size-4 shrink-0 text-warning" aria-hidden="true" />}
       <span className="sr-only">{r.status === 'approved' ? 'Inscrição aprovada' : 'Inscrição pendente'}</span>
     </li>
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {confirmed.length > 0 && (
-        <div className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirmados ({confirmed.length})</h3>
-          <ul className="space-y-1.5">{confirmed.map(renderRow)}</ul>
+        <div className="space-y-2">
+          <h3 className="font-sans text-sm font-semibold text-muted-foreground">Confirmados ({confirmed.length})</h3>
+          <ul className={ROWS}>{confirmed.map(renderRow)}</ul>
         </div>
       )}
       {pending.length > 0 && (
-        <div className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pendentes ({pending.length})</h3>
-          <ul className="space-y-1.5">{pending.map(renderRow)}</ul>
+        <div className="space-y-2">
+          <h3 className="font-sans text-sm font-semibold text-muted-foreground">Pendentes ({pending.length})</h3>
+          <ul className={ROWS}>{pending.map(renderRow)}</ul>
         </div>
       )}
     </div>
@@ -291,50 +278,44 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
   if (!summary)  return <PageSkeleton />
 
   const { tournament, categories, stats } = summary
-  const status         = statusMap[tournament.status] ?? statusMap.draft
   const activeCategory = categories.find((c) => c.id === activeCategoryId)
   const progressPct    = stats.totalMatches > 0
     ? Math.round((stats.completedMatches / stats.totalMatches) * 100)
     : 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
 
-      {/* HERO */}
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8 space-y-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <LevelBadge level={tournament.level} />
+      <header className="space-y-3">
+        <BackLink />
+        <h1 className="font-heading text-3xl font-bold leading-tight md:text-4xl">{tournament.name}</h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <StatusBadge status={tournament.status} />
+          <span className="flex items-center gap-1.5">
+            <LevelBadge level={tournament.level} className="bg-muted text-muted-foreground" />
             <KindBadge kind={(tournament as { kind?: string }).kind} />
-            <h1 className="text-3xl font-bold tracking-tight">{tournament.name}</h1>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <div aria-hidden="true" className={`w-2 h-2 rounded-full ${status.dot}`} />
-            <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            {new Date(tournament.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-            {' — '}
-            {new Date(tournament.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Calendar className="size-4 shrink-0" aria-hidden="true" />
+            {formatDateRange(tournament.startDate, tournament.endDate)}
           </span>
           {tournament.city && (
-            <span className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              {tournament.location ? `${tournament.location} · ` : ''}{tournament.city}, {tournament.state}
+            <span className="flex items-center gap-1.5">
+              <MapPin className="size-4 shrink-0" aria-hidden="true" />
+              {tournament.location ? `${tournament.location} · ` : ''}{[tournament.city, tournament.state].filter(Boolean).join(', ')}
             </span>
           )}
+          <span>
+            {plural(stats.totalCategories, 'categoria', 'categorias')} · {plural(stats.totalAthletes, 'atleta', 'atletas')}
+          </span>
         </div>
 
-        {/* Barra de progresso */}
+        {/* Progresso numa linha fina, sem número-herói (docs/DESIGN.md, Don'ts). */}
         {stats.totalMatches > 0 && (
-          <div className="space-y-1.5 pt-1 print:hidden">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Progresso das partidas</span>
-              <span className="tabular-nums font-medium">{stats.completedMatches} / {stats.totalMatches} ({progressPct}%)</span>
+          <div className="max-w-md space-y-1.5 print:hidden">
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>Partidas concluídas</span>
+              <span className="font-medium tabular-nums">{stats.completedMatches} / {stats.totalMatches} ({progressPct}%)</span>
             </div>
             <div
               role="progressbar"
@@ -343,12 +324,9 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
               aria-valuemax={100}
               aria-valuenow={progressPct}
               aria-valuetext={`${stats.completedMatches} de ${stats.totalMatches} partidas`}
-              className="h-2 rounded-full bg-muted overflow-hidden"
+              className="h-1.5 overflow-hidden rounded-full bg-muted"
             >
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
+              <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         )}
@@ -368,15 +346,7 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
               : []),
           ]}
         />
-      </div>
-
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:hidden">
-        <StatCard label="Categorias"  value={stats.totalCategories} />
-        <StatCard label="Atletas"     value={stats.totalAthletes} />
-        <StatCard label="Partidas"    value={stats.totalMatches} sub={stats.completedMatches > 0 ? `${stats.completedMatches} concluídas` : undefined} />
-        <StatCard label="Progresso"   value={`${progressPct}%`} sub={tournament.status === 'completed' ? 'Encerrado' : 'Em andamento'} />
-      </div>
+      </header>
 
       {/* AO VIVO */}
       {isLiveTournament && <div className="print:hidden"><LiveNow state={liveState} /></div>}
@@ -384,9 +354,9 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
       <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)} className="space-y-8">
       {/* TABS */}
       <TabsList aria-label="Seções do torneio" className="gap-1 print:hidden">
-        <TabsTrigger value="bracket" className="px-5 py-2.5"><span aria-hidden="true">🏆</span> Chaveamento</TabsTrigger>
-        <TabsTrigger value="registrations" className="px-5 py-2.5"><span aria-hidden="true">👥</span> Inscritos</TabsTrigger>
-        <TabsTrigger value="schedule" className="px-5 py-2.5"><span aria-hidden="true">📅</span> Agenda</TabsTrigger>
+        <TabsTrigger value="bracket" className="font-semibold">Chaveamento</TabsTrigger>
+        <TabsTrigger value="registrations" className="font-semibold">Inscritos</TabsTrigger>
+        <TabsTrigger value="schedule" className="font-semibold">Agenda</TabsTrigger>
       </TabsList>
 
       {/* SELETOR DE CATEGORIA */}
@@ -398,11 +368,11 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
           options={categories.map((cat) => ({
             value: cat.id,
             label: cat.name,
-            className: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 bg-transparent',
+            className: 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
           }))}
           value={activeCategoryId}
           onChange={setActiveCategoryId}
-          optionClassName="rounded-full px-4 py-1.5"
+          optionClassName="px-4"
         />
       )}
 
@@ -419,7 +389,7 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
             </div>
           )}
           {!drawLoaded ? (
-            <div className="rounded-xl border border-border bg-card"><BracketSkeleton /></div>
+            <div className="rounded-lg border border-border bg-card"><BracketSkeleton /></div>
           ) : drawError ? (
             <ErrorNotice>Não foi possível carregar a chave: {drawError}</ErrorNotice>
           ) : !draw ? (
@@ -450,13 +420,11 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
       {activeCategory && (
         <div className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium ${
-              DISCIPLINE_PILL[activeCategory.discipline] ?? ''
-            }`}>
-              {['MD','WD','XD'].includes(activeCategory.discipline)
-                ? <Users className="w-3 h-3" />
-                : <User  className="w-3 h-3" />}
-              {disciplineLabel[activeCategory.discipline] ?? activeCategory.discipline}
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <span aria-hidden="true" className={cn('inline-flex h-5.5 items-center rounded-sm px-1.5 text-xs font-bold', DISCIPLINE_PILL[activeCategory.discipline])}>
+                {disciplineShort(activeCategory.discipline)}
+              </span>
+              {disciplineLabel(activeCategory.discipline)}
             </span>
             <span className="text-sm text-muted-foreground">
               {activeCategory.registrationCount} inscri{activeCategory.registrationCount !== 1 ? 'ções' : 'ção'}
@@ -464,15 +432,13 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
               {activeCategory.athleteCount} atleta{activeCategory.athleteCount !== 1 ? 's' : ''}
             </span>
             {activeCategory.hasPublishedDraw && (
-              <span className="text-xs text-success font-medium">✓ Chave publicada</span>
+              <span className="flex items-center gap-1 text-xs font-medium text-success">
+                <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                Chave publicada
+              </span>
             )}
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <RegistrationsList
-              categoryId={activeCategory.id}
-              isDoubles={['MD','WD','XD'].includes(activeCategory.discipline)}
-            />
-          </div>
+          <RegistrationsList categoryId={activeCategory.id} isDoubles={isDoublesDiscipline(activeCategory.discipline)} />
         </div>
       )}
       </TabsContent>

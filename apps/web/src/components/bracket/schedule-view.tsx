@@ -7,13 +7,15 @@ import { ScheduleDialog } from './schedule-dialog'
 import { AutoScheduleDialog } from './auto-schedule-dialog'
 import { Button } from '@/components/ui/button'
 import { CalendarClock, Pencil, Wand2 } from 'lucide-react'
-import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { DISCIPLINE_PILL, disciplineShort } from '@/lib/discipline'
+import { cn } from '@/lib/utils'
 
 const statusLabel: Record<string, { label: string; dot: string }> = {
   pending: { label: 'Aguardando', dot: 'bg-muted-foreground/40' },
-  in_progress: { label: 'Ao vivo', dot: 'bg-success motion-safe:animate-pulse' },
+  // Amarelo-peteca só no estado vivo (docs/DESIGN.md, Regra do Agora).
+  in_progress: { label: 'Ao vivo', dot: 'bg-live motion-safe:animate-pulse' },
   completed: { label: 'Encerrada', dot: 'bg-info' },
-  walkover: { label: 'W.O.', dot: 'bg-warning' },
+  walkover: { label: 'W.O.', dot: 'bg-muted-foreground' },
   retired: { label: 'Ret.', dot: 'bg-destructive' },
 }
 
@@ -104,7 +106,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
           aria-label="Filtrar por categoria"
           value={filterCategoryId}
           onChange={(e) => setFilterCategoryId(e.target.value)}
-          className="min-h-9 rounded-lg border border-field-border bg-background px-3 py-1.5 text-sm"
+          className="h-(--control-h) min-w-0 max-w-full rounded-md border border-field-border bg-background px-3 text-sm"
         >
           <option value="all">Todas as categorias</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -114,7 +116,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
           aria-label="Filtrar por situação da partida"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="min-h-9 rounded-lg border border-field-border bg-background px-3 py-1.5 text-sm"
+          className="h-(--control-h) rounded-md border border-field-border bg-background px-3 text-sm"
         >
           <option value="all">Todos os status</option>
           <option value="pending">Aguardando</option>
@@ -131,17 +133,17 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
       </div>
 
       {Object.entries(grouped).length === 0 ? (
-        <div className="rounded-xl border border-border p-12 text-center text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
           <CalendarClock className="w-8 h-8 mx-auto mb-3 opacity-30" aria-hidden="true" />
           <p className="font-medium">Nenhuma partida encontrada</p>
         </div>
       ) : (
         Object.entries(grouped).map(([dateLabel, dayMatches]) => (
           <div key={dateLabel} className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 capitalize">
+            <h3 className="px-1 font-sans text-sm font-semibold text-muted-foreground first-letter:uppercase">
               {dateLabel}
             </h3>
-            <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
               {dayMatches.map((match) => {
                 const p1 = getAthleteLabel(match.registration1Id, match.registrations)
                 const p2 = getAthleteLabel(match.registration2Id, match.registrations)
@@ -149,11 +151,13 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                 const disciplineColor = DISCIPLINE_PILL[match.category.discipline] ?? 'bg-muted text-muted-foreground'
 
                 return (
-                  <div key={match.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
-                    <div className="w-24 shrink-0 text-center">
+                  // Linha de partida (docs/DESIGN.md): horário e quadra à esquerda; categoria, fase e status
+                  // numa linha; os dois lados embaixo, sem truncar nomes no celular.
+                  <div key={match.id} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-muted/30">
+                    <div className="row-span-2">
                       {match.scheduledAt ? (
                         <>
-                          <p className="text-sm font-semibold tabular-nums">
+                          <p className="font-heading text-lg font-bold leading-tight tabular-nums">
                             {new Date(match.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                           {match.courtNumber && (
@@ -161,27 +165,30 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                           )}
                         </>
                       ) : (
-                        <p className="text-xs text-muted-foreground">—</p>
+                        <p className="text-xs text-muted-foreground">
+                          <span aria-hidden="true">—</span>
+                          <span className="sr-only">Sem horário</span>
+                        </p>
                       )}
                     </div>
 
-                    <div className="w-28 shrink-0 space-y-1">
-                      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${disciplineColor}`}>
-                        {match.category.name}
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span aria-hidden="true" className={cn('inline-flex h-5.5 items-center rounded-sm px-1.5 font-bold', disciplineColor)}>
+                        {disciplineShort(match.category.discipline)}
                       </span>
-                      <p className="text-xs text-muted-foreground">{match.roundLabel ?? getRoundLabel(match.round)}</p>
-                    </div>
+                      <span className="min-w-0 break-words">{match.category.name} · {match.roundLabel ?? getRoundLabel(match.round)}</span>
+                    </p>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{p1}</p>
-                      <p className="text-xs text-muted-foreground">vs</p>
-                      <p className="text-sm font-medium truncate">{p2}</p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                    <div className="flex items-center gap-1.5 justify-self-end pt-0.5">
+                      <div aria-hidden="true" className={cn('size-1.5 rounded-full', status.dot)} />
                       <span className="text-xs text-muted-foreground">{status.label}</span>
                     </div>
+
+                    <p className={cn('min-w-0 break-words leading-snug', readonly ? 'col-span-2' : undefined)}>
+                      <span className="font-medium">{p1}</span>
+                      <span className="text-muted-foreground"> x </span>
+                      <span className="font-medium">{p2}</span>
+                    </p>
 
                     {!readonly && (
                       <button
@@ -193,7 +200,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                           setSelectedP1(p1)
                           setSelectedP2(p2)
                         }}
-                        className="shrink-0 rounded-lg p-2 transition-colors hover:bg-accent"
+                        className="inline-flex size-(--control-h) items-center justify-center justify-self-end rounded-md transition-colors hover:bg-accent"
                       >
                         <Pencil className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
                       </button>
