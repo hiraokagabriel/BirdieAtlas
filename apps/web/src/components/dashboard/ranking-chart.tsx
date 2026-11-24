@@ -9,7 +9,8 @@ import {
 } from 'recharts'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
-import { disciplineChartColor } from '@/lib/discipline'
+import { disciplineChartColor, disciplineShort } from '@/lib/discipline'
+import { disciplineLabel } from '@/lib/labels'
 import { ChoiceGroup } from '@/components/ui/choice-group'
 
 type Category = 'MS' | 'WS' | 'MD' | 'WD' | 'XD'
@@ -30,14 +31,6 @@ type RankingEntry = {
 }
 
 type EntriesResponse = Paginated<RankingEntry> & { ranking: RankingMeta }
-
-const categoryLabels: Record<Category, string> = {
-  MS: 'Simples Masculino',
-  WS: 'Simples Feminino',
-  MD: 'Duplas Masculino',
-  WD: 'Duplas Feminino',
-  XD: 'Duplas Misto',
-}
 
 const CATEGORIES: Category[] = ['MS', 'WS', 'MD', 'WD', 'XD']
 
@@ -104,29 +97,30 @@ export function RankingChart() {
       .finally(() => setLoading(false))
   }, [active, rankingMap])
 
-  const label = categoryLabels[active]
+  const label = disciplineLabel(active)
   const color = disciplineChartColor(active)
   const chartHeight = Math.max((data.length || 4) * 52, 160)
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4">
+    <Card className="h-full gap-0 py-0">
+      <CardHeader className="border-b py-3">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div>
-            <CardTitle>Ranking de Pontos</CardTitle>
+            <CardTitle>Ranking de pontos</CardTitle>
             <CardDescription>{label} — Temporada 2026</CardDescription>
           </div>
           <ChoiceGroup
             legend="Disciplina do ranking"
             hideLegend
-            options={CATEGORIES.map((cat) => ({ value: cat, label: cat, content: cat, labelFromContent: true }))}
+            // Sigla em português na tela; o nome acessível começa por ela (WCAG 2.5.3).
+            options={CATEGORIES.map((cat) => ({ value: cat, label: `${disciplineShort(cat)}, ${disciplineLabel(cat)}`, content: disciplineShort(cat) }))}
             value={active}
             onChange={setActive}
-            optionClassName="min-h-8 px-2.5 py-1 text-xs font-semibold"
+            optionClassName="px-2.5 text-xs font-semibold"
           />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="py-4">
         {loading ? (
           <div role="status" aria-busy="true" className="space-y-3">
             <span className="sr-only">Carregando ranking…</span>
@@ -161,10 +155,10 @@ export function RankingChart() {
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart accessibilityLayer={false} data={data} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} />
+              <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} width={110} />
               <Tooltip content={<CustomTooltip color={color} />} cursor={{ fill: 'var(--muted)', fillOpacity: 0.5 }} />
-              <Bar dataKey="points" radius={[0, 6, 6, 0]} maxBarSize={32}>
+              <Bar dataKey="points" radius={[0, 4, 4, 0]} maxBarSize={32}>
                 {data.map((_, index) => (
                   <Cell key={index} fill={color} fillOpacity={1 - index * 0.04} />
                 ))}

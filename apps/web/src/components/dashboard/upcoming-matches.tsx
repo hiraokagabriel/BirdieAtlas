@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, MapPin } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api'
-import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { DisciplineChip } from '@/components/public/discipline-chip'
+import { EmptyNotice, ErrorNotice } from '@/components/public/notices'
 
 type UpcomingMatch = {
   matchId: string
@@ -21,10 +23,8 @@ type UpcomingMatch = {
   status: 'pending' | 'in_progress'
 }
 
-const statusConfig = {
-  in_progress: { label: 'Ao vivo', className: '' },
-  pending:     { label: 'Aguardando', className: 'bg-muted text-muted-foreground' },
-}
+/** Quantas partidas o painel mostra; o resto fica em /admin/live. */
+const LIMIT = 6
 
 function roundLabel(round: number): string {
   if (round === 1) return 'Final'
@@ -34,58 +34,75 @@ function roundLabel(round: number): string {
 }
 
 export function UpcomingMatches() {
-  const [matches, setMatches] = useState<UpcomingMatch[] | null>(null)
-
-  useEffect(() => {
-    apiFetch<UpcomingMatch[]>('/dashboard/upcoming-matches').then(setMatches).catch(() => setMatches([]))
-  }, [])
+  const { data: matches, isPending, isError } = useQuery({
+    queryKey: ['dashboard', 'upcoming-matches'],
+    queryFn: () => apiFetch<UpcomingMatch[]>('/dashboard/upcoming-matches'),
+  })
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Próximas Partidas</CardTitle>
-        <CardDescription>Partidas pendentes e em andamento</CardDescription>
+    <Card className="gap-0 py-0">
+      <CardHeader className="border-b py-3">
+        <CardTitle>Próximas partidas</CardTitle>
+        <CardDescription>Pendentes e em andamento</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {matches === null ? (
-          <div role="status" aria-busy="true" className="space-y-2">
+      <CardContent className="px-0">
+        {isError ? (
+          <div className="p-4">
+            <ErrorNotice>Não foi possível carregar as próximas partidas. Recarregue a página para tentar de novo.</ErrorNotice>
+          </div>
+        ) : isPending ? (
+          <div role="status" aria-busy="true" className="space-y-2 p-4">
             <span className="sr-only">Carregando próximas partidas…</span>
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
           </div>
         ) : matches.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma partida pendente.</p>
+          <div className="p-4">
+            <EmptyNotice>Nenhuma partida pendente. As partidas aparecem aqui quando um torneio em andamento tiver chave gerada.</EmptyNotice>
+          </div>
         ) : (
-          matches.map((match) => {
-            const status = statusConfig[match.status]
-            const time = match.scheduledAt
-              ? new Date(match.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-              : null
-            return (
-              <div key={match.matchId} className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${DISCIPLINE_PILL[match.discipline]}`}>
-                      {match.discipline}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{match.roundLabel ?? roundLabel(match.round)}</span>
-                  </div>
-                  <Badge className={status.className} variant={match.status === 'in_progress' ? 'live' : 'secondary'}>
-                    {match.status === 'in_progress' && <span aria-hidden="true" className="size-1.5 rounded-full bg-background motion-safe:animate-pulse" />}
-                    {status.label}
-                  </Badge>
-                </div>
-                <div className="text-sm font-medium">
-                  {match.player1} <span className="text-muted-foreground font-normal">vs</span> {match.player2}
-                </div>
-                {(time || match.courtNumber) && (
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{time}</span>}
-                    {match.courtNumber && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />Quadra {match.courtNumber}</span>}
-                  </div>
-                )}
-              </div>
-            )
-          })
+          <>
+            <ul className="divide-y divide-border">
+              {matches.slice(0, LIMIT).map((match) => {
+                const time = match.scheduledAt
+                  ? new Date(match.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  : null
+                return (
+                  // Linha de partida: horário e quadra à esquerda, categoria e situação, os dois lados embaixo.
+                  <li key={match.matchId} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 px-4 py-3">
+                    <div className="row-span-2">
+                      <p className="font-heading text-lg font-bold leading-tight tabular-nums">
+                        {time ?? (
+                          <>
+                            <span aria-hidden="true">—</span>
+                            <span className="sr-only">Sem horário</span>
+                          </>
+                        )}
+                      </p>
+                      {match.courtNumber && <p className="text-xs text-muted-foreground">Quadra {match.courtNumber}</p>}
+                    </div>
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <DisciplineChip discipline={match.discipline} />
+                      <span className="min-w-0 break-words">{match.roundLabel ?? roundLabel(match.round)}</span>
+                    </p>
+                    {match.status === 'in_progress' ? (
+                      <Badge variant="live" className="justify-self-end">Ao vivo</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="justify-self-end bg-muted text-muted-foreground">Aguardando</Badge>
+                    )}
+                    <p className="col-span-2 min-w-0 break-words font-medium leading-snug">
+                      {match.player1} <span className="font-normal text-muted-foreground">x</span> {match.player2}
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="border-t border-border px-4 py-1">
+              <Link href="/admin/live" className="inline-flex min-h-(--control-h) items-center gap-1.5 rounded-md text-sm font-semibold text-primary hover:underline">
+                {matches.length > LIMIT ? `Ver todas (${matches.length}) no Ao vivo` : 'Abrir o Ao vivo'}
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

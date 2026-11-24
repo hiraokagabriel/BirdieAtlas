@@ -316,7 +316,7 @@ Ordem dos PRs (um por linha, trilha completa do [`workflow.md`](../workflow.md))
 1. **Tokens e fontes:** trocar Geist por Barlow em `layout.tsx`; `--radius` para 0.5rem; adicionar `--primary-strong`, `--live`, `--live-foreground`, `--court-line` e as duas sombras em `globals.css` (claro e escuro).
 2. **Componentes `ui`:** fixar a escala de raio em 4/6/8 px (hoje `--radius-sm` e `--radius-md` derivam para 4,8 e 6,4 px, e `rounded-xl` dá 11,2 px); alturas de `button`, `input` e `select` (44/36 px), hover do primário, chips de status e `tabs` no novo desenho.
 3. **Portal público:** barra inferior no celular (via `navigation.ts`), home, torneio, atleta, clube e ranking.
-4. **Admin:** painel com quadras e "Precisa de você", tabelas, diálogo de resultado.
+4. **Admin:** em quatro partes. 4a moldura (menu lateral, barra superior) e o painel atual no visual novo; 4b painel com quadras e "Precisa de você" (precisa de dados novos da API); 4c tabelas e listas; 4d diálogo de resultado.
 5. **Telão e impressão:** `/telao` no desenho de 3×2 e `print.css` com a mesma tipografia.
 
 Templates (HTML e PNG) em [`design/`](design/): `home`, `torneio`, `atleta`, `admin`, `resultado` e `telao`. Os HTML usam `design/templates/system.css`, um espelho destes tokens. Os nomes e números dos templates são fictícios.

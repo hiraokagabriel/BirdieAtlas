@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, Building2, Trophy, Swords } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorNotice } from '@/components/public/notices'
+import { STAT_GRID, StatTile } from '@/components/public/stat-tile'
 
 type Stats = {
   totalAthletes: number
@@ -14,71 +14,33 @@ type Stats = {
   matchesPending: number
 }
 
+/** Faixa de números do painel: uma superfície com divisórias, sem cartões nem ícones coloridos (docs/DESIGN.md). */
 export function StatsCards() {
-  const [stats, setStats] = useState<Stats | null>(null)
+  const { data: stats, isPending, isError } = useQuery({
+    queryKey: ['dashboard', 'stats'],
+    queryFn: () => apiFetch<Stats>('/dashboard/stats'),
+  })
 
-  useEffect(() => {
-    apiFetch<Stats>('/dashboard/stats').then(setStats).catch(() => null)
-  }, [])
+  if (isError) return <ErrorNotice>Não foi possível carregar os números do painel. Recarregue a página para tentar de novo.</ErrorNotice>
 
-  const cards = [
-    {
-      title: 'Atletas Inscritos',
-      value: stats?.totalAthletes ?? null,
-      description: 'atletas ativos',
-      icon: Users,
-      color: 'text-info',
-      bg: 'bg-info/10',
-    },
-    {
-      title: 'Clubes Participantes',
-      value: stats?.totalClubs ?? null,
-      description: 'clubes filiados',
-      icon: Building2,
-      color: 'text-chart-5',
-      bg: 'bg-chart-5/10',
-    },
-    {
-      title: 'Categorias Ativas',
-      value: stats?.activeCategories ?? null,
-      description: 'MS · WS · MD · WD · XD',
-      icon: Trophy,
-      color: 'text-warning',
-      bg: 'bg-warning/10',
-    },
-    {
-      title: 'Partidas Disputadas',
-      value: stats?.matchesPlayed ?? null,
-      description: stats ? `${stats.matchesPending} aguardando resultado` : '—',
-      icon: Swords,
-      color: 'text-success',
-      bg: 'bg-success/10',
-    },
-  ]
+  if (isPending) {
+    return (
+      <div role="status" aria-busy="true">
+        <span className="sr-only">Carregando números do painel…</span>
+        <Skeleton className="h-21 w-full rounded-lg" />
+      </div>
+    )
+  }
 
   return (
-    <div aria-busy={stats === null} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {cards.map((stat) => (
-        <Card key={stat.title} className="border-border">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-            <div aria-hidden="true" className={`p-2 rounded-lg ${stat.bg}`}>
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stat.value === null ? (
-              <>
-                <Skeleton className="h-8 w-16 mb-1" />
-                <span role="status" className="sr-only">Carregando {stat.title}</span>
-              </>
-            ) : (
-              <p className="text-3xl font-bold">{stat.value}</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <section aria-labelledby="stats-title">
+      <h3 id="stats-title" className="sr-only">Números</h3>
+      <dl className={STAT_GRID}>
+        <StatTile label="Atletas" value={stats.totalAthletes} hint="ativos e filiados" />
+        <StatTile label="Clubes" value={stats.totalClubs} hint="filiados" />
+        <StatTile label="Disciplinas em jogo" value={stats.activeCategories} hint="em andamento" />
+        <StatTile label="Partidas encerradas" value={stats.matchesPlayed} hint={`${stats.matchesPending} sem resultado`} />
+      </dl>
+    </section>
   )
 }
