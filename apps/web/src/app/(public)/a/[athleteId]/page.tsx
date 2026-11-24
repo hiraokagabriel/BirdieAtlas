@@ -2,18 +2,21 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { Award, Calendar, Globe, MapPin, Trophy, Users } from 'lucide-react'
+import { Calendar, Globe, Shield, Users } from 'lucide-react'
 import { fetchAthleteProfile, fetchAthleteStats } from '@/lib/public-athlete'
 import { summarizeAthlete } from '@/lib/athlete-stats'
 import { countryName, formatDate, formatPoints } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
 import { AthleteAvatar } from '@/components/public/athlete-avatar'
 import { AthleteStatsSection } from '@/components/public/athlete-stats-section'
+import { BackLink } from '@/components/public/back-link'
+import { DisciplineChip } from '@/components/public/discipline-chip'
 import { HeadToHeadPicker } from '@/components/public/head-to-head-picker'
 import { LevelBadge } from '@/components/public/level-badge'
 import { EmptyNotice } from '@/components/public/notices'
 import { PlacementBadge } from '@/components/public/placement-badge'
-import { StatTile } from '@/components/public/stat-tile'
+import { INLINE_LINK, ROWS } from '@/components/public/rows'
+import { STAT_GRID, StatTile } from '@/components/public/stat-tile'
 import { StatusBadge } from '@/components/public/status-badge'
 import { ShareControl } from '@/components/shared/share-control'
 import { buildShareText, shareImageFilename, shareImagePath } from '@/lib/share'
@@ -57,28 +60,24 @@ export default async function PublicAthletePage({ params }: PageProps) {
   const place = currentClub ? [currentClub.city, currentClub.state].filter(Boolean).join(' / ') : ''
 
   return (
-    <div className="space-y-10">
-      <header className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div aria-hidden="true" className="h-3 bg-primary" />
-        <div className="flex flex-col items-center gap-5 p-6 text-center sm:flex-row sm:items-center sm:text-left md:gap-8 md:p-8">
-          <AthleteAvatar name={athlete.name} photoUrl={athlete.photoUrl} size={112} />
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
-              <h1 className="text-4xl leading-none md:text-5xl">{athlete.name}</h1>
+    <div className="space-y-8">
+      <header className="space-y-3">
+        <BackLink />
+        <div className="flex items-center gap-4">
+          <AthleteAvatar name={athlete.name} photoUrl={athlete.photoUrl} size={64} />
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 className="break-words font-heading text-3xl font-bold leading-tight md:text-4xl">{athlete.name}</h1>
               {!athlete.active && (
-                <span className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Inativo</span>
+                <span className="inline-flex h-5.5 items-center rounded-sm bg-muted px-1.5 text-xs font-semibold text-muted-foreground">Inativo</span>
               )}
             </div>
-
-            <ul className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground sm:justify-start">
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               {currentClub?.clubName ? (
-                <li className="flex items-center gap-1.5">
-                  <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                <li className="flex min-w-0 items-center gap-1.5">
+                  <Shield className="size-4 shrink-0" aria-hidden="true" />
                   {currentClub.clubSlug ? (
-                    <Link
-                      href={`/c/${currentClub.clubSlug}`}
-                      className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
+                    <Link href={`/c/${currentClub.clubSlug}`} className={`font-medium text-foreground ${INLINE_LINK}`}>
                       {currentClub.clubName}
                     </Link>
                   ) : (
@@ -99,41 +98,41 @@ export default async function PublicAthletePage({ params }: PageProps) {
                   {countryName(athlete.nationality)}
                 </li>
               )}
+              {disciplines.length > 0 && (
+                <li className="flex items-center">
+                  <ul aria-label="Modalidades disputadas" className="flex flex-wrap gap-1.5">
+                    {disciplines.map((d) => (
+                      <li key={d}>
+                        <DisciplineChip discipline={d} />
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              )}
             </ul>
-
-            <ShareControl
-              className="flex flex-col items-center sm:items-start"
-              title={`${athlete.name} · BirdieAtlas`}
-              text={buildShareText({ kind: 'athlete', name: athlete.name })}
-              images={[
-                {
-                  label: 'Baixar imagem',
-                  href: shareImagePath(`/a/${athleteId}`, { download: '1' }),
-                  filename: shareImageFilename(athlete.name),
-                },
-              ]}
-            />
-
-            {disciplines.length > 0 && (
-              <ul aria-label="Modalidades disputadas" className="flex flex-wrap justify-center gap-2 sm:justify-start">
-                {disciplines.map((d) => (
-                  <li key={d} className="rounded-full bg-secondary px-3 py-0.5 text-xs font-semibold text-secondary-foreground">
-                    {disciplineLabel(d)}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
+
+        <ShareControl
+          title={`${athlete.name} · BirdieAtlas`}
+          text={buildShareText({ kind: 'athlete', name: athlete.name })}
+          images={[
+            {
+              label: 'Baixar imagem',
+              href: shareImagePath(`/a/${athleteId}`, { download: '1' }),
+              filename: shareImageFilename(athlete.name),
+            },
+          ]}
+        />
       </header>
 
       <section aria-labelledby="stats-title">
         <h2 id="stats-title" className="sr-only">
           Resumo
         </h2>
-        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <dl className={STAT_GRID}>
           <StatTile label="Torneios disputados" value={summary.tournaments} />
-          <StatTile label="Títulos" value={summary.titles} highlight={summary.titles > 0} />
+          <StatTile label="Títulos" value={summary.titles} />
           <StatTile label="Pódios" value={summary.podiums} hint="1º ao 3º lugar" />
           <StatTile
             label="Melhor posição"
@@ -143,33 +142,26 @@ export default async function PublicAthletePage({ params }: PageProps) {
         </dl>
       </section>
 
-      <AthleteStatsSection stats={matchStats} />
-
-      <HeadToHeadPicker athleteId={athlete.id} />
-
-      <section aria-labelledby="rankings-title" className="space-y-4">
+      <section aria-labelledby="rankings-title" className="space-y-3">
         <h2 id="rankings-title" className="text-2xl">
           Rankings
         </h2>
         {rankings.length === 0 ? (
           <EmptyNotice>Este atleta ainda não aparece em nenhum ranking.</EmptyNotice>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+          <ul className={ROWS}>
             {rankings.map((r) => (
-              <li key={`${r.rankingId}-${r.partnerId ?? 'solo'}`} className="flex items-center gap-3 px-4 py-3">
+              <li key={`${r.rankingId}-${r.partnerId ?? 'solo'}`} className="flex min-h-14 items-center gap-3 px-4 py-3">
                 <PlacementBadge placement={r.position} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{r.rankingName}</p>
+                  <p className="break-words font-semibold">{r.rankingName}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     <span>{disciplineLabel(r.discipline)}</span>
                     {r.year > 0 && <span>{r.year}</span>}
                     {isDoublesDiscipline(r.discipline) && r.partnerName && r.partnerId && (
                       <span>
                         com{' '}
-                        <Link
-                          href={`/a/${r.partnerId}`}
-                          className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
+                        <Link href={`/a/${r.partnerId}`} className={INLINE_LINK}>
                           {r.partnerName}
                         </Link>
                       </span>
@@ -177,7 +169,7 @@ export default async function PublicAthletePage({ params }: PageProps) {
                   </p>
                 </div>
                 {r.totalPoints !== null && (
-                  <p className="shrink-0 font-heading text-xl font-semibold tabular-nums">
+                  <p className="shrink-0 font-heading text-xl font-bold tabular-nums">
                     {formatPoints(r.totalPoints)}
                     <span className="ml-1 font-sans text-xs font-normal text-muted-foreground">pts</span>
                   </p>
@@ -188,59 +180,51 @@ export default async function PublicAthletePage({ params }: PageProps) {
         )}
       </section>
 
-      <section aria-labelledby="history-title" className="space-y-4">
+      <AthleteStatsSection stats={matchStats} />
+
+      <HeadToHeadPicker athleteId={athlete.id} />
+
+      <section aria-labelledby="history-title" className="space-y-3">
         <h2 id="history-title" className="text-2xl">
           Histórico de torneios
         </h2>
         {tournamentHistory.length === 0 ? (
           <EmptyNotice>Nenhum torneio confirmado encontrado para este atleta.</EmptyNotice>
         ) : (
-          <ul className="space-y-2">
+          <ul className={ROWS}>
             {tournamentHistory.map((entry) => (
-              <li
-                key={entry.registrationId}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
-              >
+              <li key={entry.registrationId} className="flex min-h-14 items-center gap-3 px-4 py-1.5">
                 <PlacementBadge placement={entry.finalPlacement} />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-sm font-semibold">
+                  <p className="font-semibold">
                     {entry.tournamentSlug ? (
-                      <Link
-                        href={`/t/${entry.tournamentSlug}`}
-                        className="inline-flex min-h-6 items-center rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
+                      <Link href={`/t/${entry.tournamentSlug}`} className={`inline-flex min-h-11 items-center ${INLINE_LINK}`}>
                         {entry.tournamentName}
                       </Link>
                     ) : (
                       entry.tournamentName
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.categoryName || disciplineLabel(entry.discipline)}
-                    {entry.seed !== null && ` · cabeça de chave ${entry.seed}`}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <LevelBadge level={entry.level} />
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>
+                      {entry.categoryName || disciplineLabel(entry.discipline)}
+                      {entry.seed !== null && ` · cabeça de chave ${entry.seed}`}
+                    </span>
+                    <LevelBadge level={entry.level} className="bg-muted text-muted-foreground" />
                     {entry.startDate && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="size-3" aria-hidden="true" />
+                      <span className="flex items-center gap-1">
+                        <Calendar className="size-3.5" aria-hidden="true" />
                         {formatDate(entry.startDate, 'medium')}
                       </span>
                     )}
                     {entry.tournamentStatus !== 'completed' && <StatusBadge status={entry.tournamentStatus} />}
-                  </div>
+                  </p>
                 </div>
-                {entry.finalPlacement !== null && entry.finalPlacement <= 3 && (
-                  <Trophy className="hidden size-5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
-                )}
               </li>
             ))}
           </ul>
         )}
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Award className="size-3.5" aria-hidden="true" />
-          A colocação aparece quando o torneio é encerrado.
-        </p>
+        <p className="text-xs text-muted-foreground">A colocação aparece quando o torneio é encerrado.</p>
       </section>
     </div>
   )

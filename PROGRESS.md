@@ -30,7 +30,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Home pública e perfil do atleta | ✅ PR #21 |
 | Chave visual (admin e pública) | ✅ PR #22 |
 | Dark mode (toggle claro/escuro/sistema) | ✅ PR #24 |
-| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | 🟡 Documento pronto; migração em 5 PRs: 1/5 tokens e fontes ✅; 2/5 componentes `ui` ✅; 3a moldura pública e home ✅; 3b torneio ✅ (a busca "Encontre sua próxima partida" fica para um PR de comportamento); faltam atleta, clube e ranking (3c), admin, telão e impressão |
+| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | 🟡 Documento pronto; migração em 5 PRs: 1/5 tokens e fontes ✅; 2/5 componentes `ui` ✅; 3a moldura pública e home ✅; 3b torneio ✅ (a busca "Encontre sua próxima partida" fica para um PR de comportamento); 3c atleta, clube e ranking ✅ (clube nas linhas do ranking depende de a API devolvê-lo); faltam admin, telão e impressão |
 
 ## Phase 0 — Fundação
 

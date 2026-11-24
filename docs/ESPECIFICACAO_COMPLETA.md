@@ -82,14 +82,14 @@ Público, identificando por slug:
 | `/telao/[slug]` | Telão do torneio para TV ou projetor, fora do layout público (sem cabeçalho): um cartão por quadra com o placar ao vivo (stream SSE) ou "Livre" e a próxima partida da fila; abaixo, as próximas 8 partidas por horário (sem horário no fim; horário com dia e mês quando não é hoje), de `GET /tournaments/:id/live/queue`, recarregada a cada 15 s e quando uma partida começa ou termina. Falha depois da primeira carga mostra aviso de dados desatualizados; API fora na abertura mostra o erro e tenta de novo sozinha a cada 20 s; relógio, botão de tela cheia, link para a página do torneio e QR code dessa página para o público (endereço de `NEXT_PUBLIC_SITE_URL` ou da origem do telão; aberto por localhost, mostra só a dica de abrir pelo IP da rede). Link "Telão" no cabeçalho do torneio no admin. `404` para slug inexistente |
 | `/t/[slug]/sumulas` | Súmulas para imprimir: uma por partida pronta para começar (os dois lados definidos, `GET /tournaments/:id/live/queue`), por horário, com torneio, categoria, fase, quadra e horário (ou campos em branco), tabela de 3 sets e linhas de vencedor, árbitro e mesa. Botão Imprimir / Salvar PDF; cada súmula não quebra entre páginas. Link "Súmulas" no admin do torneio. `404` para slug inexistente |
 | `/t/[slug]/share-image` | PNG de compartilhamento do torneio (ver "Compartilhamento e exportações") |
-| `/r/[tenantSlug]` | Rankings da federação |
+| `/r/[tenantSlug]` | Rankings da federação: "‹ Início", título, compartilhar, imprimir e CSV; seletor por disciplina e ano (`ChoiceGroup`) e tabela com colocação, atleta ou dupla e pontos em Barlow Condensed; estados de carregando, vazio e erro |
 | `/r/[tenantSlug]/share-image` | PNG do top 10 de um ranking |
-| `/a/[athleteId]` | Perfil do atleta, com estatísticas de partidas e busca de adversário |
-| `/a/[athleteId]/vs/[opponentId]` | Confronto direto entre dois atletas |
+| `/a/[athleteId]` | Perfil do atleta: "‹ Início", avatar, nome, clube, siglas das modalidades e compartilhar; faixa de números (torneios, títulos, pódios, melhor posição), rankings, partidas (números e últimas cinco), busca de adversário e histórico de torneios, tudo em listas com divisórias |
+| `/a/[athleteId]/vs/[opponentId]` | Confronto direto entre dois atletas ("‹ <atleta>" acima do título) |
 | `/offline` | Página mostrada pelo service worker quando a navegação falha por falta de rede |
 | `/manifest.webmanifest`, `/pwa-icon/[kind]` | Manifesto do app instalável e seus ícones (192, 512, 180 e maskable) |
 | `/a/[athleteId]/share-image` | PNG do cartão do atleta |
-| `/c/[clubSlug]` | Clube |
+| `/c/[clubSlug]` | Clube: "‹ Início", escudo, nome, cidade e plantel; capa só se o clube enviou; faixa de números e tabela do plantel com o nome do atleta como link do perfil |
 
 A navegação existe só para admin e público e vem de `apps/web/src/lib/navigation.ts`. Um teste garante que todo `href` da navegação tem uma rota. Papéis de atleta, juiz e super-admin ganham navegação quando suas páginas existirem.
 

@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { User } from 'lucide-react'
+import { ROWS, ROW_LINK } from '@/components/public/rows'
+import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 
@@ -69,16 +71,15 @@ export function HeadToHeadPicker({ athleteId }: { athleteId: string }) {
         )}
       </div>
       {hits.length > 0 && (
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className={ROWS}>
           {hits.map((h) => (
-            <li key={h.id} className="min-w-0">
-              <Link
-                href={`/a/${athleteId}/vs/${h.id}`}
-                className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <User className="size-4 text-muted-foreground" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{h.name}</span>
-                {h.clubName && <span className="truncate text-xs font-normal text-muted-foreground">{h.clubName}</span>}
+            <li key={h.id}>
+              <Link href={`/a/${athleteId}/vs/${h.id}`} className={cn('flex min-h-12 items-center gap-3 px-4 py-2 font-medium', ROW_LINK)}>
+                <User className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words">{h.name}</span>
+                  {h.clubName && <span className="block text-xs font-normal text-muted-foreground">{h.clubName}</span>}
+                </span>
               </Link>
             </li>
           ))}

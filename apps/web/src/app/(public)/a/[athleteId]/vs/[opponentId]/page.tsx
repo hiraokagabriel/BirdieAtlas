@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { ChevronLeft } from 'lucide-react'
 import { fetchHeadToHead } from '@/lib/public-athlete'
 import { formatDate } from '@/lib/format'
+import { BackLink } from '@/components/public/back-link'
 import { EmptyNotice } from '@/components/public/notices'
+import { INLINE_LINK, ROWS } from '@/components/public/rows'
 import { ResultChip, SummaryTiles } from '@/components/public/athlete-stats-section'
 
 // Confronto direto: muda a cada partida encerrada; renderiza por requisição.
@@ -29,17 +30,10 @@ export default async function HeadToHeadPage({ params }: PageProps) {
 
   return (
     <div className="space-y-8">
-      <Link
-        href={`/a/${athlete.id}`}
-        className="inline-flex min-h-8 items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ChevronLeft className="size-4" aria-hidden="true" />
-        Voltar para {athlete.name}
-      </Link>
-
       <header className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">Confronto direto</p>
-        <h1 className="text-3xl md:text-4xl">
+        <BackLink href={`/a/${athlete.id}`}>{athlete.name}</BackLink>
+        <h1 className="break-words font-heading text-3xl font-bold leading-tight md:text-4xl">
+          <span className="sr-only">Confronto direto: </span>
           <Link href={`/a/${athlete.id}`} className="hover:underline">{athlete.name}</Link>
           <span className="mx-3 text-muted-foreground">x</span>
           <Link href={`/a/${opponent.id}`} className="hover:underline">{opponent.name}</Link>
@@ -47,7 +41,7 @@ export default async function HeadToHeadPage({ params }: PageProps) {
       </header>
 
       {matches.length === 0 ? (
-        <EmptyNotice>Estes atletas ainda não se enfrentaram em partidas encerradas.</EmptyNotice>
+        <EmptyNotice>Estes atletas ainda não se enfrentaram em partidas encerradas. O confronto aparece aqui depois da primeira partida entre eles.</EmptyNotice>
       ) : (
         <>
           <section aria-labelledby="h2h-summary" className="space-y-3">
@@ -60,25 +54,22 @@ export default async function HeadToHeadPage({ params }: PageProps) {
 
           <section aria-labelledby="h2h-matches" className="space-y-3">
             <h2 id="h2h-matches" className="text-2xl">Partidas</h2>
-            <ul className="space-y-2">
+            <ul className={ROWS}>
               {matches.map((m) => (
-                <li key={m.matchId} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+                <li key={m.matchId} className="flex min-h-14 items-center gap-3 px-4 pb-3 pt-1">
                   <ResultChip result={m.result} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
-                      <Link
-                        href={`/t/${m.tournamentSlug}`}
-                        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
+                    <p className="break-words font-semibold">
+                      <Link href={`/t/${m.tournamentSlug}`} className={`inline-flex min-h-11 items-center ${INLINE_LINK}`}>
                         {m.tournamentName}
                       </Link>
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="break-words text-xs text-muted-foreground">
                       {m.categoryName} · {m.roundLabel} · {formatDate(m.tournamentDate, 'medium')}
                       {m.partners.length > 0 && ` · com ${m.partners.join(' / ')}`}
                     </p>
                   </div>
-                  <p className="shrink-0 text-sm tabular-nums text-muted-foreground">{m.score}</p>
+                  <p className="shrink-0 font-heading text-base font-bold tabular-nums">{m.score}</p>
                 </li>
               ))}
             </ul>
