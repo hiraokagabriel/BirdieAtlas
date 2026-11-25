@@ -2,10 +2,9 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { Calendar, ChevronRight, Globe, Shield, Users } from 'lucide-react'
+import { Calendar, Globe, Shield, Users } from 'lucide-react'
 import { fetchAthleteProfile, fetchAthleteStats, fetchAthleteUpcoming } from '@/lib/public-athlete'
-import { formatTvTime } from '@/lib/live'
-import { Badge } from '@/components/ui/badge'
+import { MatchRow } from '@/components/public/player-match-row'
 import { summarizeAthlete } from '@/lib/athlete-stats'
 import { countryName, formatDate, formatPoints } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
@@ -17,7 +16,7 @@ import { HeadToHeadPicker } from '@/components/public/head-to-head-picker'
 import { LevelBadge } from '@/components/public/level-badge'
 import { EmptyNotice } from '@/components/public/notices'
 import { PlacementBadge } from '@/components/public/placement-badge'
-import { INLINE_LINK, ROWS, ROW_LINK } from '@/components/public/rows'
+import { INLINE_LINK, ROWS } from '@/components/public/rows'
 import { STAT_GRID, StatTile } from '@/components/public/stat-tile'
 import { StatusBadge } from '@/components/public/status-badge'
 import { ShareControl } from '@/components/shared/share-control'
@@ -56,7 +55,6 @@ export default async function PublicAthletePage({ params }: PageProps) {
     fetchAthleteStats(athleteId),
     fetchAthleteUpcoming(athleteId),
   ])
-  const now = new Date()
 
   const summary = summarizeAthlete(tournamentHistory, rankingPositions)
   const rankings = [...rankingPositions].sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity))
@@ -131,34 +129,20 @@ export default async function PublicAthletePage({ params }: PageProps) {
       </header>
 
       {upcoming.length > 0 && (
-        <section aria-labelledby="upcoming-title" className="space-y-3">
+        <section aria-labelledby="upcoming-title" className="space-y-6">
           <h2 id="upcoming-title" className="text-2xl">Próximas partidas</h2>
-          <ul className={ROWS}>
-            {upcoming.map(({ tournament, next, remaining }) => {
-              // Mesmo fuso das súmulas: o servidor pode rodar em UTC.
-              const time = formatTvTime(next.scheduledAt, now, 'America/Sao_Paulo')
-              return (
-                <li key={tournament.id}>
-                  <Link href={`/t/${tournament.slug}/jogador/${athleteId}`} className={`flex items-center gap-3 px-4 py-3 ${ROW_LINK}`}>
-                    <span className="min-w-0 flex-1 space-y-1">
-                    <span className="block font-semibold">{tournament.name}</span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                      {next.kind === 'live' ? <Badge variant="live">Ao vivo</Badge> : <Badge variant="secondary" className="bg-muted text-muted-foreground">A jogar</Badge>}
-                      <span>{next.categoryName} · {next.roundLabel}</span>
-                      {next.courtNumber != null && <span className="font-heading font-bold">Quadra {next.courtNumber}</span>}
-                      {time && <span className="tabular-nums text-muted-foreground">{time}</span>}
-                    </span>
-                    <span className="block text-sm text-muted-foreground">
-                      {next.opponent ? `${next.opponentKnown ? '×' : 'Contra o'} ${next.opponent}` : 'Adversário a definir'}
-                      {remaining > 1 ? ` · ${remaining} partidas a jogar` : ''}
-                    </span>
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+          {upcoming.map(({ tournament, matches }) => (
+            <div key={tournament.id} className="space-y-2">
+              <h3 className="font-sans text-lg font-semibold">
+                <Link href={`/t/${tournament.slug}`} className={`inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline ${INLINE_LINK}`}>{tournament.name}</Link>
+              </h3>
+              <ul className={ROWS}>
+                {matches.map((m, i) => (
+                  <MatchRow key={m.matchId} match={m} showCategory highlight={i === 0} />
+                ))}
+              </ul>
+            </div>
+          ))}
         </section>
       )}
 

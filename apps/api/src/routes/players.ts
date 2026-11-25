@@ -128,7 +128,7 @@ export async function playersRoutes(app: FastifyInstance) {
     return { tournament, athlete: { id: athleteId, name: player.name }, matches: player.matches, nextMatchId: player.nextMatchId }
   })
 
-  // Perfil público do atleta: a próxima partida em cada torneio em andamento (ou com inscrição encerrada) em que ele joga.
+  // Perfil público do atleta: as partidas a jogar (a próxima primeiro) em cada torneio em andamento (ou com inscrição encerrada) em que ele joga.
   app.get('/athletes/:athleteId/upcoming-matches', async (request) => {
     const { athleteId } = z.object({ athleteId: z.string().min(1) }).parse(request.params)
     // Só torneios do tenant com inscrição aprovada do atleta (simples ou dupla), com inscrição encerrada ou em andamento.
@@ -147,9 +147,11 @@ export async function playersRoutes(app: FastifyInstance) {
     const data = []
     for (const t of active) {
       const player = await loadPlayerSchedule(t.id, athleteId)
-      const next = player?.matches.find((m) => m.matchId === player.nextMatchId)
-      if (!player || !next) continue
-      data.push({ tournament: { id: t.id, name: t.name, slug: t.slug }, next, remaining: player.matches.filter((m) => m.kind === 'upcoming' || m.kind === 'live').length })
+      if (!player?.nextMatchId) continue
+      // A em destaque primeiro, depois as demais ainda a jogar (na ordem de jogo), com o "se vencer" de cada uma.
+      const pending = player.matches.filter((m) => m.kind === 'upcoming' || m.kind === 'live')
+      const next = pending.find((m) => m.matchId === player.nextMatchId)!
+      data.push({ tournament: { id: t.id, name: t.name, slug: t.slug }, matches: [next, ...pending.filter((m) => m !== next)] })
     }
     return { data, pagination: getPagination({ page: 1, pageSize: Math.max(data.length, 1) }, data.length) }
   })
