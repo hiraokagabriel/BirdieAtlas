@@ -255,6 +255,12 @@ test.describe('perfil do atleta', () => {
     const rankings = page.getByRole('region', { name: 'Rankings' })
     await expect(rankings).toContainText(ranking.name)
     await expect(rankings).toContainText('105')
+    // Chip da modalidade leva ao ranking público em que ele está; os números do resumo levam ao histórico.
+    await expect(page.getByRole('link', { name: /^Ranking de / })).toHaveAttribute('href', `/r/${TENANT_SLUG}?ranking=${ranking.id}`)
+    await expect(page.getByRole('link', { name: 'Ver o histórico de torneios' })).toHaveAttribute('href', '#history-title')
+    await page.getByRole('link', { name: /^Ranking de / }).click()
+    await expect(page).toHaveURL(new RegExp(`/r/${TENANT_SLUG}[?]ranking=${ranking.id}$`))
+    await expect(page.getByRole('main')).toContainText(ranking.name)
   })
 
   test('o vice tem pódio e o título fica só com o campeão', async ({ page }) => {

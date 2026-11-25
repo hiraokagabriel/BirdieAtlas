@@ -7,7 +7,7 @@ import { shareMetadata } from '@/lib/share-metadata'
 // A classificação muda a cada torneio encerrado; renderiza por requisição.
 export const dynamic = 'force-dynamic'
 
-type PageProps = { params: Promise<{ tenantSlug: string }> }
+type PageProps = { params: Promise<{ tenantSlug: string }>; searchParams: Promise<{ ranking?: string | string[] }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { tenantSlug } = await params
@@ -22,12 +22,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   })
 }
 
-export default async function PublicRankingPage({ params }: PageProps) {
+export default async function PublicRankingPage({ params, searchParams }: PageProps) {
   const { tenantSlug } = await params
-  const load = await loadRankingShare(tenantSlug, null)
+  const { ranking } = await searchParams
+  const rankingId = typeof ranking === 'string' ? ranking : null
+  const load = await loadRankingShare(tenantSlug, rankingId)
   const share =
     load.status === 'ok'
       ? { title: load.title, text: load.description }
       : { title: 'Ranking · BirdieAtlas', text: 'Classificação atualizada no BirdieAtlas.' }
-  return <RankingView tenantSlug={tenantSlug} share={share} />
+  return <RankingView tenantSlug={tenantSlug} share={share} {...(rankingId ? { initialRankingId: rankingId } : {})} />
 }

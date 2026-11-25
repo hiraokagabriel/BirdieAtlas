@@ -94,6 +94,8 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
   /** O dono da página: em simples, o nome do adversário leva ao confronto direto dos dois. */
   athleteId?: string
 }) {
+  // API de versão anterior pode não trazer os atletas: sem eles, os links somem e o texto continua.
+  const opponentPlayers = m.opponentPlayers ?? []
   const where = showCategory ? `${m.categoryName} · ${m.roundLabel}` : m.roundLabel
   const { clock, day } = splitTime(m.scheduledAt)
   const free = m.kind === 'bye' || m.kind === 'rest'
@@ -161,17 +163,17 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
         ) : m.opponentKnown ? (
           <p className="break-words text-xl font-semibold leading-tight">
             <span className="text-muted-foreground">× </span>
-            {m.opponentPlayers.length === 1 && athleteId ? (
-              <Link href={`/a/${athleteId}/vs/${m.opponentPlayers[0]!.id}`} className={NAME_LINK}>
-                {m.opponentPlayers[0]!.name}<span className="sr-only"> (confronto direto)</span>
+            {opponentPlayers.length === 1 && athleteId ? (
+              <Link href={`/a/${athleteId}/vs/${opponentPlayers[0]!.id}`} className={NAME_LINK}>
+                {opponentPlayers[0]!.name}<span className="sr-only"> (confronto direto)</span>
               </Link>
-            ) : m.opponentPlayers.length > 0 ? (
-              <PlayerLinks players={m.opponentPlayers} />
+            ) : opponentPlayers.length > 0 ? (
+              <PlayerLinks players={opponentPlayers} />
             ) : (
               m.opponent
             )}
           </p>
-        ) : m.pending && m.pending.sides.some((s) => s.length) ? (
+        ) : m.pending?.sides && m.pending.sides.some((s) => s.length) ? (
           <p className="break-words text-base">Contra o <PendingLinks pending={m.pending} /></p>
         ) : m.opponent ? (
           <p className="break-words text-base">Contra o {m.opponent}</p>
@@ -206,9 +208,9 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
                 )}
               </p>
               <p className="break-words text-sm text-muted-foreground">
-                {m.ifWin.players.length > 0 ? (
+                {(m.ifWin.players ?? []).length > 0 ? (
                   <>contra <PlayerLinks players={m.ifWin.players} /></>
-                ) : m.ifWin.pending && m.ifWin.pending.sides.some((s) => s.length) ? (
+                ) : m.ifWin.pending?.sides && m.ifWin.pending.sides.some((s) => s.length) ? (
                   <>contra o <PendingLinks pending={m.ifWin.pending} /></>
                 ) : m.ifWin.opponent ? (
                   `contra ${m.ifWin.opponent}`

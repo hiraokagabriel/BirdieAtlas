@@ -31,7 +31,7 @@ type Entry = {
 }
 type RankingResponse = Paginated<Entry> & { ranking: Ranking }
 
-export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: RankingShare }) {
+export function RankingView({ tenantSlug, share, initialRankingId }: { tenantSlug: string; share: RankingShare; initialRankingId?: string }) {
   // null enquanto a lista de rankings não chegou (esqueleto, não "nenhum ranking").
   const [rankings, setRankings] = useState<Ranking[] | null>(null)
   const [activeRankingId, setActiveRankingId] = useState('')
@@ -45,10 +45,11 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
     apiFetch<Paginated<Ranking>>(`/rankings?tenantSlug=${encodeURIComponent(tenantSlug)}&pageSize=100`)
       .then(({ data: list }) => {
         setRankings(list)
-        if (list.length) setActiveRankingId(list[0].id)
+        // `?ranking=<id>` (chip de modalidade do perfil) escolhe o ranking; sem ele ou desconhecido, o primeiro.
+        if (list.length) setActiveRankingId((list.find((r) => r.id === initialRankingId) ?? list[0]).id)
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Erro inesperado.'))
-  }, [tenantSlug])
+  }, [tenantSlug, initialRankingId])
 
   useEffect(() => {
     if (!activeRankingId) return

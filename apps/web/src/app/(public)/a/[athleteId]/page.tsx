@@ -6,6 +6,7 @@ import { Globe } from 'lucide-react'
 import { Calendar, Shield, Users } from '@/components/icons/ba'
 import { fetchAthleteProfile, fetchAthleteStats, fetchAthleteUpcoming } from '@/lib/public-athlete'
 import { MatchRow } from '@/components/public/player-match-row'
+import { loadRankingBoards } from '@/lib/public-data'
 import { summarizeAthlete } from '@/lib/athlete-stats'
 import { countryName, formatDate, formatPoints } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
@@ -51,15 +52,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicAthletePage({ params }: PageProps) {
   const { athleteId } = await params
-  const [{ athlete, currentClub, rankingPositions, tournamentHistory }, matchStats, upcoming] = await Promise.all([
+  const [{ athlete, currentClub, rankingPositions, tournamentHistory }, matchStats, upcoming, boards] = await Promise.all([
     loadProfile(athleteId),
     fetchAthleteStats(athleteId),
     fetchAthleteUpcoming(athleteId),
+    loadRankingBoards(10),
   ])
 
   const summary = summarizeAthlete(tournamentHistory, rankingPositions)
   const rankings = [...rankingPositions].sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity))
   const disciplines = [...new Set(tournamentHistory.map((h) => h.discipline).filter(Boolean))]
+  // Ranking público de cada modalidade em que ele está (melhor posição); a federação vem da lista de rankings públicos.
+  const tenantOf = new Map(boards.ok ? boards.data.map((b) => [b.id, b.tenantSlug]) : [])
+  const rankingHref = (discipline: string) => {
+    const best = rankings.find((r) => r.discipline === discipline && tenantOf.has(r.rankingId))
+    return best ? `/r/${tenantOf.get(best.rankingId)}?ranking=${best.rankingId}` : null
+  }
   const place = currentClub ? [currentClub.city, currentClub.state].filter(Boolean).join(' / ') : ''
 
   return (
@@ -106,7 +114,14 @@ export default async function PublicAthletePage({ params }: PageProps) {
                   <ul aria-label="Modalidades disputadas" className="flex flex-wrap gap-1.5">
                     {disciplines.map((d) => (
                       <li key={d}>
-                        <DisciplineChip discipline={d} />
+                        {rankingHref(d) ? (
+                          // Chip leva ao ranking da modalidade em que o atleta está (melhor posição).
+                          <Link href={rankingHref(d)!} className="inline-flex min-h-6 items-center rounded-sm hover:opacity-80" aria-label={`Ranking de ${disciplineLabel(d)}`}>
+                            <DisciplineChip discipline={d} />
+                          </Link>
+                        ) : (
+                          <DisciplineChip discipline={d} />
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -152,13 +167,14 @@ export default async function PublicAthletePage({ params }: PageProps) {
           Resumo
         </h2>
         <dl className={STAT_GRID}>
-          <StatTile label="Torneios disputados" value={summary.tournaments} />
-          <StatTile label="Títulos" value={summary.titles} />
-          <StatTile label="Pódios" value={summary.podiums} hint="1º ao 3º lugar" />
+          <StatTile label="Torneios disputados" value={summary.tournaments} href="#history-title" linkLabel="Ver o histórico de torneios" />
+          <StatTile label="Títulos" value={summary.titles} href="#history-title" linkLabel="Ver os títulos no histórico" />
+          <StatTile label="Pódios" value={summary.podiums} hint="1º ao 3º lugar" href="#history-title" linkLabel="Ver os pódios no histórico" />
           <StatTile
             label="Melhor posição"
             value={summary.bestRankingPosition !== null ? `${summary.bestRankingPosition}º` : '—'}
             hint={summary.bestRankingPosition !== null ? 'em ranking' : 'fora dos rankings'}
+            {...(summary.bestRankingPosition !== null ? { href: '#rankings-title', linkLabel: 'Ver os rankings' } : {})}
           />
         </dl>
       </section>
