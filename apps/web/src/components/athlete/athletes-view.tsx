@@ -11,6 +11,8 @@ import { ErrorNotice } from '@/components/public/notices'
 import { CsvImportModal } from '@/components/athlete/csv-import-modal'
 import { CreateAthleteModal } from '@/components/athlete/create-athlete-modal'
 import { Upload, UserPlus } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { GuestsPanel } from '@/components/athlete/guests-panel'
 
 export type AthleteRow = {
   id: string
@@ -80,6 +82,12 @@ export function AthletesView() {
         </div>
       </div>
 
+      <Tabs defaultValue="registered">
+        <TabsList aria-label="Tipo de atleta">
+          <TabsTrigger value="registered">Cadastrados</TabsTrigger>
+          <TabsTrigger value="guests">Avulsos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="registered" className="space-y-6 pt-4">
       {error && !data ? (
         <ErrorNotice>Não foi possível carregar os atletas: {error.message}</ErrorNotice>
       ) : isLoading || !data ? (
@@ -97,6 +105,11 @@ export function AthletesView() {
           <Pager pagination={data.pagination} onPageChange={setPage} />
         </>
       )}
+        </TabsContent>
+        <TabsContent value="guests" className="pt-4">
+          <GuestsPanel />
+        </TabsContent>
+      </Tabs>
 
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} />
       <CreateAthleteModal open={createOpen} onClose={() => setCreateOpen(false)} />

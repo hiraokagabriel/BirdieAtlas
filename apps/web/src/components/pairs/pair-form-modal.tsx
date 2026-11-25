@@ -46,17 +46,19 @@ function initials(name: string) {
  * Escolha de atleta com busca: botão que abre um painel (padrão de divulgação, `aria-expanded`) com um campo
  * de busca rotulado e a lista de resultados como botões. O atleta escolhido aparece no nome do botão.
  */
-function AthleteSelector({
-  label, value, onChange, excludeId,
+export function AthleteSelector({
+  label, value, onChange, excludeId, gender,
 }: {
   label: string
   value: Athlete | null
   onChange: (athlete: Athlete) => void
   excludeId?: string
+  /** Só atletas deste gênero. */
+  gender?: 'M' | 'F'
 }) {
   const [search, setSearch] = useState('')
   const [open, setOpen]     = useState(false)
-  const { athletes, total } = useAthleteSearch(search)
+  const { athletes, total } = useAthleteSearch(search, gender)
   const base = useId()
   const labelId = `${base}-label`
   const panelId = `${base}-panel`

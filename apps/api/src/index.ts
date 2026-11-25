@@ -20,6 +20,7 @@ import { pairsRoutes } from './routes/pairs.js'
 import { registrationsRoutes } from './routes/registrations.js'
 import { guestsRoutes } from './routes/guests.js'
 import { playersRoutes } from './routes/players.js'
+import { guestMergeRoutes } from './routes/guest-merge.js'
 import { reportsRoutes } from './routes/reports.js'
 import { importTournamentRoutes } from './routes/import-tournament.js'
 
@@ -57,6 +58,7 @@ await app.register(pairsRoutes)
 await app.register(registrationsRoutes)
 await app.register(guestsRoutes)
 await app.register(playersRoutes)
+await app.register(guestMergeRoutes)
 await app.register(reportsRoutes)
 await app.register(importTournamentRoutes)
 
