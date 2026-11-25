@@ -276,6 +276,8 @@ Cantos discretos, como os de uma súmula impressa: 4 px em chips e marcadores, 6
 ### Linha de partida (assinatura)
 Rótulo de quadra em Barlow Condensed, com "QUADRA" pequeno e o número grande à esquerda, e os dois lados um embaixo do outro. O vencedor fica em 700 e o perdedor em tinta suave. Os sets ficam à direita, tabulares, com o set corrente em verde (amarelo no telão). O mesmo desenho aparece na home, na agenda, no painel e no telão, só muda a escala.
 
+**Variante do jogador** (`components/public/player-match-row.tsx`, perfil e página do jogador): três colunas que ocupam a largura sem vão morto. À esquerda, a hora em Barlow Condensed (Title) com "Quadra" pequeno e o número grande; Bye e Folga tomam o lugar da hora. No meio, situação e categoria · fase em caption e o adversário em Barlow 600 (Subtitle). À direita, colada ao confronto e separada por uma linha de 1 px: o placar em Barlow Condensed grande ("Placar agora" ao vivo) e "Se vencer → <fase>" com a fase em Condensed e o adversário dela embaixo. No celular, as colunas empilham.
+
 ### Chave
 Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px e conectores de 1 px em `court-line`. Partida ao vivo com contorno amarelo-peteca e o chip "Ao vivo" (o contorno sozinho não tem 3:1). Rodada 1 é a final (ver `CLAUDE.md`).
 

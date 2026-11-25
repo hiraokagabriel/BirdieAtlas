@@ -1,4 +1,6 @@
+import { ArrowRight } from 'lucide-react'
 import { formatTvTime } from '@/lib/live'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
 // Linha de partida do jogador ("Encontre sua próxima partida"): usada na página do jogador no torneio e no perfil.
@@ -35,43 +37,90 @@ export function StatusChip({ match: m }: { match: PlayerMatch }) {
   return <Badge variant="secondary" className="bg-muted text-muted-foreground">A jogar</Badge>
 }
 
-/** `highlight`: a próxima partida dele, marcada com fundo e o rótulo "Próxima" (no perfil, onde as partidas a jogar ficam juntas). */
+/** Hora em destaque e o dia, se não for hoje ("15/03 14:30" vira dia "15/03" e hora "14:30"). */
+function splitTime(iso: string | null): { clock: string; day: string } {
+  const text = formatTvTime(iso, new Date(), TIME_ZONE)
+  const [first, second] = text.split(' ')
+  return second ? { clock: second, day: first ?? '' } : { clock: text, day: '' }
+}
+
+/**
+ * Linha de partida como o placar do ginásio, em três colunas: quando e onde (hora grande e quadra; Bye/Folga no
+ * lugar), o confronto (adversário em destaque) e o caminho colado ao confronto (placar ao vivo/final e "Se vencer →
+ * fase", com o adversário dela). No celular, empilha. Ver docs/DESIGN.md, "Linha de partida".
+ * `highlight`: a próxima partida dele, com fundo e "Próxima" (no perfil, onde as partidas a jogar ficam juntas).
+ */
 export function MatchRow({ match: m, showCategory = false, highlight = false }: { match: PlayerMatch; showCategory?: boolean; highlight?: boolean }) {
-  const time = formatTvTime(m.scheduledAt, new Date(), TIME_ZONE)
+  const { clock, day } = splitTime(m.scheduledAt)
+  const free = m.kind === 'bye' || m.kind === 'rest'
+  const side = m.score || m.ifWin
   return (
-    <li className={highlight ? 'space-y-1 bg-secondary px-4 py-3' : 'space-y-1 px-4 py-3'}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {highlight && m.kind !== 'live' && <span className="text-xs font-semibold text-primary">Próxima</span>}
-        <StatusChip match={m} />
-        <span className="text-sm font-semibold">{showCategory ? `${m.categoryName} · ${m.roundLabel}` : m.roundLabel}</span>
-        {m.courtNumber != null && <span className="font-heading text-base font-bold">Quadra {m.courtNumber}</span>}
-        {time && <span className="text-sm tabular-nums text-muted-foreground">{time}</span>}
-      </div>
-      {m.kind === 'bye' ? (
-        <p>Avança direto para a fase seguinte, sem jogar.</p>
-      ) : m.kind === 'rest' ? (
-        <p>Folga nesta rodada: conta como vitória.</p>
-      ) : (
-        <p className="flex flex-wrap items-baseline justify-between gap-x-4">
-          <span className="min-w-0 break-words">
-            {m.opponentKnown ? (
-              <>
-                <span className="font-semibold text-muted-foreground">× </span>
-                <span className="font-medium">{m.opponent}</span>
-              </>
-            ) : m.opponent ? (
-              <span>Contra o {m.opponent}</span>
-            ) : (
-              <span className="text-muted-foreground">Adversário a definir</span>
-            )}
-          </span>
-          {m.score && <span className="font-heading text-lg font-bold tabular-nums">{m.score}</span>}
-        </p>
+    <li
+      className={cn(
+        'grid gap-x-6 gap-y-3 px-4 py-4 sm:grid-cols-[6rem_minmax(0,1fr)]',
+        side && 'lg:grid-cols-[6rem_minmax(0,1.2fr)_minmax(0,1fr)]',
+        highlight && 'bg-secondary',
       )}
-      {m.ifWin && (
-        <p className="text-sm text-muted-foreground">
-          Se vencer: {m.ifWin.roundLabel}{m.ifWin.opponent ? ` contra ${m.ifWin.opponent}` : ', adversário a definir'}
+    >
+      <div className="flex items-baseline gap-x-4 sm:block sm:space-y-1">
+        {free ? (
+          <p className="font-heading text-2xl font-bold leading-none">{m.kind === 'bye' ? 'Bye' : 'Folga'}</p>
+        ) : clock ? (
+          <p className="font-heading text-2xl font-bold leading-none tabular-nums">{clock}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Sem horário</p>
+        )}
+        {day && <p className="text-xs tabular-nums text-muted-foreground">{day}</p>}
+        {!free && (m.courtNumber != null ? (
+          <p className="flex items-baseline gap-1">
+            <span className="text-xs font-semibold text-muted-foreground">Quadra</span>
+            <span className="font-heading text-xl font-bold leading-none tabular-nums">{m.courtNumber}</span>
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">Quadra a definir</p>
+        ))}
+      </div>
+
+      <div className="min-w-0 space-y-2">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          {highlight && m.kind !== 'live' && <span className="font-semibold text-primary">Próxima</span>}
+          <StatusChip match={m} />
+          <span className="text-muted-foreground">{showCategory ? `${m.categoryName} · ${m.roundLabel}` : m.roundLabel}</span>
         </p>
+        {m.kind === 'bye' ? (
+          <p className="text-base">Avança direto para a fase seguinte, sem jogar.</p>
+        ) : m.kind === 'rest' ? (
+          <p className="text-base">Folga nesta rodada: conta como vitória.</p>
+        ) : m.opponentKnown ? (
+          <p className="break-words text-xl font-semibold leading-tight">
+            <span className="text-muted-foreground">× </span>{m.opponent}
+          </p>
+        ) : m.opponent ? (
+          <p className="break-words text-base">Contra o {m.opponent}</p>
+        ) : (
+          <p className="text-base text-muted-foreground">Adversário a definir</p>
+        )}
+      </div>
+
+      {side && (
+        <div className="space-y-3 border-t border-border pt-3 sm:col-start-2 lg:col-start-auto lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          {m.score && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">{m.kind === 'live' ? 'Placar agora' : 'Placar'}</p>
+              <p className="font-heading text-3xl font-bold leading-none tabular-nums">{m.score}</p>
+            </div>
+          )}
+          {m.ifWin && (
+            <div className="space-y-1">
+              <p className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-sm font-semibold text-muted-foreground">Se vencer<span className="sr-only">{': '}</span></span>
+                <ArrowRight className="size-4 self-center text-primary" aria-hidden="true" />
+                <span className="font-heading text-xl font-bold leading-tight">{m.ifWin.roundLabel}</span>
+              </p>
+              <p className="break-words text-sm text-muted-foreground">{m.ifWin.opponent ? `contra ${m.ifWin.opponent}` : 'adversário a definir'}</p>
+            </div>
+          )}
+        </div>
       )}
     </li>
   )
