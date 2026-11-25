@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { api, apiCall } from '../support/api.js'
-import { createCategory, createTournament, generateDraw, listMatches, publishDraw, uniqueTag } from '../support/factories.js'
+import { createCategory, createTournament, generateDraw, listLiveMatches, listMatches, publishDraw, transition, uniqueTag } from '../support/factories.js'
 
 // "Encontre sua próxima partida": busca do jogador na página do torneio e a página das partidas dele,
 // com o bye (avança direto) e a próxima se vencer.
@@ -47,4 +47,32 @@ test('o jogador com bye acha as partidas pela busca do torneio', async ({ page }
   const next = page.getByRole('region', { name: 'Próxima partida' })
   await expect(next).toContainText('Semifinal')
   await expect(next).toContainText('Se vencer: Final')
+})
+
+test('partida ao vivo mostra o placar corrente do ponto de vista do jogador', async ({ page }) => {
+  const tag = uniqueTag()
+  const tournament = await createTournament({ name: `Amistoso Ao Vivo ${tag}`, kind: 'friendly', status: 'registration_open' })
+  const category = await createCategory(tournament.id, { name: 'Simples Feminino', discipline: 'WS' })
+  await api.post(`/tournaments/categories/${category.id}/guests`, { text: [`Ana Viva ${tag}`, `Bia Viva ${tag}`].join('\n') })
+  await transition(tournament.id, 'registration_closed')
+  const draw = await generateDraw(category.id)
+  await publishDraw(draw.id)
+  await transition(tournament.id, 'in_progress')
+
+  const [match] = await listMatches(draw.id)
+  await api.post(`/draws/matches/${match!.id}/live/start`, { courtNumber: 2 })
+  // Lado 2 faz 2 pontos, lado 1 faz 1.
+  for (const side of [2, 2, 1] as const) {
+    const live = (await listLiveMatches(tournament.id)).find((m) => m.matchId === match!.id)!
+    await api.post(`/draws/matches/${match!.id}/live/point`, { side, version: live.version })
+  }
+  const regs = (await api.get<{ data: Reg[] }>(`/registrations/tournament/${tournament.id}?pageSize=100`)).data
+  const side2 = regs.find((r) => r.id === match!.registration2Id)!
+
+  const schedule = await api.get<{ matches: (PlayerMatch & { score: string | null })[] }>(`/tournaments/${tournament.id}/players/${side2.athleteId}/matches`)
+  expect(schedule.matches[0]).toMatchObject({ kind: 'live', score: '2-1' })
+
+  await page.goto(`/t/${tournament.slug}/jogador/${side2.athleteId}`)
+  const next = page.getByRole('region', { name: 'Jogando agora' })
+  await expect(next).toContainText('2-1')
 })
