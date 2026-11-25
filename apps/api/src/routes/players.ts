@@ -8,6 +8,7 @@ import { normalizeSearchText, SEARCH_MIN_LENGTH } from '../domain/athlete-search
 import { getPagination } from '../domain/pagination.js'
 import { buildPlayerSchedule, nextPlayerMatch } from '../domain/player-schedule.js'
 import { paginationQuerySchema } from '@birdie-atlas/validators'
+import { getLiveMatchView } from '../services/live-match.js'
 import { athleteNames } from './registrations.js'
 
 // "Encontre sua próxima partida" (público): busca de jogador dentro de um torneio e as partidas dele. Só nomes,
@@ -88,6 +89,15 @@ export async function playersRoutes(app: FastifyInstance) {
     ]))
     const setsByMatch = new Map<string, { setNumber: number; score1: number; score2: number }[]>()
     for (const s of results) setsByMatch.set(s.matchId, [...(setsByMatch.get(s.matchId) ?? []), s])
+    // Ao vivo: os pontos ainda não são match_results; o placar vem do estado ao vivo (sets fechados + set em disputa).
+    const myLive = matchRows.filter((m) => m.status === 'in_progress' && [m.registration1Id, m.registration2Id].some((r) => r && regIds.has(r)))
+    for (const m of myLive) {
+      const view = await getLiveMatchView(db, m.id)
+      if (!view) continue
+      const sets = view.sets.map((x, i) => ({ setNumber: i + 1, ...x }))
+      if (view.currentSet) sets.push(view.currentSet)
+      setsByMatch.set(m.id, sets)
+    }
 
     const schedule = buildPlayerSchedule(
       matchRows.map((m) => ({
