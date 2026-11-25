@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { formatTvTime } from '@/lib/live'
 import { cn } from '@/lib/utils'
@@ -10,6 +11,7 @@ const TIME_ZONE = 'America/Sao_Paulo'
 
 export type PlayerMatch = {
   matchId: string
+  categoryId: string
   categoryName: string
   roundLabel: string
   kind: 'bye' | 'rest' | 'played' | 'live' | 'upcoming'
@@ -50,7 +52,7 @@ function splitTime(iso: string | null): { clock: string; day: string } {
  * fase", com o adversário dela). No celular, empilha. Ver docs/DESIGN.md, "Linha de partida".
  * `highlight`: a próxima partida dele, com fundo e "Próxima" (no perfil, onde as partidas a jogar ficam juntas).
  */
-export function MatchRow({ match: m, showCategory = false, highlight = false }: { match: PlayerMatch; showCategory?: boolean; highlight?: boolean }) {
+export function MatchRow({ match: m, showCategory = false, highlight = false, tournamentSlug }: { match: PlayerMatch; showCategory?: boolean; highlight?: boolean; tournamentSlug?: string }) {
   const { clock, day } = splitTime(m.scheduledAt)
   const free = m.kind === 'bye' || m.kind === 'rest'
   const side = m.score || m.ifWin
@@ -115,7 +117,17 @@ export function MatchRow({ match: m, showCategory = false, highlight = false }: 
               <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-sm font-semibold text-muted-foreground">Se vencer<span className="sr-only">{': '}</span></span>
                 <ArrowRight className="size-4 self-center text-primary" aria-hidden="true" />
-                <span className="font-heading text-xl font-bold leading-tight">{m.ifWin.roundLabel}</span>
+                {tournamentSlug ? (
+                  // A fase leva ao chaveamento da categoria (/t/[slug]?categoria=), onde se vê o caminho até ela.
+                  <Link
+                    href={`/t/${tournamentSlug}?categoria=${m.categoryId}`}
+                    className="font-heading text-xl font-bold leading-tight text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+                  >
+                    {m.ifWin.roundLabel}<span className="sr-only"> (ver o chaveamento de {m.categoryName})</span>
+                  </Link>
+                ) : (
+                  <span className="font-heading text-xl font-bold leading-tight">{m.ifWin.roundLabel}</span>
+                )}
               </p>
               <p className="break-words text-sm text-muted-foreground">{m.ifWin.opponent ? `contra ${m.ifWin.opponent}` : 'adversário a definir'}</p>
             </div>

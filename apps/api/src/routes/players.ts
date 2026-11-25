@@ -53,6 +53,7 @@ async function loadPlayerSchedule(tournamentId: string, athleteId: string) {
     // Só chaves publicadas: o sorteio provisório não sai no público (como na página do torneio e nas exportações).
     .where(and(inArray(draws.categoryId, categories.map((c) => c.id)), eq(draws.published, true)))
   const drawCategory = new Map(drawRows.map((d) => [d.id, categoryName.get(d.categoryId) ?? '']))
+  const drawCategoryId = new Map(drawRows.map((d) => [d.id, d.categoryId]))
   const matchRows = drawRows.length ? await db.select().from(matches).where(inArray(matches.drawId, drawRows.map((d) => d.id))) : []
   const results = matchRows.length ? await db.select().from(matchResults).where(inArray(matchResults.matchId, matchRows.map((m) => m.id))) : []
 
@@ -75,6 +76,7 @@ async function loadPlayerSchedule(tournamentId: string, athleteId: string) {
   const schedule = buildPlayerSchedule(
     matchRows.map((m) => ({
       id: m.id,
+      categoryId: drawCategoryId.get(m.drawId) ?? '',
       categoryName: drawCategory.get(m.drawId) ?? '',
       round: m.round,
       position: m.position,

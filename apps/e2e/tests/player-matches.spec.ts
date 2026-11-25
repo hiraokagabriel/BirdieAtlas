@@ -47,6 +47,10 @@ test('o jogador com bye acha as partidas pela busca do torneio', async ({ page }
   const next = page.getByRole('region', { name: 'Próxima partida' })
   await expect(next).toContainText('Semifinal')
   await expect(next).toContainText('Se vencer: Final')
+  // A fase do "Se vencer" leva ao chaveamento da categoria.
+  await next.getByRole('link', { name: /^Final \(ver o chaveamento de Simples Masculino\)$/ }).click()
+  await expect(page).toHaveURL(new RegExp(`/t/${tournament.slug}[?]categoria=${category.id}$`))
+  await expect(page.getByRole('tab', { name: 'Chaveamento', selected: true })).toBeVisible()
 })
 
 test('partida ao vivo mostra o placar corrente do ponto de vista do jogador', async ({ page }) => {

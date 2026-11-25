@@ -6,6 +6,7 @@ import { buildPlayerSchedule, nextPlayerMatch, type PlayerMatch, type ScheduleMa
 
 // Chave de 8 com 6 inscritos (rodada 3 = quartas, 2 = semi, 1 = final). "me" tem bye nas quartas.
 const m = (over: Partial<ScheduleMatchInput> & Pick<ScheduleMatchInput, 'id' | 'round' | 'position'>): ScheduleMatchInput => ({
+  categoryId: 'cat',
   categoryName: 'Simples Masculino',
   roundLabel: null,
   status: 'pending',
@@ -103,7 +104,7 @@ describe('buildPlayerSchedule', () => {
 
 function fromDef(d: MatchDef, categoryName: string): ScheduleMatchInput {
   return {
-    id: d.id, categoryName, round: d.round, position: d.position, roundLabel: d.roundLabel ?? null, status: d.status,
+    id: d.id, categoryId: categoryName, categoryName, round: d.round, position: d.position, roundLabel: d.roundLabel ?? null, status: d.status,
     registration1Id: d.registration1Id, registration2Id: d.registration2Id, nextMatchId: d.nextMatchId,
     loserNextMatchId: d.loserNextMatchId ?? null, scheduledAt: null, courtNumber: null,
   }
@@ -111,7 +112,7 @@ function fromDef(d: MatchDef, categoryName: string): ScheduleMatchInput {
 
 describe('nextPlayerMatch', () => {
   const p = (matchId: string, kind: PlayerMatch['kind'], scheduledAt: string | null = null): PlayerMatch => ({
-    matchId, kind, scheduledAt, categoryName: 'c', roundLabel: 'r', opponent: null, opponentKnown: false, result: null, score: null, courtNumber: null, ifWin: null,
+    matchId, kind, scheduledAt, categoryId: 'c', categoryName: 'c', roundLabel: 'r', opponent: null, opponentKnown: false, result: null, score: null, courtNumber: null, ifWin: null,
   })
   it('ao vivo primeiro; senão a de horário mais cedo; sem horário, a primeira da lista', () => {
     expect(nextPlayerMatch([p('a', 'upcoming', '2099-01-01T10:00:00Z'), p('b', 'live')])).toBe('b')

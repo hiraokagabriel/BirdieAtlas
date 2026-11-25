@@ -139,7 +139,7 @@ export default async function PublicAthletePage({ params }: PageProps) {
               </h3>
               <ul className={ROWS}>
                 {matches.map((m, i) => (
-                  <MatchRow key={m.matchId} match={m} showCategory highlight={i === 0} />
+                  <MatchRow key={m.matchId} match={m} showCategory highlight={i === 0} tournamentSlug={tournament.slug} />
                 ))}
               </ul>
             </div>

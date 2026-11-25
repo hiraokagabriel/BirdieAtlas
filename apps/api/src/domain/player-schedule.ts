@@ -4,6 +4,7 @@ import { matchRoundLabel } from './schedule.js'
 
 export interface ScheduleMatchInput {
   id: string
+  categoryId: string
   categoryName: string
   round: number
   position: number
@@ -23,6 +24,8 @@ export type PlayerMatchKind = 'bye' | 'rest' | 'played' | 'live' | 'upcoming'
 
 export interface PlayerMatch {
   matchId: string
+  /** Para o link do chaveamento da categoria ("Se vencer → Final"). */
+  categoryId: string
   categoryName: string
   roundLabel: string
   kind: PlayerMatchKind
@@ -103,6 +106,7 @@ export function buildPlayerSchedule(
 
       return {
         matchId: m.id,
+        categoryId: m.categoryId,
         categoryName: m.categoryName,
         roundLabel: matchRoundLabel(m),
         kind,
