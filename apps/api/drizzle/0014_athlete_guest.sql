@@ -1,0 +1,1 @@
+ALTER TABLE "athletes" ADD COLUMN "guest" boolean DEFAULT false NOT NULL;

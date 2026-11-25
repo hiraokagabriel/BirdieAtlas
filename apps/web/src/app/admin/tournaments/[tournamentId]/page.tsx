@@ -187,7 +187,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
         </TabsList>
 
         <TabsContent value="registrations">
-          <RegistrationsTab tournamentId={tournament.id} tournamentStatus={tournament.status} categories={categories} />
+          <RegistrationsTab tournamentId={tournament.id} tournamentStatus={tournament.status} categories={categories} friendly={tournament.kind === 'friendly'} />
         </TabsContent>
         <TabsContent value="bracket">
           <BracketView tournamentId={tournament.id} categories={categories} pointsAwarded={tournament.pointsAwarded} friendly={tournament.kind === 'friendly'} />

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { randomUUID } from 'crypto'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { importTournamentSchema, type ImportIssue, type ImportReport } from '@birdie-atlas/validators'
 import { db } from '../db/index.js'
 import {
@@ -63,6 +63,10 @@ export async function importTournamentRoutes(app: FastifyInstance) {
     }
     report.summary.tournament.slug = slug
 
+    // Amistoso: os jogadores são avulsos (ver "Avulsos" na especificação). O nome casa só com outro avulso, nunca
+    // com atleta cadastrado; os novos nascem avulsos, sem clube nem filiação.
+    const friendly = validated.tournament?.kind === 'friendly'
+
     // ----- Atletas e clubes existentes (carregados uma vez; a conferência de nomes ignora acento e caixa)
     const athleteRows = await db
       .select({ id: athletes.id, name: athletes.name, gender: athletes.gender, active: athletes.active, clubName: clubs.name })
@@ -73,7 +77,8 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         isNull(athleteAffiliations.endedAt),
       ))
       .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
-      .where(isNull(athletes.deletedAt))
+      .where(and(isNull(athletes.deletedAt), eq(athletes.guest, friendly)))
+      .orderBy(asc(athletes.createdAt), asc(athletes.id))
     const byName = new Map<string, typeof athleteRows>()
     for (const a of athleteRows) {
       byName.set(fold(a.name), [...(byName.get(fold(a.name)) ?? []), a])
@@ -96,6 +101,14 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         current.person.club ??= p.club
       }
     }
+    // Amistoso: o clube é ignorado, inclusive na chave da pessoa (mesmo nome = mesmo avulso, com ou sem clube).
+    // Zera nas próprias entradas para todo `personKey` adiante (resolução, elegibilidade, gravação) bater.
+    if (friendly) {
+      for (const e of validated.entries) {
+        e.athlete.club = null
+        if (e.partner) e.partner.club = null
+      }
+    }
     for (const e of validated.entries) { collect(e.athlete, e.row); collect(e.partner, e.row) }
 
     const resolved = new Map<string, ResolvedPerson>()
@@ -105,7 +118,14 @@ export async function importTournamentRoutes(app: FastifyInstance) {
       let match: (typeof athleteRows)[number] | undefined
 
       const candidates = byName.get(fold(person.name)) ?? []
-      if (candidates.length === 1) {
+      // Avulso: mesmo nome e gênero é a mesma pessoa; entre homônimos, o mais antigo (regra de matchGuest, sem ano
+      // na planilha). Gênero diferente cria outro avulso; sem gênero, o nome decide (e o gênero vem do avulso).
+      const guestPool = friendly && person.gender ? candidates.filter((c) => c.gender === person.gender) : candidates
+      if (friendly && guestPool.length > 0) {
+        match = guestPool[0]
+      } else if (friendly && candidates.length > 0) {
+        // Há avulso com o nome, mas de outro gênero: cai na criação abaixo.
+      } else if (candidates.length === 1) {
         match = candidates[0]
         // Sem e-mail, nome único é a mesma pessoa; o clube diferente só é avisado (pode ter trocado de clube).
         if (match && person.club && match.clubName && fold(match.clubName) !== fold(person.club)) {
@@ -140,14 +160,14 @@ export async function importTournamentRoutes(app: FastifyInstance) {
       }
       resolved.set(key, { id: null, ref: `novo:${key}`, ref_person: person, gender: person.gender, active: true })
       report.summary.athletes.created++
-      if (person.club) {
+      if (person.club && !friendly) {
         const clubKey = fold(person.club)
         if (clubByName.has(clubKey)) { /* clube existente */ } else if (!newClubNames.has(clubKey)) newClubNames.set(clubKey, person.club)
       }
     }
     report.summary.clubs.created = newClubNames.size
     report.summary.clubs.existing = new Set(
-      [...resolved.values()].flatMap((r) => (r.ref_person.club && clubByName.has(fold(r.ref_person.club)) ? [fold(r.ref_person.club)] : [])),
+      [...resolved.values()].flatMap((r) => (!friendly && r.ref_person.club && clubByName.has(fold(r.ref_person.club)) ? [fold(r.ref_person.club)] : [])),
     ).size
 
     // ----- Elegibilidade (gênero da disciplina, inativo, repetido, vagas), categoria a categoria
@@ -208,6 +228,8 @@ export async function importTournamentRoutes(app: FastifyInstance) {
     const t = validated.tournament!
     const tournamentId = randomUUID()
     await db.transaction(async (tx) => {
+      // Mesmo lock da lista colada: lotes simultâneos não criam o mesmo avulso duas vezes.
+      if (friendly) await tx.execute(sql`select pg_advisory_xact_lock(hashtext('athletes:guest'))`)
       const clubIdByKey = new Map(clubRows.map((c) => [fold(c.name), c.id]))
       for (const [key, name] of newClubNames) {
         const base = toSlug(name) || 'clube'
@@ -225,10 +247,10 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         if (person.id) { athleteIdByRef.set(person.ref, person.id); continue }
         const id = randomUUID()
         await tx.insert(athletes).values({
-          id, name: person.ref_person.name, gender: person.gender, nationality: 'BR', active: true,
+          id, name: person.ref_person.name, gender: person.gender, nationality: 'BR', active: true, guest: friendly,
         })
         athleteIdByRef.set(person.ref, id)
-        const clubId = person.ref_person.club ? clubIdByKey.get(fold(person.ref_person.club)) : undefined
+        const clubId = person.ref_person.club && !friendly ? clubIdByKey.get(fold(person.ref_person.club)) : undefined
         if (clubId) await tx.insert(athleteAffiliations).values({ id: randomUUID(), athleteId: id, clubId, tenantId, startedAt: today })
       }
 
