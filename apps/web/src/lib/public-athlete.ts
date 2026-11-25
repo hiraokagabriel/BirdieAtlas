@@ -1,3 +1,4 @@
+import type { PlayerMatch } from '@/components/public/player-match-row'
 import { ApiError, apiFetch } from '@/lib/api'
 
 // Perfil público de um atleta (GET /athletes/:id/profile). Nunca traz e-mail, CPF, telefone nem data de nascimento.
@@ -132,15 +133,11 @@ export async function fetchAthleteStats(athleteId: string): Promise<AthleteStats
 
 export type UpcomingMatch = {
   tournament: { id: string; name: string; slug: string }
-  next: {
-    matchId: string; categoryName: string; roundLabel: string; kind: 'live' | 'upcoming'
-    opponent: string | null; opponentKnown: boolean; courtNumber: number | null; scheduledAt: string | null
-  }
-  /** Partidas ainda a jogar no torneio (inclui a próxima). */
-  remaining: number
+  /** Partidas ainda a jogar (ao vivo ou a jogar); a primeira é a próxima. */
+  matches: PlayerMatch[]
 }
 
-/** Próxima partida em cada torneio em andamento. Falha da API vira lista vazia: o bloco só some do perfil. */
+/** Partidas a jogar em cada torneio em andamento. Falha da API vira lista vazia: o bloco só some do perfil. */
 export async function fetchAthleteUpcoming(athleteId: string): Promise<UpcomingMatch[]> {
   if (!UUID_PATTERN.test(athleteId)) return []
   try {
