@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ConnectionBadge } from './live-now'
 import { useLiveMatches } from './use-live-matches'
 import { TvQrCode } from './tv-qr-code'
+import { BrandMark } from '@/components/shared/brand-mark'
 
 // Telão (TV ou projetor) de um torneio: quadras com o placar ao vivo e a fila de próximas partidas.
 // Leitura pública; tempo real pelo mesmo stream da página do torneio e fila recarregada a cada 15 s.
@@ -44,7 +45,7 @@ function FullscreenButton() {
     <button
       type="button"
       onClick={toggle}
-      className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+      className="inline-flex h-11 items-center gap-2 rounded-md border border-field-border px-3 text-sm font-semibold transition-colors hover:bg-muted"
     >
       {active ? <Minimize className="size-4" aria-hidden="true" /> : <Maximize className="size-4" aria-hidden="true" />}
       {active ? 'Sair da tela cheia' : 'Tela cheia'}
@@ -52,21 +53,27 @@ function FullscreenButton() {
   )
 }
 
-function SideRow({ match, side }: { match: LiveMatch; side: 1 | 2 }) {
+function SideRow({ match, side, leader }: { match: LiveMatch; side: 1 | 2; leader: 0 | 1 | 2 }) {
   const name = side === 1 ? match.participant1 : match.participant2
   const own = (s: { score1: number; score2: number }) => (side === 1 ? s.score1 : s.score2)
-  const isWinner = match.winner === side
+  const other = (s: { score1: number; score2: number }) => (side === 1 ? s.score2 : s.score1)
+  const ahead = leader === side
   return (
-    <div className={cn('flex items-center gap-3 px-4 py-3', isWinner && 'bg-primary/10')}>
-      <span className={cn('min-w-0 flex-1 truncate text-2xl lg:text-3xl', isWinner ? 'font-bold' : 'font-medium')}>{name ?? 'A definir'}</span>
-      {match.sets.map((s, i) => (
-        <span key={i} className="w-9 text-center text-2xl tabular-nums text-muted-foreground">{own(s)}</span>
-      ))}
-      {match.currentSet && (
-        <span className="w-16 rounded-md bg-success/10 py-1 text-center text-4xl font-bold tabular-nums text-success lg:text-5xl">
-          {own(match.currentSet)}
-        </span>
-      )}
+    <div className="flex items-center justify-between gap-4 border-t border-border pt-2">
+      <span className={cn('min-w-0 break-words text-2xl leading-tight lg:text-3xl', ahead ? 'font-bold' : leader === 0 ? 'font-medium' : 'font-medium text-muted-foreground')}>
+        {name ?? 'A definir'}
+      </span>
+      <span className="flex shrink-0 items-baseline gap-3 font-heading font-bold tabular-nums">
+        {match.sets.map((s, i) => (
+          <span key={i} className="text-2xl text-muted-foreground lg:text-3xl">{own(s)}</span>
+        ))}
+        {match.currentSet && (
+          // Telão: set corrente em amarelo-peteca para quem lidera o set (docs/DESIGN.md, Linha de partida), lido a 10 m.
+          <span className={cn('min-w-[2ch] text-right text-5xl leading-none lg:text-6xl', own(match.currentSet) >= other(match.currentSet) ? 'text-live' : 'text-foreground')}>
+            {own(match.currentSet)}
+          </span>
+        )}
+      </span>
     </div>
   )
 }
@@ -74,30 +81,37 @@ function SideRow({ match, side }: { match: LiveMatch; side: 1 | 2 }) {
 function CourtCard({ slot }: { slot: TvCourtSlot }) {
   const court = slot.court != null ? `Quadra ${slot.court}` : 'Sem quadra'
   const { live, next } = slot
+  const leader = live ? (live.setsWon.side1 === live.setsWon.side2 ? 0 : live.setsWon.side1 > live.setsWon.side2 ? 1 : 2) : 0
   return (
-    <li className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <article aria-label={live ? `${court}: ${liveTitle(live)}` : `${court}: livre`}>
-        <header className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2">
-          <h3 className={cn('text-xl font-bold', live ? 'text-success' : 'text-muted-foreground')}>{court}</h3>
-          {live && <span className="truncate text-base text-muted-foreground">{live.categoryName} · {live.roundLabel}</span>}
+    <li className={cn('min-w-0 rounded-lg border bg-card p-6', live ? 'border-border' : 'border-dashed border-border')}>
+      <article aria-label={live ? `${court}: ${liveTitle(live)}` : `${court}: livre`} className="grid h-full grid-cols-[minmax(0,1fr)] content-start gap-3">
+        <header className="flex items-center justify-between gap-3">
+          {/* O número fica como texto solto do h3: um elemento só com "1" colidiria com o placar. */}
+          <h3 className="shrink-0 whitespace-nowrap font-heading text-2xl font-bold uppercase tracking-wide lg:text-3xl">
+            {slot.court != null ? <><span className="text-muted-foreground">Quadra</span> {slot.court}</> : <span className="text-muted-foreground">Sem quadra</span>}
+          </h3>
+          {live ? (
+            <span className="flex min-w-0 items-baseline gap-1.5 text-lg text-muted-foreground">
+              <span className="min-w-0 truncate">{live.categoryName}</span>
+              <span className="shrink-0">· {live.roundLabel}</span>
+            </span>
+          ) : (
+            <span className="rounded-sm bg-muted px-3 py-1 text-lg font-semibold text-muted-foreground">Livre</span>
+          )}
         </header>
         {live ? (
           <>
-            <SideRow match={live} side={1} />
-            <div className="border-t border-border" />
-            <SideRow match={live} side={2} />
-            {live.winner && <p className="border-t border-border px-4 py-2 text-base font-medium text-muted-foreground">Fim de jogo</p>}
+            <SideRow match={live} side={1} leader={leader} />
+            <SideRow match={live} side={2} leader={leader} />
+            {live.winner && <p className="border-t border-border pt-2 text-xl font-semibold text-muted-foreground">Fim de jogo</p>}
           </>
+        ) : next ? (
+          <p className="text-2xl leading-snug">
+            <span className="font-semibold">Próxima:</span> {next.participant1} × {next.participant2}
+            {next.scheduledAt && <span className="text-muted-foreground"> · {formatTvTime(next.scheduledAt)}</span>}
+          </p>
         ) : (
-          <div className="space-y-1 px-4 py-4">
-            <p className="text-lg font-medium text-muted-foreground">Livre</p>
-            {next && (
-              <p className="text-xl">
-                <span className="font-semibold">Próxima:</span> {next.participant1} × {next.participant2}
-                {next.scheduledAt && <span className="text-muted-foreground"> · {formatTvTime(next.scheduledAt)}</span>}
-              </p>
-            )}
-          </div>
+          <p className="text-xl text-muted-foreground">Sem partida na fila.</p>
         )}
       </article>
     </li>
@@ -105,15 +119,23 @@ function CourtCard({ slot }: { slot: TvCourtSlot }) {
 }
 
 function QueueList({ queue }: { queue: readonly QueueMatch[] }) {
-  if (queue.length === 0) return <p className="text-lg text-muted-foreground">Nenhuma partida aguardando.</p>
+  if (queue.length === 0) return <p className="text-xl text-muted-foreground">Nenhuma partida aguardando.</p>
   return (
-    <ol className="divide-y divide-border rounded-2xl border border-border bg-card">
+        // Telão (xl): faixa de uma linha no rodapé com as 4 primeiras; abaixo disso, duas colunas preenchidas de cima para baixo.
+    <ol className="grid grid-cols-1 gap-x-8 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-4 xl:grid-flow-row xl:grid-cols-4 xl:grid-rows-1 xl:[&>li:nth-child(n+5)]:hidden">
       {tvUpcoming(queue, QUEUE_SHOWN).map((m) => (
-        <li key={m.matchId} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
-          <span className="w-14 shrink-0 text-xl font-semibold tabular-nums">{formatTvTime(m.scheduledAt) || '--:--'}</span>
-          <span className="w-24 shrink-0 text-lg text-muted-foreground">{m.courtNumber != null ? `Quadra ${m.courtNumber}` : 'Sem quadra'}</span>
-          <span className="min-w-0 flex-1 text-xl font-medium">{m.participant1} × {m.participant2}</span>
-          <span className="text-base text-muted-foreground">{m.categoryName} · {m.roundLabel}</span>
+        <li key={m.matchId} className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-4 border-t border-border py-3 sm:grid-cols-[5rem_minmax(0,1fr)]">
+          {m.scheduledAt ? (
+            <span className="font-heading text-2xl font-bold tabular-nums">{formatTvTime(m.scheduledAt)}</span>
+          ) : (
+            <span className="text-2xl text-muted-foreground"><span aria-hidden="true">—</span><span className="sr-only">Sem horário</span></span>
+          )}
+          <span className="min-w-0">
+            <span className="block break-words text-2xl font-medium leading-snug">{m.participant1} × {m.participant2}</span>
+            <span className="block break-words text-lg text-muted-foreground">
+              {m.courtNumber != null ? `Quadra ${m.courtNumber}` : 'Sem quadra'} · {m.categoryName} · {m.roundLabel}
+            </span>
+          </span>
         </li>
       ))}
     </ol>
@@ -123,6 +145,18 @@ function QueueList({ queue }: { queue: readonly QueueMatch[] }) {
 export function TvBoard({ tournamentId, slug, name }: { tournamentId: string; slug: string; name: string }) {
   const queryClient = useQueryClient()
   const queueKey = ['tv-queue', tournamentId]
+
+  useEffect(() => {
+    const root = document.documentElement
+    const hadDark = root.classList.contains('dark')
+    const previousScheme = root.style.colorScheme
+    root.classList.add('dark')
+    root.style.colorScheme = 'dark'
+    return () => {
+      if (!hadDark) root.classList.remove('dark')
+      root.style.colorScheme = previousScheme
+    }
+  }, [])
   const refreshQueue = () => void queryClient.invalidateQueries({ queryKey: queueKey })
   const live = useLiveMatches(tournamentId, { onMatchEnded: refreshQueue })
   const queue = useQuery({
@@ -148,59 +182,65 @@ export function TvBoard({ tournamentId, slug, name }: { tournamentId: string; sl
   const stale = !loading && !failed && (queue.isError || live.error !== null)
 
   return (
-    <div className="min-h-screen space-y-6 bg-background p-4 text-foreground sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="truncate text-3xl font-bold tracking-tight lg:text-4xl">{name}</h1>
-          <ConnectionBadge connection={live.connection} />
+    // Telão: sempre escuro (contraste em projetor e TV, docs/DESIGN.md, Layout > Telão), margem de 40 a 48 px.
+    <div className="dark min-h-screen space-y-8 bg-background p-4 text-foreground sm:p-8 xl:grid xl:h-screen xl:grid-rows-[auto_minmax(0,1fr)] xl:gap-8 xl:space-y-0 xl:overflow-hidden xl:px-12 xl:py-10">
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <BrandMark className="size-9" />
+          <div className="min-w-0">
+            <h1 className="break-words font-heading text-3xl font-bold leading-tight lg:text-4xl">{name}</h1>
+            <ConnectionBadge connection={live.connection} className="text-lg" />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <TvQrCode path={`/t/${slug}`} />
-          <span className="text-3xl font-semibold lg:text-4xl"><Clock /></span>
+          {/* No celular o QR não serve (quem lê já está no celular). */}
+          <div className="hidden md:block"><TvQrCode path={`/t/${slug}`} /></div>
+          <span className="font-heading text-4xl font-bold lg:text-5xl"><Clock /></span>
           <FullscreenButton />
           <nav aria-label="Telão">
-            <Link href={`/t/${slug}`} className="inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+            <Link href={`/t/${slug}`} className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
               Página do torneio
             </Link>
           </nav>
         </div>
       </header>
 
-      <main className="space-y-6">
+      <main className="space-y-8 xl:grid xl:min-h-0 xl:grid-rows-[minmax(0,1fr)_auto] xl:gap-8 xl:space-y-0">
         <div aria-live="polite" aria-atomic="true" className="sr-only">{live.announcement}</div>
         {stale && (
-          <p role="status" className="rounded-lg border border-warning px-4 py-2 text-base text-warning">
+          <p role="status" className="rounded-md border border-border bg-muted px-4 py-2 text-lg">
             Sem conexão com a API: os dados podem estar desatualizados. Tentando de novo.
           </p>
         )}
 
         {loading ? (
-          <div role="status" aria-label="Carregando o telão" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Skeleton className="h-40 w-full" />
-            <Skeleton className="hidden h-40 w-full md:block" />
+          <div role="status" aria-label="Carregando o telão" className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <Skeleton className="h-52 w-full" />
+            <Skeleton className="hidden h-52 w-full md:block" />
+            <Skeleton className="hidden h-52 w-full xl:block" />
             <span className="sr-only">Carregando o telão…</span>
           </div>
         ) : failed ? (
-          <p role="alert" className="flex items-center gap-2 rounded-xl border border-destructive p-4 text-lg text-destructive">
+          <p role="alert" className="flex items-center gap-2 rounded-lg border border-destructive p-4 text-xl text-destructive">
             <WifiOff className="size-5" aria-hidden="true" />
             {live.error ?? queue.error?.message ?? 'Não foi possível carregar o telão.'} Tentando de novo.
           </p>
         ) : (
           <>
-            <section aria-labelledby="tv-courts">
+            <section aria-labelledby="tv-courts" className="xl:min-h-0">
               <h2 id="tv-courts" className="sr-only">Quadras</h2>
               {slots.length === 0 ? (
-                <p className="text-xl text-muted-foreground">Nenhuma partida em quadra no momento.</p>
+                <p className="text-2xl text-muted-foreground">Nenhuma partida em quadra no momento. As quadras aparecem aqui quando a agenda distribuir as partidas.</p>
               ) : (
-                <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:h-full xl:grid-cols-3 xl:grid-rows-2">
                   {slots.map((slot) => (
                     <CourtCard key={slot.live?.matchId ?? `court-${slot.court}`} slot={slot} />
                   ))}
                 </ul>
               )}
             </section>
-            <section aria-labelledby="tv-queue" className="space-y-3">
-              <h2 id="tv-queue" className="text-2xl font-bold">Próximas partidas</h2>
+            <section aria-labelledby="tv-queue" className="space-y-2">
+              <h2 id="tv-queue" className="font-heading text-3xl font-bold text-muted-foreground">Próximas partidas</h2>
               <QueueList queue={queue.data ?? []} />
             </section>
           </>

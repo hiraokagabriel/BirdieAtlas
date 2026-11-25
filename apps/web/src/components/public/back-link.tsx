@@ -7,7 +7,7 @@ export function BackLink({ href = '/', children = 'Início' }: { href?: string; 
   return (
     <Link
       href={href}
-      className="-ml-2 inline-flex h-11 max-w-full items-center gap-1 rounded-md px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+      className="-ml-2 inline-flex h-11 print:hidden max-w-full items-center gap-1 rounded-md px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
     >
       <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
       <span className="truncate">{children}</span>

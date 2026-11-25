@@ -28,7 +28,8 @@ for (const [group, pages] of [
               await useTheme(page, theme)
               await page.goto(target.path())
               await target.ready(page)
-              await expectTheme(page, theme)
+              // Página com tema forçado: o axe audita o tema que ela de fato mostra.
+              await expectTheme(page, target.forcedTheme ?? theme)
               await settle(page)
               await expectNoViolations(page, `${target.name} [${theme}, ${viewport.name}]`)
             })

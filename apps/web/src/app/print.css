@@ -31,6 +31,25 @@
     color-scheme: light;
   }
 
+  /* Papel branco (o creme da tela não vai para a impressora) e corpo em 11pt; a tipografia é a mesma da tela
+     (Barlow e Barlow Condensed, docs/DESIGN.md), carregada pelo next/font. */
+  /* `:root:root`: vence o `:root` do globals.css, que é carregado depois. Só no tema claro: no escuro sem
+     PrintButton (que tira o `dark`), o texto continua claro e precisa do fundo escuro. */
+  :root:root:not(.dark) {
+    --background: white;
+  }
+
+  body {
+    font-size: 11pt;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
   /* Cores (medalhas, conectores, cabeçalhos) precisam sair no papel e no PDF. */
   .print-bracket-page,
   .print-bracket-page *,
