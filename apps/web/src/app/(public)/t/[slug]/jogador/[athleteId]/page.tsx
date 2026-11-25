@@ -23,12 +23,14 @@ type PlayerMatch = {
   categoryName: string
   roundLabel: string
   kind: 'bye' | 'rest' | 'played' | 'live' | 'upcoming'
+  /** Nome de quem ele enfrenta ou "vencedor de (A × B)"; `null` em bye, folga ou a definir. */
   opponent: string | null
+  opponentKnown: boolean
   result: 'won' | 'lost' | null
   score: string | null
   courtNumber: number | null
   scheduledAt: string | null
-  ifWin: { roundLabel: string; opponent: string } | null
+  ifWin: { roundLabel: string; opponent: string | null } | null
 }
 
 type PlayerSchedule = {
@@ -71,13 +73,13 @@ function StatusChip({ match: m }: { match: PlayerMatch }) {
   return <Badge variant="secondary" className="bg-muted text-muted-foreground">A jogar</Badge>
 }
 
-function MatchRow({ match: m }: { match: PlayerMatch }) {
+function MatchRow({ match: m, showCategory = false }: { match: PlayerMatch; showCategory?: boolean }) {
   const time = formatTvTime(m.scheduledAt, new Date(), TIME_ZONE)
   return (
     <li className="space-y-1 px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <StatusChip match={m} />
-        <span className="text-sm font-semibold">{m.roundLabel}</span>
+        <span className="text-sm font-semibold">{showCategory ? `${m.categoryName} · ${m.roundLabel}` : m.roundLabel}</span>
         {m.courtNumber != null && <span className="font-heading text-base font-bold">Quadra {m.courtNumber}</span>}
         {time && <span className="text-sm text-muted-foreground">{time}</span>}
       </div>
@@ -88,15 +90,23 @@ function MatchRow({ match: m }: { match: PlayerMatch }) {
       ) : (
         <p className="flex flex-wrap items-baseline justify-between gap-x-4">
           <span className="min-w-0 break-words">
-            <span className="text-muted-foreground">× </span>
-            <span className="font-medium">{m.opponent ?? 'A definir'}</span>
+            {m.opponentKnown ? (
+              <>
+                <span className="font-semibold text-muted-foreground">× </span>
+                <span className="font-medium">{m.opponent}</span>
+              </>
+            ) : m.opponent ? (
+              <span>Contra o {m.opponent}</span>
+            ) : (
+              <span className="text-muted-foreground">Adversário a definir</span>
+            )}
           </span>
           {m.score && <span className="font-heading text-lg font-bold tabular-nums">{m.score}</span>}
         </p>
       )}
       {m.ifWin && (
         <p className="text-sm text-muted-foreground">
-          Se vencer: {m.ifWin.roundLabel} contra {m.ifWin.opponent}
+          Se vencer: {m.ifWin.roundLabel}{m.ifWin.opponent ? ` contra ${m.ifWin.opponent}` : ', adversário a definir'}
         </p>
       )}
     </li>
@@ -132,9 +142,8 @@ export default async function PlayerSchedulePage({ params }: PageProps) {
             <section aria-labelledby="next-title" className="space-y-3">
               <h2 id="next-title" className="text-2xl">{next.kind === 'live' ? 'Jogando agora' : 'Próxima partida'}</h2>
               <ul className={cn(ROWS, 'border-primary/40')}>
-                <MatchRow match={next} />
+                <MatchRow match={next} showCategory />
               </ul>
-              <p className="text-sm text-muted-foreground">{next.categoryName}</p>
             </section>
           )}
           {categories.map((category, i) => (

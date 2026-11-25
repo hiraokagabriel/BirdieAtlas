@@ -37,18 +37,26 @@ describe('buildPlayerSchedule', () => {
       ['s1', 'upcoming', 'Semifinal'],
     ])
     expect(list[0]).toMatchObject({ opponent: null, result: 'won', score: null, ifWin: null })
-    // Adversário da semi ainda a definir: o vencedor de Ana × Bruno.
-    expect(list[1]).toMatchObject({ opponent: 'vencedor de Ana × Bruno', courtNumber: 3, ifWin: { roundLabel: 'Final', opponent: 'A definir' } })
+    // Adversário da semi ainda a definir: o vencedor de Ana × Bruno; na final, a outra semi só tem o Edu.
+    expect(list[1]).toMatchObject({
+      opponent: 'vencedor de (Ana × Bruno)', opponentKnown: false, courtNumber: 3,
+      ifWin: { roundLabel: 'Final', opponent: 'vencedor de (a definir × Edu)' },
+    })
+  })
+
+  it('sem ninguém conhecido do outro lado, o adversário é null (a definir)', () => {
+    const empty = bracket.map((x) => (x.id === 's2' ? { ...x, registration2Id: null } : x))
+    expect(buildPlayerSchedule(empty, new Set(['me']), nameOf, () => [])[1]!.ifWin).toEqual({ roundLabel: 'Final', opponent: null })
   })
 
   it('na próxima se vencer, usa o adversário já definido ou "vencedor de" da outra partida', () => {
     const live = bracket.map((x) => (x.id === 's1' ? { ...x, registration2Id: 'a', status: 'in_progress' } : x))
     const [, semi] = buildPlayerSchedule(live, new Set(['me']), nameOf, () => [])
-    expect(semi).toMatchObject({ kind: 'live', opponent: 'Ana', ifWin: { roundLabel: 'Final', opponent: 'A definir' } })
+    expect(semi).toMatchObject({ kind: 'live', opponent: 'Ana', opponentKnown: true, ifWin: { roundLabel: 'Final', opponent: 'vencedor de (a definir × Edu)' } })
 
     // Quando a outra semi já tem os dois lados, a final mostra "vencedor de Caio × Edu".
     const filled = live.map((x) => (x.id === 's2' ? { ...x, registration1Id: 'c' } : x))
-    expect(buildPlayerSchedule(filled, new Set(['me']), nameOf, () => [])[1]!.ifWin).toEqual({ roundLabel: 'Final', opponent: 'vencedor de Caio × Edu' })
+    expect(buildPlayerSchedule(filled, new Set(['me']), nameOf, () => [])[1]!.ifWin).toEqual({ roundLabel: 'Final', opponent: 'vencedor de (Caio × Edu)' })
 
     // Quando o adversário da final já está lá, é o nome dele.
     const known = filled.map((x) => (x.id === 'f' ? { ...x, registration2Id: 'c' } : x))
@@ -82,7 +90,7 @@ describe('buildPlayerSchedule', () => {
       m({ id: 'w1', round: 3, position: 1, registration1Id: 'a', registration2Id: 'b', loserNextMatchId: 'l1' }),
       m({ id: 'l1', round: 2, position: 1, roundLabel: 'Perdedores 1', registration1Id: 'me' }),
     ]
-    expect(buildPlayerSchedule(de, new Set(['me']), nameOf, () => [])[0]!.opponent).toBe('perdedor de Ana × Bruno')
+    expect(buildPlayerSchedule(de, new Set(['me']), nameOf, () => [])[0]!.opponent).toBe('perdedor de (Ana × Bruno)')
   })
 
   it('categorias em ordem alfabética, cada uma na ordem de jogo', () => {
@@ -103,7 +111,7 @@ function fromDef(d: MatchDef, categoryName: string): ScheduleMatchInput {
 
 describe('nextPlayerMatch', () => {
   const p = (matchId: string, kind: PlayerMatch['kind'], scheduledAt: string | null = null): PlayerMatch => ({
-    matchId, kind, scheduledAt, categoryName: 'c', roundLabel: 'r', opponent: null, result: null, score: null, courtNumber: null, ifWin: null,
+    matchId, kind, scheduledAt, categoryName: 'c', roundLabel: 'r', opponent: null, opponentKnown: false, result: null, score: null, courtNumber: null, ifWin: null,
   })
   it('ao vivo primeiro; senão a de horário mais cedo; sem horário, a primeira da lista', () => {
     expect(nextPlayerMatch([p('a', 'upcoming', '2099-01-01T10:00:00Z'), p('b', 'live')])).toBe('b')

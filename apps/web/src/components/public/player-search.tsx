@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ChevronRight, User } from 'lucide-react'
+import { ChevronRight, User, X } from 'lucide-react'
 import type { Paginated } from '@birdie-atlas/types'
 import { ApiError, apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ROWS, ROW_LINK } from './rows'
 
 type Hit = { athleteId: string; name: string; categories: string[] }
@@ -46,7 +47,8 @@ export function PlayerSearch({ tournamentId, slug }: { tournamentId: string; slu
         .catch((err: unknown) => {
           if (cancelled) return
           setHits([])
-          setError(err instanceof ApiError ? err.message : 'Não foi possível buscar agora.')
+          // Erro de validação (4xx) explica o problema; falha do servidor ou da rede não diz nada útil ao torcedor.
+          setError(err instanceof ApiError && err.status < 500 ? err.message : 'Não foi possível buscar agora.')
           setState('error')
         })
     }, 250)
@@ -62,22 +64,32 @@ export function PlayerSearch({ tournamentId, slug }: { tournamentId: string; slu
   return (
     <section aria-labelledby="player-search-title" className="space-y-2 rounded-lg bg-secondary p-4 print:hidden">
       <h2 id="player-search-title" className="sr-only">Encontre sua próxima partida</h2>
-      <Field label="Encontre sua próxima partida" hint="Digite seu nome ou o da sua dupla.">
-        {(props) => (
-          <input
-            {...props}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-            maxLength={80}
-            className={cn(FIELD_CONTROL_CLASS, 'bg-card')}
-          />
-        )}
-      </Field>
+      <div className="max-w-lg">
+        <Field label="Encontre sua próxima partida" hint="Digite seu nome ou o da sua dupla.">
+          {(props) => (
+            <div className="relative">
+              <input
+                {...props}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+                maxLength={80}
+                // 16 px: abaixo disso o Safari do iOS dá zoom ao focar. O "×" nativo sai; o botão abaixo o substitui.
+                className={cn(FIELD_CONTROL_CLASS, 'bg-card pr-12 text-base [&::-webkit-search-cancel-button]:appearance-none')}
+              />
+              {query && (
+                <Button type="button" variant="ghost" size="icon" aria-label="Limpar busca" className="absolute inset-y-0 right-0" onClick={() => setQuery('')}>
+                  <X aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+          )}
+        </Field>
+      </div>
       <div aria-live="polite" className="text-sm">
         {length > 0 && !searched && <p className="text-muted-foreground">Digite ao menos {MIN_LENGTH} letras.</p>}
-        {state === 'loading' && <p className="text-muted-foreground">Buscando…</p>}
+        {state === 'loading' && <p className="sr-only">Buscando…</p>}
         {state === 'error' && <p className="text-destructive">{error}</p>}
         {state === 'idle' && searched && (
           <p className="text-muted-foreground">
@@ -89,6 +101,7 @@ export function PlayerSearch({ tournamentId, slug }: { tournamentId: string; slu
           </p>
         )}
       </div>
+      {state === 'loading' && <Skeleton className="h-14 w-full" />}
       {state === 'error' && (
         <Button type="button" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
           Tentar de novo

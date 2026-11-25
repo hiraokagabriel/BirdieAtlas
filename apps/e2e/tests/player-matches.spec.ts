@@ -6,7 +6,7 @@ import { createCategory, createTournament, generateDraw, listMatches, publishDra
 // com o bye (avança direto) e a próxima se vencer.
 
 type Reg = { id: string; athleteId: string | null; athleteName: string | null }
-type PlayerMatch = { matchId: string; kind: string; roundLabel: string; opponent: string | null; ifWin: { roundLabel: string; opponent: string } | null }
+type PlayerMatch = { matchId: string; kind: string; roundLabel: string; opponent: string | null; ifWin: { roundLabel: string; opponent: string | null } | null }
 
 test('o jogador com bye acha as partidas pela busca do torneio', async ({ page }) => {
   const tag = uniqueTag()
@@ -46,5 +46,5 @@ test('o jogador com bye acha as partidas pela busca do torneio', async ({ page }
   await expect(page.getByText('Avança direto para a fase seguinte, sem jogar.')).toBeVisible()
   const next = page.getByRole('region', { name: 'Próxima partida' })
   await expect(next).toContainText('Semifinal')
-  await expect(next).toContainText(/Se vencer: Final contra/)
+  await expect(next).toContainText('Se vencer: Final')
 })

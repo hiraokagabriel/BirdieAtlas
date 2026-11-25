@@ -26,8 +26,10 @@ export interface PlayerMatch {
   categoryName: string
   roundLabel: string
   kind: PlayerMatchKind
-  /** Adversário (nome do atleta ou dupla, "vencedor de A × B" ou "A definir"); `null` em bye e folga. */
+  /** Adversário: nome do atleta ou dupla, ou "vencedor de (A × B)" enquanto o lado está vazio; `null` em bye, folga ou a definir. */
   opponent: string | null
+  /** `true` quando `opponent` é o nome de quem ele enfrenta (não "vencedor de"). */
+  opponentKnown: boolean
   /** Partida jogada (ou bye/folga, que contam como vitória): resultado do ponto de vista do jogador. */
   result: 'won' | 'lost' | null
   /** Sets do ponto de vista do jogador ("21-15 19-21 21-18"). */
@@ -35,7 +37,7 @@ export interface PlayerMatch {
   courtNumber: number | null
   scheduledAt: string | null
   /** Partida seguinte se ele vencer esta (só nas ainda não decididas que levam a outra partida). */
-  ifWin: { roundLabel: string; opponent: string } | null
+  ifWin: { roundLabel: string; opponent: string | null } | null
 }
 
 const FINISHED = new Set(['completed', 'walkover', 'retired'])
@@ -62,19 +64,19 @@ export function buildPlayerSchedule(
   const byId = new Map(allMatches.map((m) => [m.id, m]))
   const hasMe = (m: ScheduleMatchInput) => Boolean((m.registration1Id && regIds.has(m.registration1Id)) || (m.registration2Id && regIds.has(m.registration2Id)))
   const participants = (m: ScheduleMatchInput) => {
-    const names = [m.registration1Id, m.registration2Id].map((id) => (id ? nameOf(id) ?? 'A definir' : null))
-    return names.every(Boolean) ? `${names[0]} × ${names[1]}` : null
+    const names = [m.registration1Id, m.registration2Id].map((id) => (id ? nameOf(id) : null))
+    return names.some(Boolean) ? `${names[0] ?? 'a definir'} × ${names[1] ?? 'a definir'}` : null
   }
 
-  /** Lado ainda vazio: quem sai da partida que o alimenta ("vencedor de" ou, na dupla eliminação, "perdedor de"). */
-  const awaiting = (target: ScheduleMatchInput, exceptId?: string): string => {
+  /** Lado ainda vazio: quem sai da partida que o alimenta ("vencedor de" ou, na dupla eliminação, "perdedor de"); `null` se ninguém. */
+  const awaiting = (target: ScheduleMatchInput, exceptId?: string): string | null => {
     for (const f of allMatches) {
       if (f.id === exceptId || hasMe(f)) continue
       const via = f.nextMatchId === target.id ? 'vencedor' : f.loserNextMatchId === target.id ? 'perdedor' : null
       const pair = via ? participants(f) : null
-      if (pair) return `${via} de ${pair}`
+      if (pair) return `${via} de (${pair})`
     }
-    return 'A definir'
+    return null
   }
 
   return allMatches
@@ -95,7 +97,7 @@ export function buildPlayerSchedule(
       const next = m.nextMatchId ? byId.get(m.nextMatchId) : undefined
       if ((kind === 'live' || kind === 'upcoming') && next) {
         const nextOpponentId = [next.registration1Id, next.registration2Id].find((id) => id && !regIds.has(id)) ?? null
-        ifWin = { roundLabel: matchRoundLabel(next), opponent: nextOpponentId ? nameOf(nextOpponentId) ?? 'A definir' : awaiting(next, m.id) }
+        ifWin = { roundLabel: matchRoundLabel(next), opponent: nextOpponentId ? nameOf(nextOpponentId) : awaiting(next, m.id) }
       }
 
       return {
@@ -103,7 +105,8 @@ export function buildPlayerSchedule(
         categoryName: m.categoryName,
         roundLabel: matchRoundLabel(m),
         kind,
-        opponent: free ? null : opponentId ? nameOf(opponentId) ?? 'A definir' : awaiting(m),
+        opponent: free ? null : opponentId ? nameOf(opponentId) : awaiting(m),
+        opponentKnown: !free && opponentId !== null,
         result: free ? 'won' : winner === null ? null : winner === side ? 'won' : 'lost',
         score: sets.length && !free ? sets.map((s) => (side === 1 ? `${s.score1}-${s.score2}` : `${s.score2}-${s.score1}`)).join(' ') : null,
         courtNumber: m.courtNumber,
