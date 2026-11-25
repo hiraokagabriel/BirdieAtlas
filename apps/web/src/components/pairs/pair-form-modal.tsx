@@ -46,17 +46,21 @@ function initials(name: string) {
  * Escolha de atleta com busca: botão que abre um painel (padrão de divulgação, `aria-expanded`) com um campo
  * de busca rotulado e a lista de resultados como botões. O atleta escolhido aparece no nome do botão.
  */
-function AthleteSelector({
-  label, value, onChange, excludeId,
+export function AthleteSelector({
+  label, value, onChange, excludeId, gender, inline = false,
 }: {
   label: string
   value: Athlete | null
   onChange: (athlete: Athlete) => void
   excludeId?: string
+  /** Só atletas deste gênero. */
+  gender?: 'M' | 'F'
+  /** Lista em fluxo normal (não flutuante): dentro de um diálogo com rolagem, o painel flutuante ficaria cortado. */
+  inline?: boolean
 }) {
   const [search, setSearch] = useState('')
   const [open, setOpen]     = useState(false)
-  const { athletes, total } = useAthleteSearch(search)
+  const { athletes, total } = useAthleteSearch(search, gender)
   const base = useId()
   const labelId = `${base}-label`
   const panelId = `${base}-panel`
@@ -96,7 +100,7 @@ function AthleteSelector({
         </button>
 
         {open && (
-          <div id={panelId} className="absolute top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+          <div id={panelId} className={inline ? 'mt-1 w-full overflow-hidden rounded-lg border border-border bg-card' : 'absolute top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-card shadow-lg'}>
             <div className="border-b border-border p-2">
               <label htmlFor={searchId} className="sr-only">Buscar atleta para {label}</label>
               <div className="relative">

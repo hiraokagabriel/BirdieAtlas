@@ -32,6 +32,8 @@ const csvRowSchema = z.object({
 const listAthletesQuerySchema = paginationQuerySchema.extend({
   search: z.string().trim().min(1).optional(),
   gender: z.enum(['M', 'F']).optional(),
+  // `true`: só os avulsos (de amistoso), para juntá-los a atletas cadastrados. Padrão: só cadastrados.
+  guest: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 })
 
 export async function athletesRoutes(app: FastifyInstance) {
@@ -41,8 +43,8 @@ export async function athletesRoutes(app: FastifyInstance) {
     const tenantId = await getDefaultTenantId()
     const where = and(
       isNull(athletes.deletedAt),
-      // Avulsos (de amistoso) ficam fora da lista de Atletas: não são filiados nem têm cadastro completo.
-      eq(athletes.guest, false),
+      // Avulsos (de amistoso) só com `guest=true`: não são filiados nem têm cadastro completo.
+      eq(athletes.guest, query.guest),
       query.search ? ilike(athletes.name, `%${query.search}%`) : undefined,
       query.gender ? eq(athletes.gender, query.gender) : undefined,
     )
