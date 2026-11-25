@@ -57,7 +57,7 @@ export function ChoiceGroup<T extends string>({
             <label
               key={option.value}
               className={cn(
-                'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-disabled:cursor-not-allowed has-disabled:opacity-60',
+                'inline-flex min-h-(--control-h) cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-disabled:cursor-not-allowed has-disabled:opacity-60',
                 optionClassName,
                 checked ? (option.activeClassName ?? ACTIVE) : (option.className ?? IDLE),
               )}
