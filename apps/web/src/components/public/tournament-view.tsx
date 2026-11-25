@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/public/status-badge'
 import { ROWS } from '@/components/public/rows'
 import { BackLink } from '@/components/public/back-link'
+import { PlayerSearch } from '@/components/public/player-search'
 import { PrintButton } from '@/components/shared/print-button'
 import { ShareControl } from '@/components/shared/share-control'
 import { shareImageFilename, shareImagePath } from '@/lib/share'
@@ -300,6 +301,9 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
             {plural(stats.totalCategories, 'categoria', 'categorias')} · {plural(stats.totalAthletes, 'atleta', 'atletas')}
           </span>
         </div>
+
+        {/* Regra da Próxima Ação: o jogador acha as próprias partidas no primeiro viewport. */}
+        <PlayerSearch tournamentId={tournament.id} slug={slug} />
 
         {/* Progresso numa linha fina, sem número-herói (docs/DESIGN.md, Don'ts). */}
         {stats.totalMatches > 0 && (

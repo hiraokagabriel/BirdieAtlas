@@ -19,6 +19,7 @@ import { pointRulesRoutes } from './routes/point-rules.js'
 import { pairsRoutes } from './routes/pairs.js'
 import { registrationsRoutes } from './routes/registrations.js'
 import { guestsRoutes } from './routes/guests.js'
+import { playersRoutes } from './routes/players.js'
 import { reportsRoutes } from './routes/reports.js'
 import { importTournamentRoutes } from './routes/import-tournament.js'
 
@@ -55,6 +56,7 @@ await app.register(pointRulesRoutes)
 await app.register(pairsRoutes)
 await app.register(registrationsRoutes)
 await app.register(guestsRoutes)
+await app.register(playersRoutes)
 await app.register(reportsRoutes)
 await app.register(importTournamentRoutes)
 
