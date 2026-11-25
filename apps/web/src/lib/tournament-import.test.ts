@@ -13,8 +13,9 @@ describe('parseCsv', () => {
 })
 
 describe('cellText', () => {
-  it('data vira AAAA-MM-DD local; número, booleano e vazio viram texto', () => {
-    expect(cellText(new Date(2026, 10, 5))).toBe('2026-11-05')
+  it('data (meia-noite UTC, como o leitor de XLSX entrega) vira AAAA-MM-DD do mesmo dia; número, booleano e vazio viram texto', () => {
+    expect(cellText(new Date(Date.UTC(2026, 10, 5)))).toBe('2026-11-05')
+    expect(cellText(new Date('2026-12-05T00:00:00.000Z'))).toBe('2026-12-05')
     expect(cellText(16)).toBe('16')
     expect(cellText(true)).toBe('Sim')
     expect(cellText(null)).toBe('')
