@@ -15,7 +15,7 @@ export function LevelBadge({ level, className }: { level: string; className?: st
   return (
     <span
       className={cn(
-        'inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        'inline-flex w-fit items-center rounded-sm px-2 py-0.5 text-xs font-semibold',
         known ? LEVEL_STYLES[known] : 'bg-muted text-muted-foreground',
         className,
       )}

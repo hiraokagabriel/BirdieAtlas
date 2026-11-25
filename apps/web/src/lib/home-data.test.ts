@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectRecent, selectUpcoming, type TournamentSummary } from './home-data'
+import { selectLiveBoards, selectRecent, selectUpcoming, type TournamentSummary } from './home-data'
 
 function t(id: string, status: string, startDate: string, endDate = startDate): TournamentSummary {
   return { id, name: id, slug: id, status, level: 'state', startDate, endDate, city: null, state: null }
@@ -39,5 +39,23 @@ describe('selectRecent', () => {
       5,
     )
     expect(result.map((x) => x.id)).toEqual(['new', 'old'])
+  })
+})
+
+describe('selectLiveBoards', () => {
+  const on = (n: number) => ({ live: { ok: true as const, data: Array.from({ length: n }, (_, i) => i) } })
+  const failed = { live: { ok: false as const } }
+
+  it('aplica o limite depois de descartar os torneios sem partida em quadra', () => {
+    const result = selectLiveBoards([on(0), on(0), on(2), on(1)], 2)
+    expect(result).toEqual([on(2), on(1)])
+  })
+
+  it('mantém o torneio cujo placar falhou, para a home mostrar o erro', () => {
+    expect(selectLiveBoards([on(0), failed], 2)).toEqual([failed])
+  })
+
+  it('devolve vazio sem nenhuma partida em quadra', () => {
+    expect(selectLiveBoards([on(0)], 2)).toEqual([])
   })
 })

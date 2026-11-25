@@ -83,7 +83,7 @@ test.describe('home', () => {
   test('carrega os três blocos com dados reais da API', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Todo o badminton das federações/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Torneios, resultados e rankings de badminton')
 
     const upcoming = page.getByRole('region', { name: 'Próximos torneios' })
     await expect(upcoming.getByRole('link', { name: new RegExp(liveTournament.tournament.name) })).toBeVisible()
@@ -95,7 +95,7 @@ test.describe('home', () => {
     await expect(recentCard).toHaveAttribute('href', `/t/${prepared.tournament.slug}`)
     await expect(recentCard.getByText('Encerrado')).toBeVisible()
 
-    const top10 = page.getByRole('region', { name: 'Top 10 dos rankings' })
+    const top10 = page.getByRole('region', { name: 'Ranking', exact: true })
     await expect(top10.getByRole('tablist', { name: 'Rankings' })).toBeVisible()
     await expect(top10.getByRole('tab', { name: new RegExp(`Simples masculino ${RANKING_YEAR}`) })).toBeVisible()
 
@@ -103,6 +103,21 @@ test.describe('home', () => {
     // (o anunciador de rotas do Next também é role=alert, mas vazio)
     await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveCount(0)
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
+  })
+
+  test('"Ao vivo agora" mostra a partida em quadra com placar e leva ao torneio', async ({ page }) => {
+    // Início bem no futuro: a lista vem por data decrescente e a home mostra só os 2 primeiros com partida.
+    const playing = await prepareTournament({ name: `Em Quadra Home ${tag}`, startDate: '2999-01-01', endDate: '2999-01-03' })
+    const semi = playing.matches.find((m) => m.round === 2 && m.position === 1)
+    if (!semi) throw new Error('semifinal 1 não encontrada')
+    const started = await api.post<{ version: number }>(`/draws/matches/${semi.id}/live/start`, { courtNumber: 7 })
+    await api.post(`/draws/matches/${semi.id}/live/point`, { side: 1, version: started.version })
+
+    await page.goto('/')
+    const live = page.getByRole('region', { name: 'Ao vivo agora' })
+    const header = live.getByRole('link', { name: new RegExp(playing.tournament.name) })
+    await expect(header).toHaveAttribute('href', `/t/${playing.tournament.slug}`)
+    await expect(live.getByText(/^Quadra 7, Simples masculino: .+ contra .+, 0 a 0 em sets\. Set atual: 1 a 0\.$/)).toBeAttached()
   })
 
   test('card de resultado recente leva ao torneio', async ({ page }) => {
@@ -117,7 +132,7 @@ test.describe('home', () => {
 
   test('top 10: abas pelo teclado e classificação do ranking', async ({ page }) => {
     await page.goto('/')
-    const top10 = page.getByRole('region', { name: 'Top 10 dos rankings' })
+    const top10 = page.getByRole('region', { name: 'Ranking', exact: true })
     const tabs = top10.getByRole('tab')
     await expect(tabs.first()).toBeVisible()
     const count = await tabs.count()

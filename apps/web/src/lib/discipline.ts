@@ -38,3 +38,10 @@ export const GENDER_PILL: Record<'M' | 'F', string> = {
 export function genderAvatarClass(gender: string): string {
   return gender === 'M' ? DISCIPLINE_PILL_ACTIVE.MS : DISCIPLINE_PILL_ACTIVE.WD
 }
+
+/** Sigla em português para chips: SM, SF, DM, DF, DX (os códigos da API são MS, WS, MD, WD, XD). */
+const DISCIPLINE_SHORT: Record<string, string> = { MS: 'SM', WS: 'SF', MD: 'DM', WD: 'DF', XD: 'DX' }
+
+export function disciplineShort(discipline: string): string {
+  return DISCIPLINE_SHORT[discipline] ?? discipline
+}

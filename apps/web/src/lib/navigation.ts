@@ -1,5 +1,5 @@
 import {
-  Building2, Home, LayoutDashboard, Radio, Swords, TrendingUp, Trophy, Users,
+  Building2, Home, LayoutDashboard, Radio, Search, Swords, TrendingUp, Trophy, Users,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -23,7 +23,19 @@ export const ADMIN_NAV: readonly NavItem[] = [
 
 export const PUBLIC_NAV: readonly NavItem[] = [
   { label: 'Início', href: '/', icon: Home },
+  { label: 'Ranking', href: '/#ranking', icon: TrendingUp },
   { label: 'Administração', href: '/admin', icon: LayoutDashboard },
+]
+
+/**
+ * Barra inferior do portal no celular. Aponta para as seções da home, que é o ponto de partida do
+ * portal: ainda não há páginas de lista de torneios, atletas ou clubes (docs/DESIGN.md, Navigation).
+ */
+export const PUBLIC_TAB_NAV: readonly NavItem[] = [
+  { label: 'Início', href: '/', icon: Home },
+  { label: 'Ao vivo', href: '/#ao-vivo', icon: Radio },
+  { label: 'Ranking', href: '/#ranking', icon: TrendingUp },
+  { label: 'Buscar', href: '/#busca', icon: Search },
 ]
 
 /** A raiz de uma seção só fica ativa na própria página; as demais também nas subpáginas. */

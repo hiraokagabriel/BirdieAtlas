@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ADMIN_NAV, PUBLIC_NAV, isNavItemActive } from './navigation'
+import { ADMIN_NAV, PUBLIC_NAV, PUBLIC_TAB_NAV, isNavItemActive } from './navigation'
 
 const SRC_DIR = join(__dirname, '..')
 const APP_DIR = join(SRC_DIR, 'app')
@@ -58,7 +58,7 @@ function collectLinkLiterals(): { file: string; path: string }[] {
 }
 
 describe('navigation', () => {
-  it.each([...ADMIN_NAV, ...PUBLIC_NAV].map((item) => [item.href]))('%s resolves to a page', (href) => {
+  it.each([...ADMIN_NAV, ...PUBLIC_NAV, ...PUBLIC_TAB_NAV].map((item) => [item.href]))('%s resolves to a page', (href) => {
     expect(resolves(href)).toBe(true)
   })
 
