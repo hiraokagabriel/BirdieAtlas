@@ -150,7 +150,7 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
             <table className="w-full text-left">
               <caption className="sr-only">{rankingTitle}: classificação por pontos</caption>
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <tr className="border-b border-border bg-muted/40 text-[0.8125rem] font-semibold text-muted-foreground">
                   <th scope="col" className="w-12 px-5 py-3">Posição</th>
                   <th scope="col" className="px-2 py-3">{isDoubles ? 'Dupla' : 'Atleta'}</th>
                   <th scope="col" className="px-5 py-3 text-right">Pontos</th>

@@ -30,7 +30,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Home pública e perfil do atleta | ✅ PR #21 |
 | Chave visual (admin e pública) | ✅ PR #22 |
 | Dark mode (toggle claro/escuro/sistema) | ✅ PR #24 |
-| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | 🟡 Documento pronto; migração em 5 PRs: 1/5 tokens e fontes ✅; 2/5 componentes `ui` ✅; 3a moldura pública e home ✅; 3b torneio ✅ (a busca "Encontre sua próxima partida" fica para um PR de comportamento); 3c atleta, clube e ranking ✅ (clube nas linhas do ranking depende de a API devolvê-lo); 4a moldura do admin e painel ✅; 4b quadras, "Precisa de você" e contador do "Ao vivo" ✅; 4c tabelas e listas ✅; 4d diálogo de resultado ✅ (corrigido: o 3º set não aceitava digitação); faltam telão e impressão |
+| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | 🟡 Documento e os 5 passos da migração prontos em PRs encadeados, abertos (#68 a #78; ✅ quando entrarem na main): 1 tokens e fontes; 2 componentes `ui`; 3a moldura pública e home; 3b torneio; 3c atleta, clube e ranking; 4a moldura do admin; 4b quadras e "Precisa de você"; 4c tabelas e listas; 4d diálogo de resultado; 5 telão e impressão. Pendentes fora da migração: busca "Encontre sua próxima partida" no torneio (comportamento), clube nas linhas do ranking (API), hover amarelo (`--accent`) dos menus suspensos |
 
 ## Phase 0 — Fundação
 

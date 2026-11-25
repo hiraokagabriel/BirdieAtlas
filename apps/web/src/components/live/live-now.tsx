@@ -15,10 +15,10 @@ const CONNECTION_STYLE: Record<LiveConnection, { text: string; dot: string }> = 
 }
 
 /** Estado da conexão, sempre visível: o público precisa saber se o placar está chegando. */
-export function ConnectionBadge({ connection }: { connection: LiveConnection }) {
+export function ConnectionBadge({ connection, className }: { connection: LiveConnection; className?: string }) {
   const style = CONNECTION_STYLE[connection]
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium', style.text)}>
+    <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium', style.text, className)}>
       <span aria-hidden="true" className={cn('size-2 rounded-full', style.dot)} />
       {CONNECTION_LABEL[connection]}
     </span>

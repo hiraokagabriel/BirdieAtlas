@@ -9,6 +9,8 @@ export interface PageCase {
   path: () => string
   /** Garante que a página terminou de carregar os dados (e leva à aba/estado auditado). */
   ready: (page: Page) => Promise<void>
+  /** A página força um tema, seja qual for a preferência (o telão é sempre escuro, docs/DESIGN.md, Layout > Telão). */
+  forcedTheme?: 'dark'
 }
 
 const heading = (page: Page, name: string | RegExp, level?: number) =>
@@ -68,6 +70,7 @@ export function publicPages(data: () => WcagData): PageCase[] {
   {
     name: 'telão do torneio em andamento',
     path: () => `/telao/${data().running.tournament.slug}`,
+    forcedTheme: 'dark',
     ready: async (p) => {
       await expect(p.getByRole('article', { name: /^Quadra 1:/ })).toBeVisible()
       await expect(p.getByRole('heading', { name: 'Próximas partidas' })).toBeVisible()
