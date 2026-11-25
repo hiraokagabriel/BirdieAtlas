@@ -1,5 +1,6 @@
 'use client'
 
+import { CategoryPicker } from '@/components/shared/category-picker'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
@@ -23,7 +24,6 @@ import { PlayerSearch } from '@/components/public/player-search'
 import { PrintButton } from '@/components/shared/print-button'
 import { ShareControl } from '@/components/shared/share-control'
 import { shareImageFilename, shareImagePath } from '@/lib/share'
-import { ChoiceGroup } from '@/components/ui/choice-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /** Dados vindos do servidor (page.tsx) para o controle de compartilhar. */
@@ -362,15 +362,9 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
 
       {/* SELETOR DE CATEGORIA */}
       {(tab === 'bracket' || tab === 'registrations') && categories.length > 1 && (
-        <ChoiceGroup
-          legend="Categoria"
-          hideLegend
+        <CategoryPicker
           className="print:hidden"
-          options={categories.map((cat) => ({
-            value: cat.id,
-            label: cat.name,
-            className: 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
-          }))}
+          categories={categories}
           value={activeCategoryId}
           onChange={setActiveCategoryId}
           optionClassName="px-4"

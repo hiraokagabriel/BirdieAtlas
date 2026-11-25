@@ -1,16 +1,15 @@
 'use client'
 
+import { CategoryPicker } from '@/components/shared/category-picker'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Paginated } from '@birdie-atlas/types'
 import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, athleteOptionLabel, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
-import { CalendarClock, UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw, Pencil, UserCheck } from 'lucide-react'
-import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { CalendarClock, UserPlus, Trash2, Trophy, Check, X, RotateCcw, Pencil, UserCheck } from 'lucide-react'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ErrorNotice } from '@/components/public/notices'
-import { ChoiceGroup } from '@/components/ui/choice-group'
 import { EditRegistrationForm } from '@/components/tournament/edit-registration-form'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 import { GuestListForm } from '@/components/tournament/guest-list-form'
@@ -207,26 +206,11 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
   return (
     <div className="space-y-4">
       {/* Seletor de categoria */}
-      <ChoiceGroup
-        legend="Categoria"
-        hideLegend
-        options={categories.map((cat) => ({
-          value: cat.id,
-          label: cat.name,
-          content: (
-            <>
-              {isDoubles(cat.discipline) ? <Users className="w-3 h-3" aria-hidden="true" /> : <User className="w-3 h-3" aria-hidden="true" />}
-              {cat.name}
-              {activeCategoryId === cat.id && <span>({total})</span>}
-            </>
-          ),
-          labelFromContent: true,
-          className: 'border-border text-muted-foreground hover:text-foreground bg-background',
-          activeClassName: DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground',
-        }))}
+      <CategoryPicker
+        categories={categories}
         value={activeCategoryId}
         onChange={(id) => { setActiveCategoryId(id); setShowForm(false); setShowGuests(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
-        optionClassName="px-3 text-xs font-semibold"
+        extra={(cat) => activeCategoryId === cat.id && <span>({total})</span>}
       />
 
       {/* Tabela de inscritos */}
@@ -428,7 +412,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
                       <a
                         href={`/t/${slug}/jogador/${reg.athleteId}`}
                         target="_blank"
-                        rel="noopener"
+                        rel="noreferrer"
                         className={`${iconBtn} hover:bg-muted hover:text-foreground`}
                         title="Ver partidas"
                         aria-label={`Ver partidas de ${reg.athleteName ?? reg.athleteId}${reg.athlete2Name ? ` / ${reg.athlete2Name}` : ''} (abre em nova aba)`}
