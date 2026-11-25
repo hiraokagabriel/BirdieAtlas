@@ -49,6 +49,15 @@ function writeStorage(key: string, value: string) {
   }
 }
 
+/**
+ * Deixa a tela do operador aberta neste torneio e nesta quadra na próxima visita a /admin/live (o painel do
+ * admin usa no "Chamar partida"). `court` nulo = partidas sem quadra.
+ */
+export function rememberCourt(tournamentId: string, court: number | null) {
+  writeStorage(STORAGE_TOURNAMENT, tournamentId)
+  writeStorage(`${STORAGE_COURT}.${tournamentId}`, court === null ? NO_COURT : String(court))
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }

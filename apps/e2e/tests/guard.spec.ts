@@ -90,6 +90,7 @@ test.describe('API', () => {
       `/athletes/${playing.athletes[0]?.id}`,
       `/registrations/tournament/${playing.tournament.id}`,
       `/tournaments/${playing.tournament.id}/registrations/export.csv`,
+      '/dashboard/attention',
     ]) {
       const res = await apiCall<ErrorBody>('GET', path)
       expect(res.status, path).toBe(403)

@@ -5,7 +5,8 @@ import {
   tournaments, tournamentCategories, draws, matches, matchResults,
   tournamentRegistrations,
 } from '../db/schema.js'
-import { eq, inArray, or, and, isNull, count, countDistinct } from 'drizzle-orm'
+import { eq, inArray, or, and, isNull, count, countDistinct, asc } from 'drizzle-orm'
+import { buildAttentionItems } from '../domain/attention.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { getDefaultTenantId } from '../tenant.js'
 
@@ -263,5 +264,65 @@ export async function dashboardRoutes(app: FastifyInstance) {
         status:       match.status as 'pending' | 'in_progress',
       }
     })
+  })
+
+  // -------------------------------------------------------------------------
+  // GET /dashboard/attention
+  // "Precisa de você": inscrições a aprovar, categorias sem chave e chaves não publicadas nos torneios ativos,
+  // e quantas partidas estão em quadra agora (contador do menu "Ao vivo"). Só contagens e nomes de torneio e
+  // categoria: nada de dado pessoal.
+  // -------------------------------------------------------------------------
+  app.get('/dashboard/attention', async () => {
+    const tenantId = await getDefaultTenantId()
+    const active = await db.select({ id: tournaments.id, name: tournaments.name, status: tournaments.status })
+      .from(tournaments)
+      .where(and(
+        eq(tournaments.tenantId, tenantId),
+        inArray(tournaments.status, ['registration_open', 'registration_closed', 'in_progress']),
+        isNull(tournaments.deletedAt),
+      ))
+      .orderBy(asc(tournaments.startDate), asc(tournaments.name))
+    if (!active.length) return { liveMatches: 0, items: [] }
+
+    const categories = await db.select({ id: tournamentCategories.id, tournamentId: tournamentCategories.tournamentId, name: tournamentCategories.name })
+      .from(tournamentCategories)
+      .where(and(inArray(tournamentCategories.tournamentId, active.map((t) => t.id)), isNull(tournamentCategories.deletedAt)))
+      .orderBy(asc(tournamentCategories.name))
+    const categoryIds = categories.map((c) => c.id)
+    if (!categoryIds.length) return { liveMatches: 0, items: [] }
+
+    const [registrationCounts, drawRows] = await Promise.all([
+      db.select({ categoryId: tournamentRegistrations.categoryId, status: tournamentRegistrations.status, total: count() })
+        .from(tournamentRegistrations)
+        .where(and(
+          inArray(tournamentRegistrations.categoryId, categoryIds),
+          inArray(tournamentRegistrations.status, ['pending', 'approved']),
+          isNull(tournamentRegistrations.deletedAt),
+        ))
+        .groupBy(tournamentRegistrations.categoryId, tournamentRegistrations.status),
+      db.select({ id: draws.id, categoryId: draws.categoryId, published: draws.published })
+        .from(draws)
+        .where(inArray(draws.categoryId, categoryIds)),
+    ])
+
+    const pendingByCategory = new Map<string, number>()
+    const approvedByCategory = new Map<string, number>()
+    for (const row of registrationCounts) {
+      const target = row.status === 'pending' ? pendingByCategory : approvedByCategory
+      target.set(row.categoryId, Number(row.total))
+    }
+
+    // Em quadra agora: só torneios em andamento contam.
+    const runningCategoryIds = new Set(categories.filter((c) => active.find((t) => t.id === c.tournamentId)?.status === 'in_progress').map((c) => c.id))
+    const runningDrawIds = drawRows.filter((d) => runningCategoryIds.has(d.categoryId)).map((d) => d.id)
+    const [live] = runningDrawIds.length
+      ? await db.select({ total: count() }).from(matches)
+        .where(and(inArray(matches.drawId, runningDrawIds), eq(matches.status, 'in_progress')))
+      : [{ total: 0 }]
+
+    return {
+      liveMatches: Number(live?.total ?? 0),
+      items: buildAttentionItems({ tournaments: active, categories, draws: drawRows, pendingByCategory, approvedByCategory }),
+    }
   })
 }

@@ -6,6 +6,8 @@ import { StatsCards } from '@/components/dashboard/stats-cards'
 import { RankingChart } from '@/components/dashboard/ranking-chart'
 import { UpcomingMatches } from '@/components/dashboard/upcoming-matches'
 import { RecentResults } from '@/components/dashboard/recent-results'
+import { CourtsPanel } from '@/components/dashboard/courts-panel'
+import { AttentionPanel } from '@/components/dashboard/attention-panel'
 
 export const metadata: Metadata = { title: 'Visão geral · Administração · BirdieAtlas' }
 
@@ -24,6 +26,11 @@ export default function DashboardPage() {
             Abrir o Ao vivo
           </Link>
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] [&>*]:min-w-0">
+        <CourtsPanel />
+        <AttentionPanel />
       </div>
 
       <StatsCards />
