@@ -12,6 +12,7 @@ import { AthleteSelector } from '@/components/pairs/pair-form-modal'
 import { Pager } from '@/components/shared/pager'
 import { EmptyNotice, ErrorNotice } from '@/components/public/notices'
 import { ROWS } from '@/components/public/rows'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type Guest = { id: string; name: string; gender: 'M' | 'F'; birthYear: number | null }
 type Target = { id: string; name: string; gender: 'M' | 'F' }
@@ -44,9 +45,9 @@ function MergeGuestDialog({ guest, onClose, onMerged }: { guest: Guest | null; o
             As inscrições e duplas do avulso passam para o atleta escolhido, e o avulso deixa de existir. Não dá para desfazer.
           </DialogDescription>
         </DialogHeader>
-        <AthleteSelector label="Atleta cadastrado" value={target} onChange={setTarget} gender={guest?.gender} />
+        <AthleteSelector label="Atleta cadastrado" value={target} onChange={setTarget} gender={guest?.gender} inline />
         {merge.error && (
-          <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
             <p>{merge.error.message}</p>
             {conflict && conflict.length > 0 && <p className="mt-1">Categorias: {conflict.join(', ')}.</p>}
           </div>
@@ -54,7 +55,7 @@ function MergeGuestDialog({ guest, onClose, onMerged }: { guest: Guest | null; o
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
           <Button type="button" disabled={!target || merge.isPending} onClick={() => merge.mutate()}>
-            {merge.isPending ? 'Juntando…' : merge.error ? 'Tentar de novo' : 'Juntar'}
+            {merge.isPending ? 'Juntando…' : merge.error && !(merge.error instanceof ApiError) ? 'Tentar de novo' : 'Juntar'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -107,7 +108,10 @@ export function GuestsPanel() {
           <Button type="button" variant="outline" onClick={() => void refetch()}>Tentar de novo</Button>
         </div>
       ) : isLoading || !data ? (
-        <div role="status" className="p-8 text-sm text-muted-foreground">Carregando...</div>
+        <div role="status" className="space-y-2">
+          <span className="sr-only">Carregando avulsos…</span>
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+        </div>
       ) : data.data.length === 0 ? (
         <EmptyNotice>{debounced ? 'Nenhum avulso com esse nome.' : 'Nenhum jogador avulso. Eles surgem ao inscrever pelo nome em torneios amistosos.'}</EmptyNotice>
       ) : (
