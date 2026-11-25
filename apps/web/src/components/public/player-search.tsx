@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ChevronRight, User, X } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
+import { User } from '@/components/icons/ba'
 import type { Paginated } from '@birdie-atlas/types'
 import { ApiError, apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'

@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Check, Pencil, Trophy } from 'lucide-react'
+import { Check, Pencil } from 'lucide-react'
+import { Trophy } from '@/components/icons/ba'
 import { cn } from '@/lib/utils'
 import {
   describeSlot,

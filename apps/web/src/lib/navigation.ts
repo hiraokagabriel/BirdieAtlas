@@ -1,12 +1,12 @@
-import {
-  Building2, Home, LayoutDashboard, Radio, Search, Swords, TrendingUp, Trophy, Users,
-  type LucideIcon,
-} from 'lucide-react'
+import type { ComponentType, SVGProps } from 'react'
+import { Search } from 'lucide-react'
+import { Building2, Home, LayoutDashboard, Radio, Swords, TrendingUp, Trophy, Users } from '../components/icons/ba'
 
 export interface NavItem {
   label: string
   href: string
-  icon: LucideIcon
+  /** Ícone do BA (`@/components/icons/ba`) ou do Lucide: os dois aceitam as props de SVG. */
+  icon: ComponentType<SVGProps<SVGSVGElement>>
 }
 
 // Fonte única da navegação. Todo href aqui precisa ter uma rota em src/app

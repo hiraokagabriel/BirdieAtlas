@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CalendarCheck, CheckCircle2, Loader2, Wand2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Loader2, Wand2 } from 'lucide-react'
+import { CalendarCheck } from '@/components/icons/ba'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

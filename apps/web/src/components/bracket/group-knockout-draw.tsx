@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Loader2, Swords } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { Swords } from '@/components/icons/ba'
 import { ErrorNotice, EmptyNotice } from '@/components/public/notices'
 import { ApiError, apiFetch } from '@/lib/api'
 import { describeSlot, indexEntries, isFinishedStatus, slotLabel, type BracketEntry, type BracketMatch, type SetScore } from '@/lib/bracket'

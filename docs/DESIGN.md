@@ -279,6 +279,13 @@ Rótulo de quadra em Barlow Condensed, com "QUADRA" pequeno e o número grande �
 ### Chave
 Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px e conectores de 1 px em `court-line`. Partida ao vivo com contorno amarelo-peteca e o chip "Ao vivo" (o contorno sozinho não tem 3:1). Rodada 1 é a final (ver `CLAUDE.md`).
 
+### Iconografia
+
+- **Set do BA (domínio):** `components/icons/ba.tsx`, duotone: traço de 1,75 px em `currentColor` com pontas arredondadas e uma camada cheia a 20 % na mesma cor, grade 24×24. Cobre o que é do badminton e da federação: Início (casa com a rede), Painel, Atleta (jogador com raquete), Atletas, Duplas (raquetes cruzadas), Clube (escudo com a peteca), Torneio (troféu), Ao vivo (peteca com ondas), Ranking (pódio), Local (alfinete com a quadra), Agenda, Partida agendada, Agenda confirmada, Medalha, Chave e Peteca. Os nomes repetem os do Lucide que substituem (`Trophy`, `Radio`…), então a troca é só no `import`.
+- **Pictogramas de disciplina:** `components/shared/discipline-icon.tsx` (simples, dupla, feminino com saia, mista), nas pílulas de categoria.
+- **Genéricos:** setas, X, check, editar, lixeira, carregando, busca e afins seguem no Lucide, traço 1,75, para não reinventar o que o usuário já reconhece.
+- **Uso:** ícone é decorativo (`aria-hidden`) ao lado do texto; sem texto, o botão leva `aria-label`. Cor só por `currentColor`: o ícone herda a cor do texto ou do estado.
+
 ### Estados (obrigatórios em toda tela)
 - **Carregando:** skeleton no formato do conteúdo real (linhas, não spinner no meio).
 - **Vazio:** frase que explica o porquê e a próxima ação ("Nenhum torneio aberto. Os próximos aparecem aqui assim que a federação publicar.").
@@ -305,7 +312,7 @@ Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px
 - **Don't** usar número-herói com legenda pequena como abertura de painel.
 - **Don't** pôr sobretítulo (eyebrow) acima de título, nem numerar seções (01, 02).
 - **Don't** usar gradiente em texto, vidro ou blur decorativo, nem borda lateral colorida grossa.
-- **Don't** usar emoji ou caractere Unicode como ícone: só lucide, traço 1.75.
+- **Don't** usar emoji ou caractere Unicode como ícone: só o set do BA (domínio) e o Lucide (genéricos), traço 1.75.
 - **Don't** abrir modal para o que cabe na própria página. `Dialog` só para lançar resultado, confirmar ação destrutiva e formulários curtos.
 - **Don't** mostrar logo da FPB-SP sem autorização, nem inventar números, depoimentos ou fotos.
 

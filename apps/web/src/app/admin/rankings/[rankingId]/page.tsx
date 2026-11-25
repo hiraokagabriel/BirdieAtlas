@@ -3,11 +3,8 @@
 import { Fragment, use, useEffect, useState } from 'react'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
-import {
-  ChevronLeft, RefreshCw, Plus, Trash2,
-  ChevronRight, ChevronDown, Users, User, Zap, CheckCircle2, Clock,
-  Settings, Trophy, Shield, Save,
-} from 'lucide-react'
+import { ChevronLeft, RefreshCw, Plus, Trash2, ChevronRight, ChevronDown, Zap, CheckCircle2, Clock, Settings, Save } from 'lucide-react'
+import { Users, User, Trophy, Shield } from '@/components/icons/ba'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PointRulesManager } from '@/components/ranking/point-rules-manager'
@@ -176,7 +173,8 @@ function EntryRow({
         onClick={() => hasDetails && setOpen((v) => !v)}
       >
         <td className="px-5 py-3.5 w-12">
-          <PositionBadge pos={entry.position} />
+          <PositionBadge pos={entry.position} />
+
         </td>
 
         <td className="px-2 py-3.5 min-w-0">
