@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { User } from 'lucide-react'
+import { User } from '@/components/icons/ba'
 import { ROWS, ROW_LINK } from '@/components/public/rows'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'

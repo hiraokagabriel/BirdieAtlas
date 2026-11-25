@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { ChoiceGroup } from '@/components/ui/choice-group'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { AthleteSheet } from './athlete-sheet'
-import { Search, Users } from 'lucide-react'
+import { Search } from 'lucide-react'
+import { Users } from '@/components/icons/ba'
 import { ageFromBirthYear } from '@/lib/birth-year'
 
 const genderLabel = { M: 'Masculino', F: 'Feminino' }

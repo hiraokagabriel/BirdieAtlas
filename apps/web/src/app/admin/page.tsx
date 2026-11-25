@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Radio } from 'lucide-react'
+import { Radio } from '@/components/icons/ba'
 import { Button } from '@/components/ui/button'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 import { RankingChart } from '@/components/dashboard/ranking-chart'

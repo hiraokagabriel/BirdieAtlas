@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { ApiError, apiFetch } from '@/lib/api'
-import { AlertTriangle, Trophy, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Trophy } from '@/components/icons/ba'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 

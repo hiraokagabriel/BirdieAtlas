@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, CalendarClock, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
+import { CalendarClock } from '@/components/icons/ba'
 import { adminAuthHeaders } from '@/lib/admin-token'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'

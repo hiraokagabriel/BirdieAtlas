@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { Building2, MapPin, User } from 'lucide-react'
+import { Building2, MapPin, User } from '@/components/icons/ba'
 import { selectLiveBoards, selectRecent, selectUpcoming } from '@/lib/home-data'
 import { disciplineLabel } from '@/lib/labels'
 import { sortLive, type LiveMatch } from '@/lib/live'

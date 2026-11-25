@@ -9,7 +9,8 @@ import { DoubleEliminationConfigFields, EMPTY_GROUP_CONFIG, GroupConfigFields, S
 import { ErrorNotice } from '@/components/public/notices'
 import { BracketSkeleton } from './bracket-tree'
 import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
-import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
+import { Eye, EyeOff, Loader2, AlertTriangle, CheckCircle2, RotateCcw, X, Lock } from 'lucide-react'
+import { Trophy, Shuffle, Star } from '@/components/icons/ba'
 import { ChoiceGroup } from '@/components/ui/choice-group'
 import { adminAuthHeaders } from '@/lib/admin-token'
 
