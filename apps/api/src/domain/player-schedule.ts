@@ -63,9 +63,10 @@ export function buildPlayerSchedule(
 ): PlayerMatch[] {
   const byId = new Map(allMatches.map((m) => [m.id, m]))
   const hasMe = (m: ScheduleMatchInput) => Boolean((m.registration1Id && regIds.has(m.registration1Id)) || (m.registration2Id && regIds.has(m.registration2Id)))
+  /** "A × B" com os dois lados; "do jogo de A" com um só; `null` sem nenhum. */
   const participants = (m: ScheduleMatchInput) => {
-    const names = [m.registration1Id, m.registration2Id].map((id) => (id ? nameOf(id) : null))
-    return names.some(Boolean) ? `${names[0] ?? 'a definir'} × ${names[1] ?? 'a definir'}` : null
+    const names = [m.registration1Id, m.registration2Id].map((id) => (id ? nameOf(id) : null)).filter(Boolean)
+    return names.length === 2 ? `de ${names[0]} × ${names[1]}` : names.length === 1 ? `do jogo de ${names[0]}` : null
   }
 
   /** Lado ainda vazio: quem sai da partida que o alimenta ("vencedor de" ou, na dupla eliminação, "perdedor de"); `null` se ninguém. */
@@ -74,7 +75,7 @@ export function buildPlayerSchedule(
       if (f.id === exceptId || hasMe(f)) continue
       const via = f.nextMatchId === target.id ? 'vencedor' : f.loserNextMatchId === target.id ? 'perdedor' : null
       const pair = via ? participants(f) : null
-      if (pair) return `${via} de (${pair})`
+      if (pair) return `${via} ${pair}`
     }
     return null
   }
