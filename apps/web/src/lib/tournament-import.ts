@@ -135,7 +135,8 @@ const pad = (n: number) => String(n).padStart(2, '0')
 
 export function cellText(value: unknown): string {
   if (value === null || value === undefined) return ''
-  if (value instanceof Date) return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`
+  // O leitor de XLSX devolve a data do Excel à meia-noite UTC: ler no fuso local (ex.: UTC-3) daria o dia anterior.
+  if (value instanceof Date) return `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`
   if (typeof value === 'boolean') return value ? 'Sim' : 'Não'
   return String(value).trim()
 }
