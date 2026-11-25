@@ -1,12 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
 import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
-import { Plus, ChevronRight, Users, User, Zap, Trophy, Shield } from 'lucide-react'
-import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { Plus, ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { DisciplineChip } from '@/components/public/discipline-chip'
+import { EmptyNotice, ErrorNotice } from '@/components/public/notices'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ROWS, ROW_LINK } from '@/components/public/rows'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 
 type Ranking = {
@@ -52,16 +57,19 @@ const EMPTY_FORM: CreateForm = {
   countBestResults: '', minTournamentsRequired: '0',
 }
 
+/** Chip de regra de contagem (4 px, docs/DESIGN.md, Chips). */
+const RULE_CHIP = 'inline-flex h-5.5 items-center gap-1 rounded-sm px-1.5 text-xs font-semibold'
+
 export function RankingsView() {
-  const [rankings, setRankings] = useState<Ranking[]>([])
+  const queryClient = useQueryClient()
+  // O tenant é definido pela API; rankings de uma federação cabem numa página.
+  const { data: rankings, isPending, isError, error } = useQuery({
+    queryKey: ['rankings', 'admin-list'],
+    queryFn: async () => (await apiFetch<Paginated<Ranking>>('/rankings?pageSize=100')).data,
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
-
-  useEffect(() => {
-    // O tenant é definido pela API; rankings de uma federação cabem numa página.
-    apiFetch<Paginated<Ranking>>('/rankings?pageSize=100').then(({ data }) => setRankings(data))
-  }, [])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -77,7 +85,7 @@ export function RankingsView() {
           minTournamentsRequired: Number(form.minTournamentsRequired),
         },
       })
-      setRankings((prev) => [...prev, newRanking])
+      queryClient.setQueryData<Ranking[]>(['rankings', 'admin-list'], (prev) => [...(prev ?? []), newRanking])
       setShowCreate(false)
       setForm(EMPTY_FORM)
     } catch (err) {
@@ -91,8 +99,8 @@ export function RankingsView() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Rankings</h2>
-          <p className="text-muted-foreground">Gerencie os rankings de cada disciplina.</p>
+          <h2 className="text-2xl">Rankings</h2>
+          <p className="text-sm text-muted-foreground">Gerencie os rankings de cada disciplina.</p>
         </div>
         <button
           type="button"
@@ -166,7 +174,7 @@ export function RankingsView() {
 
           {/* Linha 3: Regras de contagem */}
           <fieldset className="rounded-lg border border-border bg-muted/30 p-4">
-            <legend className="px-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Regras de contagem</legend>
+            <legend className="px-1 text-sm font-semibold">Regras de contagem</legend>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Melhores resultados" muted hint="Deixe em branco para contar todos os torneios.">
                 {(props) => (
@@ -220,67 +228,38 @@ export function RankingsView() {
         </form>
       )}
 
-      {/* Grid de cards */}
-      {rankings.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center text-sm text-muted-foreground">
-          Nenhum ranking criado ainda.
+      {/* Lista com divisórias (docs/DESIGN.md): nome, disciplina, ano e regras de contagem numa linha. */}
+      {isError ? (
+        <ErrorNotice>Não foi possível carregar os rankings: {error instanceof Error ? error.message : 'erro inesperado'}.</ErrorNotice>
+      ) : isPending ? (
+        <div role="status" aria-busy="true" className="space-y-2">
+          <span className="sr-only">Carregando rankings…</span>
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
         </div>
+      ) : rankings.length === 0 ? (
+        <EmptyNotice>Nenhum ranking criado ainda. Crie o primeiro em “Novo ranking”.</EmptyNotice>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <ul className={ROWS}>
           {rankings.map((r) => (
-            <Link
-              key={r.id}
-              href={`/admin/rankings/${r.id}`}
-              className="group rounded-xl border border-border bg-card hover:shadow-md transition-shadow p-5 space-y-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1 min-w-0">
-                  <p className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{r.name}</p>
-                  {r.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{r.description}</p>
-                  )}
+            <li key={r.id}>
+              <Link href={`/admin/rankings/${r.id}`} className={cn('flex min-h-14 items-center gap-3 px-4 py-2.5', ROW_LINK)}>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="break-words font-semibold leading-snug">{r.name}</p>
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span aria-hidden="true"><DisciplineChip discipline={r.discipline} /></span>
+                    <span>{disciplineLabel[r.discipline] ?? r.discipline}</span>
+                    <span className="tabular-nums">{r.year}</span>
+                    {r.autoInclude && <span className={`${RULE_CHIP} bg-secondary text-secondary-foreground`}>Inclusão automática</span>}
+                    {r.countBestResults && <span className={`${RULE_CHIP} bg-muted text-muted-foreground`}>{r.countBestResults} melhores</span>}
+                    {r.minTournamentsRequired > 0 && <span className={`${RULE_CHIP} bg-muted text-muted-foreground`}>Mín. {r.minTournamentsRequired} torneios</span>}
+                  </p>
+                  {r.description && <p className="line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 group-hover:text-primary transition-colors" aria-hidden="true" />
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
-                  DISCIPLINE_PILL[r.discipline] ?? 'bg-muted text-muted-foreground border-border'
-                }`}>
-                  {['MD','WD','XD'].includes(r.discipline)
-                    ? <Users className="w-3 h-3" />
-                    : <User className="w-3 h-3" />}
-                  {disciplineLabel[r.discipline] ?? r.discipline}
-                </span>
-
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-border text-xs text-muted-foreground">
-                  {r.year}
-                </span>
-
-                {r.autoInclude && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-success/30 bg-success/10 text-success text-xs">
-                    <Zap className="w-3 h-3" />
-                    Auto
-                  </span>
-                )}
-
-                {r.countBestResults && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs">
-                    <Trophy className="w-3 h-3" />
-                    Top {r.countBestResults}
-                  </span>
-                )}
-
-                {r.minTournamentsRequired > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground text-xs">
-                    <Shield className="w-3 h-3" />
-                    Mín. {r.minTournamentsRequired}
-                  </span>
-                )}
-              </div>
-            </Link>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )

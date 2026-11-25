@@ -227,7 +227,7 @@ export function BracketView({
         }))}
         value={activeCategoryId}
         onChange={(id) => { setActiveCategoryId(id); setGenerateError(null); setShowRedraw(false) }}
-        optionClassName="rounded-full px-4 py-1.5"
+        optionClassName="px-4"
       />
 
       {/* Publish banner + Ressortear button */}
@@ -322,7 +322,7 @@ export function BracketView({
             <button
               onClick={() => redraw()}
               disabled={isRedrawing}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent/80 disabled:opacity-50 transition-colors"
+              className="inline-flex h-(--control-h) items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-strong disabled:opacity-50"
             >
               {isRedrawing
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Ressorteando...</>

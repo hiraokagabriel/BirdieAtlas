@@ -66,8 +66,8 @@ export function TournamentStatusActions({
             disabled={pending !== null}
             className={
               action.destructive
-                ? 'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/10 disabled:opacity-50 transition-colors'
-                : 'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors'
+                ? 'inline-flex h-(--control-h) items-center gap-1.5 rounded-md bg-destructive/10 px-4 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/15 disabled:opacity-50'
+                : 'inline-flex h-(--control-h) items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-strong disabled:opacity-50'
             }
           >
             <Icon className="w-4 h-4" aria-hidden="true" />

@@ -87,7 +87,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
     <div className="space-y-6">
       <button
         onClick={() => router.push('/admin/tournaments')}
-        className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex min-h-(--control-h) items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
         Voltar para Torneios
@@ -96,8 +96,8 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-2xl font-bold tracking-tight">{tournament.name}</h2>
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${status.color}`}>{status.label}</span>
+            <h2 className="break-words text-2xl">{tournament.name}</h2>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-sm ${status.color}`}>{status.label}</span>
             <KindBadge kind={tournament.kind} />
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
@@ -114,7 +114,8 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* Celular: uma coluna com botões de largura igual; a partir de sm, uma linha à direita. */}
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end [&_button]:w-full [&_button]:justify-center sm:[&_button]:w-auto">
           <ExportCsvButton path={`/tournaments/${tournament.id}/results/export.csv`} fallbackName="resultados.csv" label="Exportar resultados" />
           <ExportCsvButton path={`/tournaments/${tournament.id}/schedule/export.csv`} fallbackName="agenda.csv" label="Exportar agenda" />
           {isCompleted && (
@@ -125,7 +126,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
             <button
               onClick={handleReopen}
               disabled={reopening}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+              className="inline-flex h-(--control-h) items-center gap-1.5 rounded-md border border-field-border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
             >
               <RotateCcw className="w-4 h-4" />
               {reopening ? 'Reabrindo...' : 'Reabrir campeonato'}
@@ -134,17 +135,19 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           {canTransitionTournament(tournament.status, 'completed') && (
             <button
               onClick={() => setFinalizeOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 transition-colors"
+              className="inline-flex h-(--control-h) items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-strong"
             >
               <Flag className="w-4 h-4" />
               Encerrar campeonato
             </button>
           )}
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-x-4">
           <Link
             href={`/t/${tournament.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+            className="flex min-h-(--control-h) items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
           >
             <ExternalLink className="w-4 h-4" />
             Página pública
@@ -154,7 +157,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
             href={`/telao/${tournament.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+            className="flex min-h-(--control-h) items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
           >
             <ExternalLink className="w-4 h-4" aria-hidden="true" />
             Telão
@@ -164,7 +167,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
             href={`/t/${tournament.slug}/sumulas`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+            className="flex min-h-(--control-h) items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
           >
             <ExternalLink className="w-4 h-4" aria-hidden="true" />
             Súmulas

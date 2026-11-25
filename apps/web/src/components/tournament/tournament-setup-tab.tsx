@@ -83,7 +83,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
 
       {/* ── Dados gerais ── */}
       <section aria-labelledby="setup-general" className="space-y-4">
-        <h3 id="setup-general" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Dados gerais</h3>
+        <h3 id="setup-general" className="text-lg">Dados gerais</h3>
         <div className="grid grid-cols-1 gap-3">
           <Field
             label="Tipo"
@@ -152,7 +152,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
 
       {/* ── Categorias ── */}
       <section aria-labelledby="setup-categories" className="space-y-4">
-        <h3 id="setup-categories" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Categorias</h3>
+        <h3 id="setup-categories" className="text-lg">Categorias</h3>
 
         {categories.length > 0 && (
           <ul className="rounded-xl border border-border overflow-hidden">
@@ -218,7 +218,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
 
       {/* ── Pontuação ── */}
       <section aria-labelledby="setup-points" className="space-y-3">
-        <h3 id="setup-points" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pontuação de ranking</h3>
+        <h3 id="setup-points" className="text-lg">Pontuação de ranking</h3>
         <p className="text-sm text-muted-foreground">
           Quantos pontos cada colocação vale é definido por ranking, no nível do torneio (<span className="font-medium text-foreground">{LEVEL_LABELS[tournament.level]}</span>).
           Configure em <Link href="/admin/rankings" className="font-medium text-primary underline underline-offset-2">Rankings</Link>, aba Regras de pontos.

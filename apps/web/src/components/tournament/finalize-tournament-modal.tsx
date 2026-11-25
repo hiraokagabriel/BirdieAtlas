@@ -167,7 +167,7 @@ export function FinalizeTournamentModal({ tournamentId, tournamentName, open, on
                     <Trophy className="size-4 text-warning" aria-hidden="true" />
                     <h3 className="text-sm font-semibold">{cat.categoryName}</h3>
                   </div>
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                  <span className="rounded-sm bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
                     {DISCIPLINE_LABEL[cat.discipline] ?? cat.discipline}
                   </span>
                 </div>

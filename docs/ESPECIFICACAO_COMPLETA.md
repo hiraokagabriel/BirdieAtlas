@@ -68,10 +68,10 @@ Admin, sob `/admin`, identificando registros por `id`:
 | `/admin` | Dashboard com dados reais da API: "Quadras" do torneio em andamento (quem joga em cada uma, placar, e nas livres a próxima da fila com "Chamar partida", que abre `/admin/live` naquele torneio e quadra; seletor quando há mais de um torneio), "Precisa de você" (até 6 pendências de `/dashboard/attention`, cada uma com a ação que leva ao torneio), faixa de números (atletas, clubes, disciplinas em jogo, partidas encerradas), ranking de pontos, próximas partidas em linhas de partida e resultados recentes, cada bloco com carregando, vazio e erro |
 | `/admin/athletes` | Atletas, cadastro e importação |
 | `/admin/pairs` | Duplas |
-| `/admin/clubs`, `/admin/clubs/[clubId]` | Clubes |
-| `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios; o detalhe tem as abas Inscrições, Chaveamento, Agenda e Configurações |
+| `/admin/clubs`, `/admin/clubs/[clubId]` | Clubes (lista com divisórias: escudo, nome e cidade) |
+| `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios (lista com divisórias: nome, status, nível, tipo, datas e local); o detalhe tem as abas Inscrições, Chaveamento, Agenda e Configurações |
 | `/admin/live` | Placar ao vivo: tela do operador de quadra (celular e tablet) |
-| `/admin/rankings`, `/admin/rankings/[rankingId]` | Rankings e regras de pontos |
+| `/admin/rankings`, `/admin/rankings/[rankingId]` | Rankings (lista com divisórias: nome, sigla e disciplina, ano e regras de contagem) e regras de pontos |
 
 Público, identificando por slug:
 

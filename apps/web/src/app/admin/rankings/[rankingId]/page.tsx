@@ -18,6 +18,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { PlacementBadge } from '@/components/public/placement-badge'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
 type Ranking = {
@@ -64,19 +65,11 @@ const statusLabel: Record<string, string> = {
   in_progress: 'Em andamento', completed: 'Encerrado', cancelled: 'Cancelado',
 }
 
-const placementLabel = (p: number) => {
-  if (p === 1) return '🥇 1º'
-  if (p === 2) return '🥈 2º'
-  if (p === 3) return '🥉 3º'
-  return `${p}º`
-}
+const placementLabel = (p: number) => `${p}º`
 const placementText = (p: number) => `${p}º lugar`
 
 function PositionBadge({ pos }: { pos: number }) {
-  if (pos === 1) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
-  if (pos === 2) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
-  if (pos === 3) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-bronze text-medal-bronze-foreground font-bold text-sm">🥉</span>
-  return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
+  return <PlacementBadge placement={pos} className="size-8 text-sm" />
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +98,7 @@ function ResultsDetail({
         <table className="w-full text-sm">
           <caption className="sr-only">Resultados de {athleteName} por torneio</caption>
           <thead>
-            <tr className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <tr className="border-b border-border bg-muted/50 text-[0.8125rem] font-semibold text-muted-foreground ">
               <th scope="col" className="px-3 py-2 text-left">Torneio</th>
               <th scope="col" className="px-3 py-2 text-center">Colocação</th>
               <th scope="col" className="px-3 py-2 text-right">Pontos</th>
@@ -169,7 +162,6 @@ function EntryRow({
 }) {
   const [open, setOpen] = useState(false)
   const hasDetails = entry.resultsDetail && entry.resultsDetail.length > 0
-  const isTop3 = entry.position <= 3
   const detailId = `ranking-entry-${entry.id}-details`
   const names = isDoubles
     ? `${entry.athlete?.name ?? '—'} e ${entry.athlete2?.name ?? '—'}`
@@ -178,14 +170,13 @@ function EntryRow({
   return (
     <Fragment>
       <tr
-        className={`border-b border-border/50 last:border-0 ${isTop3 ? 'bg-medal-gold/10' : ''} ${
+        className={`border-b border-border/50 last:border-0 ${
           hasDetails ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''
         }`}
         onClick={() => hasDetails && setOpen((v) => !v)}
       >
         <td className="px-5 py-3.5 w-12">
-          <PositionBadge pos={entry.position} />
-          <span className="sr-only">{entry.position}º</span>
+          <PositionBadge pos={entry.position} />
         </td>
 
         <td className="px-2 py-3.5 min-w-0">
@@ -237,7 +228,7 @@ function EntryRow({
         </td>
 
         <td className="px-2 py-3.5 text-right">
-          <span className={`font-semibold tabular-nums ${isTop3 ? 'text-warning text-base' : 'text-sm'}`}>
+          <span className="font-heading text-lg font-bold tabular-nums">
             {entry.totalPoints.toLocaleString('pt-BR')}
           </span>
         </td>
@@ -448,7 +439,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
             </Field>
 
             <fieldset className="rounded-lg border border-border bg-muted/30 p-4">
-              <legend className="px-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Regras de contagem</legend>
+              <legend className="px-1 text-[0.8125rem] font-semibold text-muted-foreground ">Regras de contagem</legend>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Melhores resultados" muted hint="Vazio = conta todos.">
                   {(props) => (
@@ -503,7 +494,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
       <button
         type="button"
         onClick={() => router.push('/admin/rankings')}
-        className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex min-h-(--control-h) items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="w-4 h-4" aria-hidden="true" />
         Voltar para Rankings
@@ -514,26 +505,26 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
         <div className="space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight">{ranking.name}</h2>
-            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium ${
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm border text-xs font-medium ${
               DISCIPLINE_PILL[ranking.discipline] ?? ''
             }`}>
               {isDoubles ? <Users className="w-3 h-3" aria-hidden="true" /> : <User className="w-3 h-3" aria-hidden="true" />}
               {disciplineLabel[ranking.discipline] ?? ranking.discipline}
             </span>
             {ranking.autoInclude && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-success/30 bg-success/10 text-success text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-sm border border-success/30 bg-success/10 text-success text-xs">
                 <Zap className="w-3 h-3" aria-hidden="true" />
                 Inclusão automática
               </span>
             )}
             {ranking.countBestResults && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-sm border border-border bg-muted text-muted-foreground text-xs">
                 <Trophy className="w-3 h-3" aria-hidden="true" />
                 Top {ranking.countBestResults} torneios
               </span>
             )}
             {ranking.minTournamentsRequired > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-sm border border-border bg-muted text-muted-foreground text-xs">
                 <Shield className="w-3 h-3" aria-hidden="true" />
                 Mín. {ranking.minTournamentsRequired} torneios
               </span>
@@ -618,7 +609,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                 <table className="w-full text-sm">
                   <caption className="sr-only">Classificação de {ranking.name}</caption>
                   <thead>
-                    <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-border bg-muted/40 text-[0.8125rem] font-semibold text-muted-foreground ">
                       <th scope="col" className="px-5 py-3 text-left">Posição</th>
                       <th scope="col" className="px-2 py-3 text-left">{isDoubles ? 'Dupla' : 'Atleta'}</th>
                       <th scope="col" className="px-2 py-3 text-right">Pontos</th>
