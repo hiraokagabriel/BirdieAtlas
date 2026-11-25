@@ -149,7 +149,7 @@ export async function reportsRoutes(app: FastifyInstance) {
   // Admin (ADMIN_ONLY_READS): cadastro de atletas. Sem ano de nascimento.
   app.get('/athletes/export.csv', async (_request, reply) => {
     const list = await db.select({ id: athletes.id, name: athletes.name, gender: athletes.gender, active: athletes.active })
-      .from(athletes).where(isNull(athletes.deletedAt)).orderBy(asc(athletes.name), asc(athletes.id))
+      .from(athletes).where(and(isNull(athletes.deletedAt), eq(athletes.guest, false))).orderBy(asc(athletes.name), asc(athletes.id))
     const clubs = await currentClubNames(list.map((a) => a.id))
     const csv = buildCsv(
       ['Atleta', 'Gênero', 'Clube', 'Situação'],

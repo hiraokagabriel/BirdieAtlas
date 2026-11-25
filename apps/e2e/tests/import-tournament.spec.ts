@@ -27,10 +27,11 @@ interface Report {
 
 const tournament = (name: string, extra: Record<string, string> = {}) => ({ name, startDate: '15/11/2099', endDate: '17/11/2099', ...extra })
 
-function payload(tag: string, dryRun: boolean) {
+// Oficial: cria atletas cadastrados e clube. No amistoso, os nomes viram avulsos sem clube (friendly-guests.spec).
+function payload(tag: string, dryRun: boolean, kind = 'Oficial') {
   return {
     dryRun,
-    tournament: tournament(`Importado ${tag}`, { kind: 'Amistoso', city: 'Campinas', state: 'sp' }),
+    tournament: tournament(`Importado ${tag}`, { kind, city: 'Campinas', state: 'sp' }),
     categories: [
       { row: 2, name: 'Simples A', discipline: 'Simples Masculino', drawType: 'Suíço', maxEntries: '8' },
       { row: 3, name: 'Duplas F', discipline: 'Duplas Femininas', drawType: 'Grupos + eliminatória' },
@@ -55,19 +56,19 @@ test.describe('importar torneio (API)', () => {
       athletes: { created: 4, existing: 0 },
       clubs: { created: 1 },
       pairs: { created: 1, existing: 0 },
-      tournament: { kind: 'friendly', slug: `importado-${tag}` },
+      tournament: { kind: 'official', slug: `importado-${tag}` },
     })
     expect((await apiCall('GET', `/tournaments/by-slug/importado-${tag}`)).status).toBe(404)
   })
 
-  test('importar cria torneio amistoso, categorias, atletas, clube, dupla e inscrições', async () => {
+  test('importar cria torneio oficial, categorias, atletas, clube, dupla e inscrições', async () => {
     const tag = uniqueTag()
     const res = await apiCall<Report>('POST', '/import/tournament', payload(tag, false))
     expect(res.status).toBe(201)
     const id = res.body.tournamentId!
 
     const t = await api.get<{ kind: string; status: string; state: string; city: string }>(`/tournaments/${id}`)
-    expect(t).toMatchObject({ kind: 'friendly', status: 'draft', state: 'SP', city: 'Campinas' })
+    expect(t).toMatchObject({ kind: 'official', status: 'draft', state: 'SP', city: 'Campinas' })
 
     const categories = await api.get<{ name: string; discipline: string; drawType: string; maxEntries: number | null }[]>(`/tournaments/${id}/categories`)
     expect(categories.map((c) => [c.name, c.discipline, c.drawType, c.maxEntries]).sort()).toEqual([

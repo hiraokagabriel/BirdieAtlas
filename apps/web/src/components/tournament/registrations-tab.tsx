@@ -13,6 +13,8 @@ import { ErrorNotice } from '@/components/public/notices'
 import { ChoiceGroup } from '@/components/ui/choice-group'
 import { EditRegistrationForm } from '@/components/tournament/edit-registration-form'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
+import { GuestListForm } from '@/components/tournament/guest-list-form'
+import { ClipboardList } from 'lucide-react'
 
 type Category = {
   id: string
@@ -53,9 +55,11 @@ interface Props {
   tournamentId: string
   tournamentStatus: TournamentStatus
   categories: Category[]
+  /** Amistoso: oferece "Colar lista" de jogadores avulsos (sem cadastro). */
+  friendly?: boolean
 }
 
-export function RegistrationsTab({ tournamentId, tournamentStatus, categories }: Props) {
+export function RegistrationsTab({ tournamentId, tournamentStatus, categories, friendly = false }: Props) {
   // Encerrado ou cancelado: a API recusa qualquer alteração, então a tela nem oferece
   const locked = tournamentStatus === 'completed' || tournamentStatus === 'cancelled'
   const queryClient = useQueryClient()
@@ -63,6 +67,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
   // As categorias chegam depois da primeira renderização: sem escolha explícita, usa a primeira
   const activeCategoryId = selectedCategoryId || categories[0]?.id || ''
   const [showForm, setShowForm] = useState(false)
+  const [showGuests, setShowGuests] = useState(false)
   const [athlete1, setAthlete1] = useState<AthleteOption | null>(null)
   const [athlete2Id, setAthlete2Id] = useState('')
   const [search, setSearch] = useState('')
@@ -217,7 +222,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
           activeClassName: DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground',
         }))}
         value={activeCategoryId}
-        onChange={(id) => { setActiveCategoryId(id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
+        onChange={(id) => { setActiveCategoryId(id); setShowForm(false); setShowGuests(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
         optionClassName="px-3 text-xs font-semibold"
       />
 
@@ -235,18 +240,35 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
           {locked ? (
             <span className="self-center text-xs text-muted-foreground">Torneio encerrado: inscrições bloqueadas</span>
           ) : (
+            <>
+            {friendly && (
+              <button
+                type="button"
+                aria-expanded={showGuests}
+                onClick={() => { setShowGuests((v) => !v); setShowForm(false) }}
+                className="inline-flex min-h-(--control-h) items-center gap-1.5 rounded-md border border-field-border bg-card px-3 text-xs font-semibold transition-colors hover:bg-muted"
+              >
+                <ClipboardList className="size-3.5" aria-hidden="true" />
+                Colar lista
+              </button>
+            )}
             <button
               type="button"
               aria-expanded={showForm}
-              onClick={() => { setShowForm((v) => !v); setError(null) }}
+              onClick={() => { setShowForm((v) => !v); setShowGuests(false); setError(null) }}
               className="inline-flex min-h-(--control-h) items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
               Inscrever
             </button>
+            </>
           )}
           </div>
         </div>
+
+        {showGuests && !locked && activeCategory && (
+          <GuestListForm categoryId={activeCategory.id} discipline={activeCategory.discipline} onDone={() => setShowGuests(false)} />
+        )}
 
         {/* Formulário inline */}
         {showForm && !locked && (

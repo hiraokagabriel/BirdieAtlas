@@ -111,6 +111,9 @@ export const athletes = pgTable('athletes', {
   nationality: text('nationality').notNull().default('BR'),
   photoUrl: text('photo_url'),
   active: boolean('active').notNull().default(true),
+  // Avulso: criado só com o nome para um torneio amistoso (sem cadastro completo). Fica fora da lista de
+  // Atletas do admin; o mesmo avulso é reaproveitado pelo nome em outras categorias e amistosos.
+  guest: boolean('guest').notNull().default(false),
   ...softDelete,
   ...timestamps,
 })

@@ -41,6 +41,8 @@ export async function athletesRoutes(app: FastifyInstance) {
     const tenantId = await getDefaultTenantId()
     const where = and(
       isNull(athletes.deletedAt),
+      // Avulsos (de amistoso) ficam fora da lista de Atletas: não são filiados nem têm cadastro completo.
+      eq(athletes.guest, false),
       query.search ? ilike(athletes.name, `%${query.search}%`) : undefined,
       query.gender ? eq(athletes.gender, query.gender) : undefined,
     )
