@@ -17,7 +17,7 @@ import { formatDateRange } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/public/status-badge'
-import { ROWS } from '@/components/public/rows'
+import { INLINE_LINK, ROWS } from '@/components/public/rows'
 import { BackLink } from '@/components/public/back-link'
 import { PlayerSearch } from '@/components/public/player-search'
 import { PrintButton } from '@/components/shared/print-button'
@@ -103,7 +103,7 @@ function NotFound() {
 // ---------------------------------------------------------------------------
 // Lista de Inscritos por categoria
 // ---------------------------------------------------------------------------
-function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDoubles: boolean }) {
+function RegistrationsList({ categoryId, isDoubles, slug }: { categoryId: string; isDoubles: boolean; slug: string }) {
   const [regs, setRegs]       = useState<Registration[] | null>(null)
   const [error, setError]     = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -138,15 +138,21 @@ function RegistrationsList({ categoryId, isDoubles }: { categoryId: string; isDo
   const confirmed = regs.filter((r) => r.status === 'approved')
   const pending   = regs.filter((r) => r.status === 'pending')
 
+  // Inscrito aprovado leva às partidas dele no torneio; pendente ainda não está na chave.
+  const playerLink = (athleteId: string | null, name: string | null, status: string) =>
+    athleteId && name && status === 'approved'
+      // Cor de link e alvo de 44 px (o toque no celular não tem hover).
+      ? <Link href={`/t/${slug}/jogador/${athleteId}`} className={`inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline ${INLINE_LINK}`}>{name}</Link>
+      : (name ?? '—')
+
   const renderRow = (r: Registration) => (
     <li key={r.id} className="flex min-h-14 items-center gap-3 px-4 py-2">
       {isDoubles
         ? <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         : <User  className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
       <span className="min-w-0 flex-1 break-words font-medium">
-        {isDoubles
-          ? `${r.athleteName ?? '—'} & ${r.athlete2Name ?? '—'}`
-          : (r.athleteName ?? '—')}
+        {playerLink(r.athleteId, r.athleteName, r.status)}
+        {isDoubles && <> & {playerLink(r.athlete2Id, r.athlete2Name, r.status)}</>}
       </span>
       {r.seed != null && (
         <span className="inline-flex h-5.5 items-center rounded-sm bg-muted px-1.5 text-xs font-semibold tabular-nums text-muted-foreground">
@@ -433,7 +439,7 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
               </span>
             )}
           </div>
-          <RegistrationsList categoryId={activeCategory.id} isDoubles={isDoublesDiscipline(activeCategory.discipline)} />
+          <RegistrationsList categoryId={activeCategory.id} isDoubles={isDoublesDiscipline(activeCategory.discipline)} slug={tournament.slug} />
         </div>
       )}
       </TabsContent>

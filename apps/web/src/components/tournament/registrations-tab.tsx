@@ -6,7 +6,7 @@ import type { Paginated } from '@birdie-atlas/types'
 import type { RegistrationResponse, RegistrationStatus, TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
 import { ATHLETE_SEARCH_LIMIT, athleteOptionLabel, useAthleteSearch, type AthleteOption } from '@/hooks/use-athlete-search'
-import { UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw, Pencil, UserCheck } from 'lucide-react'
+import { CalendarClock, UserPlus, Trash2, Trophy, Users, User, Check, X, RotateCcw, Pencil, UserCheck } from 'lucide-react'
 import { DISCIPLINE_PILL } from '@/lib/discipline'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ErrorNotice } from '@/components/public/notices'
@@ -58,9 +58,11 @@ interface Props {
   categories: Category[]
   /** Amistoso: oferece "Colar lista" de jogadores avulsos (sem cadastro). */
   friendly?: boolean
+  /** Endereço público do torneio, para "Ver partidas" do inscrito. */
+  slug: string
 }
 
-export function RegistrationsTab({ tournamentId, tournamentStatus, categories, friendly = false }: Props) {
+export function RegistrationsTab({ tournamentId, tournamentStatus, categories, friendly = false, slug }: Props) {
   // Encerrado ou cancelado: a API recusa qualquer alteração, então a tela nem oferece
   const locked = tournamentStatus === 'completed' || tournamentStatus === 'cancelled'
   const queryClient = useQueryClient()
@@ -420,6 +422,20 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
                     </div>
 
                     <span className={`text-xs px-2 py-0.5 rounded-sm shrink-0 ${badge.className}`}>{badge.label}</span>
+
+                    {reg.status === 'approved' && reg.athleteId && (
+                      // Página pública das partidas (a dupla tem as mesmas partidas nas páginas dos dois).
+                      <a
+                        href={`/t/${slug}/jogador/${reg.athleteId}`}
+                        target="_blank"
+                        rel="noopener"
+                        className={`${iconBtn} hover:bg-muted hover:text-foreground`}
+                        title="Ver partidas"
+                        aria-label={`Ver partidas de ${reg.athleteName ?? reg.athleteId}${reg.athlete2Name ? ` / ${reg.athlete2Name}` : ''} (abre em nova aba)`}
+                      >
+                        <CalendarClock className="w-3.5 h-3.5" aria-hidden="true" />
+                      </a>
+                    )}
 
                     {reg.status === 'approved' && (locked ? (
                       reg.checkedInAt && <span className="text-xs px-2 py-0.5 rounded-sm shrink-0 bg-success/10 text-success">Presente</span>

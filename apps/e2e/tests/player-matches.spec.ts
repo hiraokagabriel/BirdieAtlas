@@ -76,3 +76,40 @@ test('partida ao vivo mostra o placar corrente do ponto de vista do jogador', as
   const next = page.getByRole('region', { name: 'Jogando agora' })
   await expect(next).toContainText('2-1')
 })
+
+test('a página do jogador abre pelos Inscritos, pelo perfil do atleta e pelo admin', async ({ page }) => {
+  const tag = uniqueTag()
+  const tournament = await createTournament({ name: `Amistoso Links ${tag}`, kind: 'friendly', status: 'registration_open' })
+  const category = await createCategory(tournament.id, { name: 'Simples Masculino', discipline: 'MS' })
+  const name = `Davi Links ${tag}`
+  await api.post(`/tournaments/categories/${category.id}/guests`, { text: [name, `Edu Links ${tag}`].join('\n') })
+  const regs = (await api.get<{ data: Reg[] }>(`/registrations/tournament/${tournament.id}?pageSize=100`)).data
+  const athleteId = regs.find((r) => r.athleteName === name)!.athleteId!
+  // Inscrições abertas: o torneio ainda não aparece no perfil.
+  expect((await api.get<{ data: unknown[] }>(`/athletes/${athleteId}/upcoming-matches`)).data).toEqual([])
+  await transition(tournament.id, 'registration_closed')
+  await publishDraw((await generateDraw(category.id)).id)
+  const playerUrl = new RegExp(`/t/${tournament.slug}/jogador/${athleteId}$`)
+
+  // API do perfil: a próxima partida neste torneio.
+  const upcoming = await api.get<{ data: { tournament: { slug: string }; next: { kind: string; opponent: string | null } }[] }>(`/athletes/${athleteId}/upcoming-matches`)
+  expect(upcoming.data).toEqual([expect.objectContaining({ tournament: expect.objectContaining({ slug: tournament.slug }), next: expect.objectContaining({ kind: 'upcoming', opponent: `Edu Links ${tag}` }) })])
+
+  // Torneio › Inscritos: o nome é link.
+  await page.goto(`/t/${tournament.slug}`)
+  await page.getByRole('tab', { name: 'Inscritos' }).click()
+  await page.getByRole('link', { name, exact: true }).click()
+  await expect(page).toHaveURL(playerUrl)
+
+  // Perfil público: bloco Próximas partidas.
+  await page.goto(`/a/${athleteId}`)
+  const section = page.getByRole('region', { name: 'Próximas partidas' })
+  await expect(section).toContainText(`Edu Links ${tag}`)
+  await section.getByRole('link', { name: new RegExp(`Amistoso Links ${tag}`) }).click()
+  await expect(page).toHaveURL(playerUrl)
+
+  // Admin › Inscrições: "Ver partidas" aponta para a mesma página.
+  await page.goto(`/admin/tournaments/${tournament.id}`)
+  await page.getByRole('tab', { name: /Inscrições/ }).click()
+  await expect(page.getByRole('link', { name: `Ver partidas de ${name} (abre em nova aba)` })).toHaveAttribute('href', `/t/${tournament.slug}/jogador/${athleteId}`)
+})
