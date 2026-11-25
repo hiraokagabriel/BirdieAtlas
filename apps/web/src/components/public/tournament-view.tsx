@@ -11,13 +11,14 @@ import { ErrorNotice, EmptyNotice } from '@/components/public/notices'
 import { ScheduleView } from '@/components/bracket/schedule-view'
 import { LiveNow } from '@/components/live/live-now'
 import { useLiveMatches } from '@/components/live/use-live-matches'
-import { Calendar, CheckCircle2, ChevronLeft, Clock, Lock, MapPin, Users, User } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Lock, MapPin, Users, User } from 'lucide-react'
 import { DISCIPLINE_PILL, disciplineShort } from '@/lib/discipline'
 import { formatDateRange } from '@/lib/format'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/public/status-badge'
 import { ROWS } from '@/components/public/rows'
+import { BackLink } from '@/components/public/back-link'
 import { PrintButton } from '@/components/shared/print-button'
 import { ShareControl } from '@/components/shared/share-control'
 import { shareImageFilename, shareImagePath } from '@/lib/share'
@@ -61,16 +62,6 @@ type Registration = {
 type MatchResult = { matchId: string; setNumber: number; score1: number; score2: number }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-
-/** Volta para a home: enquanto não houver a lista de torneios, o nível pai é o Início (docs/DESIGN.md, Voltar). */
-function BackLink() {
-  return (
-    <Link href="/" className="-ml-2 inline-flex h-11 items-center gap-1 rounded-md px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
-      <ChevronLeft className="size-4" aria-hidden="true" />
-      Início
-    </Link>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Skeleton

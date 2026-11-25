@@ -138,12 +138,12 @@ test.describe('home', () => {
     const count = await tabs.count()
     expect(count).toBeGreaterThan(1)
 
-    // Só a aba selecionada entra na ordem de Tab (roving tabindex).
+    // Só a aba selecionada entra na ordem de Tab (roving tabindex do Radix, ativo depois do primeiro foco).
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
+    await tabs.first().focus()
     await expect(tabs.first()).toHaveAttribute('tabindex', '0')
     await expect(tabs.nth(1)).toHaveAttribute('tabindex', '-1')
 
-    await tabs.first().focus()
     await page.keyboard.press('ArrowRight')
     await expect(tabs.nth(1)).toBeFocused()
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
@@ -342,7 +342,7 @@ test.describe('ranking público', () => {
   test('lista a classificação e oferece o CSV pela API', async ({ page, request }) => {
     await page.goto(`/r/${TENANT_SLUG}`)
     await expect(page.getByRole('heading', { level: 1, name: 'Ranking' })).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Simples Masc.' }).first()).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Simples masculino' }).first()).toBeVisible()
 
     const row = page.getByRole('link', { name: champion.name })
     await expect(row).toBeVisible()

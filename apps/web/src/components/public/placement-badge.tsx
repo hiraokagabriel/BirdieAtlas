@@ -19,7 +19,7 @@ export function PlacementBadge({ placement, className }: PlacementBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex size-9 shrink-0 items-center justify-center rounded-full font-heading text-base font-bold tabular-nums',
+        'inline-flex size-9 shrink-0 items-center justify-center rounded-sm font-heading text-base font-bold tabular-nums',
         medal ?? 'bg-muted text-muted-foreground',
         className,
       )}

@@ -26,6 +26,8 @@ interface ChoiceGroupProps<T extends string> {
   className?: string
   /** Classes de cada opção (tamanho, raio, tipografia). */
   optionClassName?: string
+  /** Uma linha só, com rolagem horizontal, em vez de quebrar em várias linhas (listas longas no celular). */
+  scroll?: boolean
 }
 
 const IDLE = 'border-border bg-background text-foreground hover:bg-muted'
@@ -45,12 +47,13 @@ export function ChoiceGroup<T extends string>({
   disabled,
   className,
   optionClassName,
+  scroll,
 }: ChoiceGroupProps<T>) {
   const name = useId()
   return (
     <fieldset className={cn('min-w-0', className)} disabled={disabled}>
       <legend className={cn('mb-1 text-xs font-medium', hideLegend && 'sr-only')}>{legend}</legend>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={cn('flex items-center gap-2', scroll ? 'relative -m-1 overflow-x-auto p-1 [&>label]:shrink-0' : 'flex-wrap')}>
         {options.map((option) => {
           const checked = option.value === value
           return (

@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
-import { Trophy, ChevronLeft, ChevronRight, Users, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
+import { disciplineLabel } from '@/lib/labels'
+import { BackLink } from '@/components/public/back-link'
+import { EmptyNotice, ErrorNotice } from '@/components/public/notices'
+import { PlacementBadge } from '@/components/public/placement-badge'
 import { PrintButton } from '@/components/shared/print-button'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { ShareControl } from '@/components/shared/share-control'
@@ -28,44 +31,42 @@ type Entry = {
 }
 type RankingResponse = Paginated<Entry> & { ranking: Ranking }
 
-const disciplineLabel: Record<string, string> = {
-  MS: 'Simples Masc.', WS: 'Simples Fem.',
-  MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Duplas Misto',
-}
-function PositionBadge({ pos }: { pos: number }) {
-  if (pos === 1) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-gold text-medal-gold-foreground font-bold text-sm">🥇</span>
-  if (pos === 2) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-silver text-medal-silver-foreground font-bold text-sm">🥈</span>
-  if (pos === 3) return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-medal-bronze text-medal-bronze-foreground font-bold text-sm">🥉</span>
-  return <span aria-hidden="true" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-semibold text-sm">{pos}</span>
-}
-
 export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: RankingShare }) {
-  const [rankings, setRankings] = useState<Ranking[]>([])
+  // null enquanto a lista de rankings não chegou (esqueleto, não "nenhum ranking").
+  const [rankings, setRankings] = useState<Ranking[] | null>(null)
   const [activeRankingId, setActiveRankingId] = useState('')
   const [data, setData] = useState<RankingResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const PER_PAGE = 25
 
   useEffect(() => {
-    apiFetch<Paginated<Ranking>>(`/rankings?tenantSlug=${encodeURIComponent(tenantSlug)}&pageSize=100`).then(({ data: list }) => {
-      setRankings(list)
-      if (list.length) setActiveRankingId(list[0].id)
-    })
+    apiFetch<Paginated<Ranking>>(`/rankings?tenantSlug=${encodeURIComponent(tenantSlug)}&pageSize=100`)
+      .then(({ data: list }) => {
+        setRankings(list)
+        if (list.length) setActiveRankingId(list[0].id)
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Erro inesperado.'))
   }, [tenantSlug])
 
   useEffect(() => {
     if (!activeRankingId) return
+    let cancelled = false
     setLoading(true)
+    setError(null)
     apiFetch<RankingResponse>(`/rankings/${activeRankingId}/entries?page=${page}&pageSize=${PER_PAGE}`)
-      .then(setData).finally(() => setLoading(false))
+      .then((res) => { if (!cancelled) setData(res) })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Erro inesperado.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [activeRankingId, page])
 
   function selectRanking(id: string) {
     setActiveRankingId(id)
     setPage(1)
   }
-  const activeRanking = rankings.find((r) => r.id === activeRankingId)
+  const activeRanking = rankings?.find((r) => r.id === activeRankingId)
   const isDoubles = activeRanking ? ['MD', 'WD', 'XD'].includes(activeRanking.discipline) : false
   const pagination = data?.pagination
 
@@ -73,21 +74,18 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
 
   return (
     <div className="print-ranking-page space-y-8">
-      {/* Hero */}
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8 space-y-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <Trophy className="w-6 h-6 text-warning" aria-hidden="true" />
-            <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">Classificação oficial dos atletas filiados à federação</p>
+      <header className="space-y-3">
+        <BackLink />
+        <div className="space-y-1">
+          <h1 className="font-heading text-3xl font-bold leading-tight md:text-4xl">Ranking</h1>
+          <p className="text-muted-foreground">Classificação oficial dos atletas filiados à federação.</p>
         </div>
         {activeRanking && (
           <p className="hidden font-heading text-xl font-semibold print:block">
-            {rankingTitle} · {disciplineLabel[activeRanking.discipline] ?? activeRanking.discipline}
+            {rankingTitle} · {disciplineLabel(activeRanking.discipline)}
           </p>
         )}
-        <div className="flex flex-wrap items-start gap-x-6 gap-y-2 print:hidden">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 print:hidden">
           <ShareControl
             title={activeRanking ? `${truncateText(rankingTitle, 80)} · BirdieAtlas` : share.title}
             text={activeRanking ? buildShareText({ kind: 'ranking', name: rankingTitle }) : share.text}
@@ -104,32 +102,41 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
             <ExportCsvButton path={`/rankings/${activeRankingId}/entries/export.csv`} fallbackName="ranking.csv" className="print:hidden" />
           ) : null}
         </div>
-      </div>
+      </header>
 
       {/* Seletor */}
       <ChoiceGroup
         legend="Ranking"
         hideLegend
         className="print:hidden"
-        options={rankings.map((r) => ({
+        scroll
+        options={(rankings ?? []).map((r) => ({
           value: r.id,
-          label: disciplineLabel[r.discipline] ?? r.discipline,
-          className: DISCIPLINE_PILL[r.discipline] ?? 'bg-muted text-muted-foreground border-border',
-          activeClassName: DISCIPLINE_PILL_ACTIVE[r.discipline] ?? 'bg-primary text-primary-foreground border-primary',
+          label: `${disciplineLabel(r.discipline)} ${r.year}`,
+          className: 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
         }))}
         value={activeRankingId}
         onChange={selectRanking}
-        optionClassName="rounded-full px-4 py-1.5"
+        optionClassName="px-4 font-semibold"
       />
 
       {/* Tabela */}
-      <div data-print-table="" aria-busy={loading} className="rounded-xl border border-border bg-card overflow-hidden">
-        {loading ? (
+      {error ? (
+        <ErrorNotice>Não foi possível carregar o ranking: {error}</ErrorNotice>
+      ) : rankings !== null && !loading && !data?.data.length ? (
+        <EmptyNotice>
+          {rankings.length === 0
+            ? 'Nenhum ranking publicado ainda. A classificação aparece aqui quando a federação publicar.'
+            : 'Este ranking ainda não tem atletas classificados. Os pontos aparecem depois do primeiro torneio encerrado.'}
+        </EmptyNotice>
+      ) : (
+      <div data-print-table="" aria-busy={loading} className="overflow-hidden rounded-lg border border-border bg-card">
+        {rankings === null || loading || !data ? (
           <div role="status" className="space-y-0">
             <span className="sr-only">Carregando classificação…</span>
             {Array.from({ length: PER_PAGE }).map((_, i) => (
-              <div key={i} aria-hidden="true" className="grid grid-cols-[3rem_1fr_auto] gap-4 px-5 py-3.5 border-b border-border/50 motion-safe:animate-pulse">
-                <div className="w-8 h-8 rounded-full bg-muted" />
+              <div key={i} aria-hidden="true" className="grid grid-cols-[3rem_1fr_auto] gap-4 border-b border-border/50 px-5 py-3.5 motion-safe:animate-pulse">
+                <div className="size-8 rounded-md bg-muted" />
                 <div className="space-y-1.5">
                   <div className="h-3.5 w-40 bg-muted rounded" />
                   {isDoubles && <div className="h-3 w-32 bg-muted rounded" />}
@@ -137,10 +144,6 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
                 <div className="h-4 w-16 bg-muted rounded self-center" />
               </div>
             ))}
-          </div>
-        ) : !data?.data.length ? (
-          <div className="p-12 text-center text-muted-foreground">
-            <p className="font-medium">Nenhuma entrada encontrada</p>
           </div>
         ) : (
           <div tabIndex={0} role="region" aria-label="Classificação" className="overflow-x-auto print:overflow-visible">
@@ -155,52 +158,32 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
               </thead>
               <tbody>
                 {data.data.map((entry) => {
-                  const isTop3 = entry.position <= 3
                   return (
-                    <tr key={entry.id} data-print-row=""
-                      className={`border-b border-border/50 last:border-0 ${isTop3 ? 'bg-medal-gold/10' : ''}`}
-                    >
-                      <td className="px-5 py-3.5">
-                        <PositionBadge pos={entry.position} />
-                        <span className="sr-only">{entry.position}º</span>
+                    <tr key={entry.id} data-print-row="" className="border-b border-border last:border-0">
+                      <td className="px-5 py-1.5">
+                        <PlacementBadge placement={entry.position} className="size-8 text-sm" />
                       </td>
 
-                      <td className="min-w-0 px-2 py-3.5">
-                        {isDoubles ? (
-                          <div className="flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
-                            <span className="font-medium text-sm">
-                              <Link href={`/a/${entry.athleteId}`} className="inline-flex min-h-6 items-center hover:underline hover:text-foreground transition-colors">
-                                {entry.athlete?.name ?? '—'}
+                      <td className="min-w-0 px-2 py-1.5 font-medium">
+                        <Link href={`/a/${entry.athleteId}`} className="inline-flex min-h-11 items-center rounded-sm hover:underline">
+                          {entry.athlete?.name ?? '—'}
+                        </Link>
+                        {isDoubles && (
+                          <>
+                            {' / '}
+                            {entry.athlete2Id ? (
+                              <Link href={`/a/${entry.athlete2Id}`} className="inline-flex min-h-11 items-center rounded-sm hover:underline">
+                                {entry.athlete2?.name ?? '—'}
                               </Link>
-                              {' & '}
-                              {entry.athlete2Id ? (
-                                <Link href={`/a/${entry.athlete2Id}`} className="inline-flex min-h-6 items-center hover:underline hover:text-foreground transition-colors">
-                                  {entry.athlete2?.name ?? '—'}
-                                </Link>
-                              ) : (
-                                <span>{entry.athlete2?.name ?? '—'}</span>
-                              )}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
-                            <Link href={`/a/${entry.athleteId}`}
-                              className="inline-flex min-h-6 items-center font-medium text-sm hover:underline hover:text-foreground transition-colors"
-                            >
-                              {entry.athlete?.name ?? '—'}
-                            </Link>
-                          </div>
+                            ) : (
+                              <span>{entry.athlete2?.name ?? '—'}</span>
+                            )}
+                          </>
                         )}
                       </td>
 
-                      <td className="px-5 py-3.5 text-right">
-                        <span className={`font-semibold tabular-nums ${
-                          isTop3 ? 'text-warning text-base' : 'text-sm text-foreground'
-                        }`}>
-                          {entry.totalPoints.toLocaleString('pt-BR')}
-                        </span>
+                      <td className="px-5 py-1.5 text-right font-heading text-lg font-bold tabular-nums">
+                        {entry.totalPoints.toLocaleString('pt-BR')}
                       </td>
                     </tr>
                   )
@@ -210,6 +193,7 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
           </div>
         )}
       </div>
+      )}
 
       {/* Paginação */}
       {pagination && pagination.totalPages > 1 && (

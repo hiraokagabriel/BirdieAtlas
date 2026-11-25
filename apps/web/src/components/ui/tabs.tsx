@@ -12,7 +12,7 @@ const Tabs = TabsPrimitive.Root
 function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn('flex overflow-x-auto border-b border-border', className)}
+      className={cn('relative flex overflow-x-auto border-b border-border', className)}
       {...props}
     />
   )

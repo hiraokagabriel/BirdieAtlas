@@ -1,18 +1,21 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { User } from 'lucide-react'
+import { BackLink } from '@/components/public/back-link'
 
 export const metadata: Metadata = { title: 'Atleta não encontrado · BirdieAtlas' }
 
 export default function AthleteNotFound() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
-      <User className="size-12 text-muted-foreground/40" aria-hidden="true" />
-      <h1 className="text-2xl">Atleta não encontrado</h1>
-      <p className="max-w-xs text-sm text-muted-foreground">
-        O link que você acessou não corresponde a nenhum atleta. Verifique se o endereço está correto.
+    <div className="space-y-3">
+      <BackLink />
+      <h1 className="font-heading text-3xl font-bold leading-tight">Atleta não encontrado</h1>
+      <p className="max-w-prose text-muted-foreground">
+        O link que você acessou não corresponde a nenhum atleta. Confira o endereço ou busque o atleta pelo nome na página inicial.
       </p>
-      <Link href="/" className="rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Link
+        href="/"
+        className="inline-flex h-11 items-center rounded-md bg-primary px-4 font-semibold text-primary-foreground transition-colors hover:bg-primary-strong"
+      >
         Voltar para o início
       </Link>
     </div>

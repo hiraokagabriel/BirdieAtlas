@@ -1,14 +1,16 @@
 'use client'
 
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import type { RankingBoard } from '@/lib/public-data'
+import { disciplineShort } from '@/lib/discipline'
 import { disciplineLabel, isDoublesDiscipline } from '@/lib/labels'
 import { formatPoints } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyNotice, ErrorNotice } from './notices'
 import { PlacementBadge } from './placement-badge'
+import { ROWS } from './rows'
 
 interface RankingTabsProps {
   boards: RankingBoard[]
@@ -16,131 +18,75 @@ interface RankingTabsProps {
   showTenant: boolean
 }
 
-function tabLabel(board: RankingBoard, showTenant: boolean): string {
-  const base = `${disciplineLabel(board.discipline)} ${board.year}`
-  return showTenant ? `${base} · ${board.tenantSlug.toUpperCase()}` : base
-}
+const NAME_LINK = 'inline-flex min-h-11 items-center rounded-sm hover:underline'
 
-/** Abas dos rankings ativos; o conteúdo de todas já vem do servidor, o estado local só escolhe qual mostrar. */
+/** Abas dos rankings ativos (`Tabs`, docs/DESIGN.md); o conteúdo de todas já vem do servidor. */
 export function RankingTabs({ boards, showTenant }: RankingTabsProps) {
   const [activeId, setActiveId] = useState(boards[0]?.id ?? '')
-  const baseId = useId()
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
-
-  const active = boards.find((b) => b.id === activeId) ?? boards[0]
-  if (!active) return null
-
-  function select(id: string) {
-    setActiveId(id)
-    tabRefs.current[id]?.focus()
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const last = boards.length - 1
-    const target =
-      event.key === 'ArrowRight' ? (index === last ? 0 : index + 1)
-      : event.key === 'ArrowLeft' ? (index === 0 ? last : index - 1)
-      : event.key === 'Home' ? 0
-      : event.key === 'End' ? last
-      : null
-    if (target === null) return
-    event.preventDefault()
-    select(boards[target].id)
-  }
-
-  const doubles = isDoublesDiscipline(active.discipline)
+  if (boards.length === 0) return null
 
   return (
-    <div className="space-y-4">
-      <div role="tablist" aria-label="Rankings" className="flex gap-2 overflow-x-auto pb-1">
-        {boards.map((board, index) => {
-          const selected = board.id === active.id
-          return (
-            <button
-              key={board.id}
-              ref={(el) => {
-                tabRefs.current[board.id] = el
-              }}
-              type="button"
-              role="tab"
-              id={`${baseId}-tab-${board.id}`}
-              aria-selected={selected}
-              aria-controls={`${baseId}-panel`}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => setActiveId(board.id)}
-              onKeyDown={(event) => onKeyDown(event, index)}
-              className={cn(
-                'shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                selected
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground',
-              )}
-            >
-              {tabLabel(board, showTenant)}
-            </button>
-          )
-        })}
-      </div>
+    <Tabs value={activeId} onValueChange={setActiveId} className="space-y-3">
+      {/* Quebra em linhas em vez de rolar: antes da hidratação o Radix deixa todas as abas com tabindex -1, e uma
+          região rolável sem nada focável fica inacessível pelo teclado (axe scrollable-region-focusable). */}
+      <TabsList aria-label="Rankings" className="flex-wrap overflow-x-visible">
+        {boards.map((board) => (
+          <TabsTrigger key={board.id} value={board.id} className="px-3 font-semibold">
+            {/* Sigla na tela (cabe no celular); o nome acessível começa pelo texto visível (WCAG 2.5.3). */}
+            {disciplineShort(board.discipline)} {board.year}
+            {showTenant && ` · ${board.tenantSlug.toUpperCase()}`}
+            <span className="sr-only">
+              {' '}({disciplineLabel(board.discipline)} {board.year}
+              {showTenant && `, ${board.tenantName}`})
+            </span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-      <div
-        role="tabpanel"
-        id={`${baseId}-panel`}
-        aria-labelledby={`${baseId}-tab-${active.id}`}
-        className="overflow-hidden rounded-xl border border-border bg-card"
-      >
-        {active.entries === null ? (
-          <div className="p-4">
-            <ErrorNotice>Não foi possível carregar este ranking agora.</ErrorNotice>
-          </div>
-        ) : active.entries.length === 0 ? (
-          <div className="p-4">
-            <EmptyNotice>Este ranking ainda não tem atletas classificados.</EmptyNotice>
-          </div>
-        ) : (
-          <ol className="divide-y divide-border">
-            {active.entries.map((entry) => (
-              <li
-                key={entry.id}
-                className={cn('flex items-center gap-3 px-4 py-2.5', entry.position === 1 && 'bg-medal-gold/10')}
-              >
-                <PlacementBadge placement={entry.position} className="size-8 text-sm" />
-                <span className="min-w-0 flex-1 text-sm font-medium">
-                  <Link
-                    href={`/a/${entry.athleteId}`}
-                    className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {entry.athleteName}
-                  </Link>
-                  {doubles && entry.athlete2Id && (
-                    <>
-                      {' & '}
-                      <Link
-                        href={`/a/${entry.athlete2Id}`}
-                        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {entry.athlete2Name ?? '—'}
+      {boards.map((board) => {
+        const doubles = isDoublesDiscipline(board.discipline)
+        return (
+          <TabsContent key={board.id} value={board.id} className="mt-0 space-y-0">
+            {board.entries === null ? (
+              <ErrorNotice>Não foi possível carregar este ranking agora. Tente novamente em instantes.</ErrorNotice>
+            ) : board.entries.length === 0 ? (
+              <EmptyNotice>Este ranking ainda não tem atletas classificados. Os pontos aparecem depois do primeiro torneio encerrado.</EmptyNotice>
+            ) : (
+              <ol className={ROWS}>
+                {board.entries.map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-3 px-4">
+                    <PlacementBadge placement={entry.position} className="size-8 text-sm" />
+                    <span className="min-w-0 flex-1 font-medium">
+                      <Link href={`/a/${entry.athleteId}`} className={NAME_LINK}>
+                        {entry.athleteName}
                       </Link>
-                    </>
-                  )}
-                </span>
-                <span className="font-heading text-lg font-semibold tabular-nums">
-                  {formatPoints(entry.totalPoints)}
-                  <span className="ml-1 text-xs font-sans font-normal text-muted-foreground">pts</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-        <div className="border-t border-border bg-muted/40 px-4 py-2.5 text-sm">
-          <Link
-            href={`/r/${active.tenantSlug}`}
-            className="inline-flex items-center gap-1.5 rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Ver ranking completo{showTenant ? ` · ${active.tenantName}` : ''}
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-    </div>
+                      {doubles && entry.athlete2Id && (
+                        <>
+                          {' / '}
+                          <Link href={`/a/${entry.athlete2Id}`} className={NAME_LINK}>
+                            {entry.athlete2Name ?? '—'}
+                          </Link>
+                        </>
+                      )}
+                    </span>
+                    <span className="shrink-0 font-heading text-lg font-bold tabular-nums">
+                      {formatPoints(entry.totalPoints)}
+                      <span className="ml-1 font-sans text-xs font-normal text-muted-foreground">pts</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <Link
+              href={`/r/${board.tenantSlug}`}
+              className="mt-1 inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-semibold text-primary hover:underline"
+            >
+              Ver ranking completo{showTenant ? ` · ${board.tenantName}` : ''}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </TabsContent>
+        )
+      })}
+    </Tabs>
   )
 }
