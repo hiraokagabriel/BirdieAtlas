@@ -110,9 +110,25 @@ function fromDef(d: MatchDef, categoryName: string): ScheduleMatchInput {
   }
 }
 
+describe('links do adversário', () => {
+  it('traz os atletas do adversário definido e, no lado vazio, os dos dois lados da partida que o alimenta', () => {
+    const playersOf = (id: string) => (names[id] ? [{ id: `ath-${id}`, name: names[id]! }] : [])
+    const list = buildPlayerSchedule([
+      m({ id: 'q1', round: 2, position: 1, registration1Id: 'me', registration2Id: 'c', nextMatchId: 'f' }),
+      m({ id: 'q2', round: 2, position: 2, registration1Id: 'a', registration2Id: 'b', nextMatchId: 'f' }),
+      m({ id: 'f', round: 1, position: 1, registration1Id: 'me' }),
+    ], new Set(['me']), nameOf, () => [], playersOf)
+    expect(list[0]).toMatchObject({ opponentPlayers: [{ id: 'ath-c', name: 'Caio' }], pending: null })
+    expect(list[1]).toMatchObject({
+      opponentPlayers: [],
+      pending: { via: 'vencedor', sides: [[{ id: 'ath-a', name: 'Ana' }], [{ id: 'ath-b', name: 'Bruno' }]] },
+    })
+  })
+})
+
 describe('nextPlayerMatch', () => {
   const p = (matchId: string, kind: PlayerMatch['kind'], scheduledAt: string | null = null): PlayerMatch => ({
-    matchId, kind, scheduledAt, categoryId: 'c', categoryName: 'c', roundLabel: 'r', opponent: null, opponentKnown: false, result: null, score: null, courtNumber: null, ifWin: null,
+    matchId, kind, scheduledAt, categoryId: 'c', categoryName: 'c', roundLabel: 'r', opponent: null, opponentKnown: false, result: null, score: null, courtNumber: null, ifWin: null, opponentPlayers: [], pending: null,
   })
   it('ao vivo primeiro; senão a de horário mais cedo; sem horário, a primeira da lista', () => {
     expect(nextPlayerMatch([p('a', 'upcoming', '2099-01-01T10:00:00Z'), p('b', 'live')])).toBe('b')

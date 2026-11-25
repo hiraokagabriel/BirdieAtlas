@@ -57,6 +57,7 @@ async function loadPlayerSchedule(tournamentId: string, athleteId: string) {
   const matchRows = drawRows.length ? await db.select().from(matches).where(inArray(matches.drawId, drawRows.map((d) => d.id))) : []
   const results = matchRows.length ? await db.select().from(matchResults).where(inArray(matchResults.matchId, matchRows.map((m) => m.id))) : []
 
+  const regById = new Map(registrations.map((r) => [r.id, r]))
   const regName = new Map(registrations.map((r) => [
     r.id,
     [r.athleteId, r.athlete2Id].filter(Boolean).map((a) => names.get(a!) ?? '?').join(' / '),
@@ -92,6 +93,11 @@ async function loadPlayerSchedule(tournamentId: string, athleteId: string) {
     regIds,
     (regId) => regName.get(regId) ?? null,
     (matchId) => [...(setsByMatch.get(matchId) ?? [])].sort((a, b) => a.setNumber - b.setNumber),
+    // Só id e nome (dados públicos), para os links aos perfis e ao confronto direto.
+    (regId) => {
+      const r = regById.get(regId)
+      return r ? [r.athleteId, r.athlete2Id].filter((a): a is string => Boolean(a)).map((id) => ({ id, name: names.get(id) ?? '?' })) : []
+    },
   )
   return { name: names.get(athleteId) ?? '', matches: schedule, nextMatchId: nextPlayerMatch(schedule) }
 }

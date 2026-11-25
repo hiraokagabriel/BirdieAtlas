@@ -23,6 +23,27 @@ export type PlayerMatch = {
   courtNumber: number | null
   scheduledAt: string | null
   ifWin: { roundLabel: string; opponent: string | null } | null
+  opponentPlayers: Player[]
+  pending: { via: 'vencedor' | 'perdedor'; sides: Player[][] } | null
+}
+
+type Player = { id: string; name: string }
+
+// Nome que é link, sem mudar a cor do texto: sublinhado discreto que acende no hover e no foco.
+const NAME_LINK = 'rounded-sm underline decoration-border underline-offset-4 hover:decoration-primary'
+
+/** Atletas de um lado, cada um com link ao perfil, separados por " / ". */
+function PlayerLinks({ players }: { players: Player[] }) {
+  return (
+    <>
+      {players.map((p, i) => (
+        <span key={p.id}>
+          {i > 0 && ' / '}
+          <Link href={`/a/${p.id}`} className={NAME_LINK}>{p.name}</Link>
+        </span>
+      ))}
+    </>
+  )
 }
 
 export function StatusChip({ match: m }: { match: PlayerMatch }) {
@@ -52,7 +73,15 @@ function splitTime(iso: string | null): { clock: string; day: string } {
  * fase", com o adversário dela). No celular, empilha. Ver docs/DESIGN.md, "Linha de partida".
  * `highlight`: a próxima partida dele, com fundo e "Próxima" (no perfil, onde as partidas a jogar ficam juntas).
  */
-export function MatchRow({ match: m, showCategory = false, highlight = false, tournamentSlug }: { match: PlayerMatch; showCategory?: boolean; highlight?: boolean; tournamentSlug?: string }) {
+export function MatchRow({ match: m, showCategory = false, highlight = false, tournamentSlug, athleteId }: {
+  match: PlayerMatch
+  showCategory?: boolean
+  highlight?: boolean
+  tournamentSlug?: string
+  /** O dono da página: em simples, o nome do adversário leva ao confronto direto dos dois. */
+  athleteId?: string
+}) {
+  const where = showCategory ? `${m.categoryName} · ${m.roundLabel}` : m.roundLabel
   const { clock, day } = splitTime(m.scheduledAt)
   const free = m.kind === 'bye' || m.kind === 'rest'
   const side = m.score || m.ifWin
@@ -87,7 +116,13 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           {highlight && m.kind !== 'live' && <span className="font-semibold text-primary">Próxima</span>}
           <StatusChip match={m} />
-          <span className="text-muted-foreground">{showCategory ? `${m.categoryName} · ${m.roundLabel}` : m.roundLabel}</span>
+          {tournamentSlug ? (
+            <Link href={`/t/${tournamentSlug}?categoria=${m.categoryId}`} className={`text-muted-foreground ${NAME_LINK}`}>
+              {where}<span className="sr-only"> (ver o chaveamento)</span>
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">{where}</span>
+          )}
         </p>
         {m.kind === 'bye' ? (
           <p className="text-base">Avança direto para a fase seguinte, sem jogar.</p>
@@ -95,7 +130,22 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
           <p className="text-base">Folga nesta rodada: conta como vitória.</p>
         ) : m.opponentKnown ? (
           <p className="break-words text-xl font-semibold leading-tight">
-            <span className="text-muted-foreground">× </span>{m.opponent}
+            <span className="text-muted-foreground">× </span>
+            {m.opponentPlayers.length === 1 && athleteId ? (
+              <Link href={`/a/${athleteId}/vs/${m.opponentPlayers[0]!.id}`} className={NAME_LINK}>
+                {m.opponentPlayers[0]!.name}<span className="sr-only"> (confronto direto)</span>
+              </Link>
+            ) : m.opponentPlayers.length > 0 ? (
+              <PlayerLinks players={m.opponentPlayers} />
+            ) : (
+              m.opponent
+            )}
+          </p>
+        ) : m.pending && m.pending.sides.some((s) => s.length) ? (
+          <p className="break-words text-base">
+            Contra o {m.pending.via} {m.pending.sides.length === 2 ? 'de ' : 'do jogo de '}
+            <PlayerLinks players={m.pending.sides[0]!} />
+            {m.pending.sides[1] && <> × <PlayerLinks players={m.pending.sides[1]} /></>}
           </p>
         ) : m.opponent ? (
           <p className="break-words text-base">Contra o {m.opponent}</p>

@@ -68,7 +68,7 @@ export default async function PlayerSchedulePage({ params }: PageProps) {
             <section aria-labelledby="next-title" className="space-y-3">
               <h2 id="next-title" className="text-2xl">{next.kind === 'live' ? 'Jogando agora' : 'Próxima partida'}</h2>
               <ul className={cn(ROWS, 'border-primary/40')}>
-                <MatchRow match={next} showCategory tournamentSlug={tournament.slug} />
+                <MatchRow match={next} showCategory tournamentSlug={tournament.slug} athleteId={athlete.id} />
               </ul>
             </section>
           )}
@@ -76,7 +76,7 @@ export default async function PlayerSchedulePage({ params }: PageProps) {
             <section key={category} aria-labelledby={`cat-${i}`} className="space-y-3">
               <h2 id={`cat-${i}`} className="text-2xl">{category}</h2>
               <ul className={ROWS}>
-                {rest.filter((m) => m.categoryName === category).map((m) => <MatchRow key={m.matchId} match={m} tournamentSlug={tournament.slug} />)}
+                {rest.filter((m) => m.categoryName === category).map((m) => <MatchRow key={m.matchId} match={m} tournamentSlug={tournament.slug} athleteId={athlete.id} />)}
               </ul>
             </section>
           ))}
