@@ -40,12 +40,15 @@ export interface PlayerMatch {
   courtNumber: number | null
   scheduledAt: string | null
   /** Partida seguinte se ele vencer esta (só nas ainda não decididas que levam a outra partida). */
-  ifWin: { roundLabel: string; opponent: string | null } | null
+  ifWin: { roundLabel: string; opponent: string | null; players: SchedulePlayer[]; pending: PendingSide | null } | null
   /** Atletas do adversário definido (para link ao perfil ou ao confronto direto); vazio se não há. */
   opponentPlayers: SchedulePlayer[]
   /** Lado ainda vazio: de qual partida sai o adversário e os atletas dos dois lados dela (para link aos perfis). */
-  pending: { via: 'vencedor' | 'perdedor'; sides: SchedulePlayer[][] } | null
+  pending: PendingSide | null
 }
+
+/** De qual partida sai o adversário ainda indefinido e os atletas dos lados dela. */
+export type PendingSide = { via: 'vencedor' | 'perdedor'; sides: SchedulePlayer[][] }
 
 export interface SchedulePlayer {
   id: string
@@ -92,6 +95,11 @@ export function buildPlayerSchedule(
     }
     return null
   }
+  const pendingOf = (target: ScheduleMatchInput, exceptId?: string): PendingSide | null => {
+    const found = feeder(target, exceptId)
+    if (!found) return null
+    return { via: found.via, sides: [found.f.registration1Id, found.f.registration2Id].filter((id): id is string => Boolean(id)).map(playersOf) }
+  }
   const awaiting = (target: ScheduleMatchInput, exceptId?: string): string | null => {
     const found = feeder(target, exceptId)
     if (found) return `${found.via} ${participants(found.f)}`
@@ -116,7 +124,12 @@ export function buildPlayerSchedule(
       const next = m.nextMatchId ? byId.get(m.nextMatchId) : undefined
       if ((kind === 'live' || kind === 'upcoming') && next) {
         const nextOpponentId = [next.registration1Id, next.registration2Id].find((id) => id && !regIds.has(id)) ?? null
-        ifWin = { roundLabel: matchRoundLabel(next), opponent: nextOpponentId ? nameOf(nextOpponentId) : awaiting(next, m.id) }
+        ifWin = {
+          roundLabel: matchRoundLabel(next),
+          opponent: nextOpponentId ? nameOf(nextOpponentId) : awaiting(next, m.id),
+          players: nextOpponentId ? playersOf(nextOpponentId) : [],
+          pending: nextOpponentId ? null : pendingOf(next, m.id),
+        }
       }
 
       return {
@@ -133,13 +146,7 @@ export function buildPlayerSchedule(
         scheduledAt: m.scheduledAt,
         ifWin,
         opponentPlayers: !free && opponentId ? playersOf(opponentId) : [],
-        pending: (() => {
-          if (free || opponentId) return null
-          const found = feeder(m)
-          if (!found) return null
-          const sides = [found.f.registration1Id, found.f.registration2Id].filter((id): id is string => Boolean(id)).map(playersOf)
-          return { via: found.via, sides }
-        })(),
+        pending: free || opponentId ? null : pendingOf(m),
       }
     })
 }
