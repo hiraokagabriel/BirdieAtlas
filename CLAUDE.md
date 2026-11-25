@@ -32,6 +32,7 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 - Admin usa TanStack Query com `apiFetch` (`apps/web/src/lib/api.ts`); páginas públicas são Server Components.
 - Navegação só em `apps/web/src/lib/navigation.ts`. Nunca crie outra sidebar, shell ou layout administrativo.
 - Toda tela trata carregamento, erro, vazio e sucesso, só com dados reais da API.
+- Visual segue [`docs/DESIGN.md`](docs/DESIGN.md) (tokens, tipografia, alturas de controle, estados, anti-padrões); templates em `docs/design/`. Cor nova vira token em `globals.css`.
 - UI nova mantém o spec WCAG verde (axe + teclado, em `apps/e2e`): campo com `Field`, escolha exclusiva com `ChoiceGroup`, abas com `Tabs`, diálogo com `Dialog`, ícone sem texto com `aria-label`. Rodar: `pnpm --filter @birdie-atlas/e2e exec playwright test wcag --project=main`. Exceção só em `ALLOWED_VIOLATIONS` (`apps/e2e/support/axe.ts`), com motivo e critério; nunca desligar regra inteira.
 
 ## Testes E2E
@@ -43,7 +44,7 @@ A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMP
 
 ## Agentes do projeto
 
-- Em `.claude/agents/`: `birdie-coder` (Haiku: implementa tarefa de código pequena e já especificada; não faz commit), `birdie-verifier` (Sonnet: verificação independente antes do commit: pipeline, API, navegador, privacidade; não edita código) e `birdie-reviewer` (Opus: revisão somente leitura do diff contra estas regras). Quem implementa não é quem verifica: use o verificador depois de cada mudança de comportamento e o revisor antes do PR.
+- Em `.claude/agents/`: `birdie-coder` (Haiku: implementa tarefa de código pequena e já especificada; não faz commit), `birdie-verifier` (Sonnet: verificação independente antes do commit: pipeline, API, navegador, privacidade; não edita código), `birdie-reviewer` (Opus: revisão somente leitura do diff contra estas regras) e `birdie-designer` (Sonnet: revisão visual somente leitura das telas contra `docs/DESIGN.md`). Quem implementa não é quem verifica: use o verificador depois de cada mudança de comportamento, o revisor antes do PR e o designer em todo PR que muda UI.
 - Todo briefing de agente nomeia a branch e proíbe commit, push, `db:push` e mexer no banco `birdie_atlas` e nas portas 3000/3001; verificação pesada usa o banco e as portas do E2E.
 
 ## Skills e plugins

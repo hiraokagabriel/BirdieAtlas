@@ -1,0 +1,44 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "docs/design/templates/resultado.html"
+        ],
+        "createdAt": "2026-11-23T03:41:12.859Z",
+        "reason": "Claude triage: flex row with fixed height and align-items:center, text is vertically centered, not flush (verified in rendered PNG)"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "docs/design/templates/admin.html"
+        ],
+        "createdAt": "2026-11-23T03:41:13.006Z",
+        "reason": "Claude triage: flex row with fixed height and align-items:center, text is vertically centered, not flush (verified in rendered PNG)"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "docs/design/templates/telao.html"
+        ],
+        "createdAt": "2026-11-23T03:41:13.162Z",
+        "reason": "Claude triage: flex row with fixed height and align-items:center, text is vertically centered, not flush (verified in rendered PNG)"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "docs/design/templates/telao.html"
+        ],
+        "createdAt": "2026-11-23T03:41:19.614Z",
+        "reason": "Claude triage: violet is the dark-mode SF discipline chip, an existing functional token in apps/web globals.css, not decoration"
+      }
+    ]
+  }
+}

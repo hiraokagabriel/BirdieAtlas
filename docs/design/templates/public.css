@@ -1,0 +1,20 @@
+/* Moldura do portal público, compartilhada pelos templates. */
+.top { position: sticky; top: 0; z-index: 2; background: color-mix(in oklch, var(--background) 92%, transparent); border-bottom: 1px solid var(--border); }
+.top .in { max-width: 1200px; margin: 0 auto; height: 60px; padding: 0 16px; display: flex; align-items: center; gap: 24px; }
+.nav { display: none; gap: 4px; }
+.nav a { padding: 8px 12px; border-radius: var(--r-md); font-weight: 600; color: var(--muted-foreground); }
+.nav a[aria-current] { color: var(--foreground); background: var(--muted); }
+.top .end { margin-left: auto; display: flex; gap: 4px; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.sec-head a { font-weight: 600; color: var(--primary); font-size: 0.9375rem; white-space: nowrap; }
+.grow { flex: 1; min-width: 0; }
+.bottom { position: sticky; bottom: 0; height: 64px; background: var(--card); border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, 1fr); }
+.bottom a { display: grid; place-items: center; align-content: center; gap: 2px; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); }
+.bottom a[aria-current] { color: var(--primary); }
+.bottom svg { width: 22px; height: 22px; }
+.crumb { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 600; color: var(--muted-foreground); }
+.crumb svg { width: 16px; height: 16px; transform: rotate(180deg); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted-foreground); font-size: 0.9375rem; }
+.meta span { display: inline-flex; align-items: center; gap: 6px; }
+.meta svg { width: 16px; height: 16px; }
+@media (min-width: 900px) { .nav { display: flex; } .bottom { display: none; } }

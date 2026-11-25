@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template — Home pública</title>
+<link rel="stylesheet" href="system.css">
+<script>if (location.search.includes('dark')) document.documentElement.dataset.theme = 'dark'</script>
+<style>
+  .top { position: sticky; top: 0; z-index: 2; background: color-mix(in oklch, var(--background) 92%, transparent); border-bottom: 1px solid var(--border); }
+  .top .in { max-width: 1200px; margin: 0 auto; height: 60px; padding: 0 16px; display: flex; align-items: center; gap: 24px; }
+  .nav { display: none; gap: 4px; }
+  .nav a { padding: 8px 12px; border-radius: var(--r-md); font-weight: 600; color: var(--muted-foreground); }
+  .nav a[aria-current] { color: var(--foreground); background: var(--muted); }
+  .top .end { margin-left: auto; display: flex; gap: 4px; }
+  .col { display: grid; gap: 32px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 32px; display: grid; gap: 32px; }
+  .search { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; border: 1px solid var(--field-border); border-radius: var(--r-lg); background: var(--card); color: var(--muted-foreground); font-size: 1rem; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .sec-head a { font-weight: 600; color: var(--primary); font-size: 0.9375rem; white-space: nowrap; }
+  .live-t { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; }
+  .match { display: grid; grid-template-columns: 64px 1fr auto; gap: 4px 12px; padding: 12px 16px; align-items: center; }
+  .court { grid-row: span 2; font-family: var(--font-display); font-weight: 700; font-size: 0.8125rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.1; }
+  .court b { display: block; font-size: 1.75rem; color: var(--foreground); letter-spacing: 0; }
+  .sets { display: flex; gap: 10px; font-size: 1.25rem; }
+  .sets .cur { color: var(--primary); }
+  .date { width: 52px; text-align: center; line-height: 1; flex: none; }
+  .date b { display: block; font-family: var(--font-display); font-size: 1.625rem; }
+  .date span { font-size: 0.75rem; font-weight: 700; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em; }
+  .grow { flex: 1; min-width: 0; }
+  .pos { width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 1rem; flex: none; }
+  .p1 { background: var(--medal-gold); color: oklch(0.3 0.06 85); } .p2 { background: var(--medal-silver); color: oklch(0.3 0.02 250); } .p3 { background: var(--medal-bronze); color: oklch(0.28 0.06 50); }
+  .pts { font-family: var(--font-display); font-weight: 700; font-size: 1.125rem; }
+  .bottom { position: sticky; bottom: 0; height: 64px; background: var(--card); border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, 1fr); }
+  .bottom a { display: grid; place-items: center; align-content: center; gap: 2px; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); }
+  .bottom a[aria-current] { color: var(--primary); }
+  .bottom svg { width: 22px; height: 22px; }
+  @media (min-width: 900px) {
+    .nav { display: flex; } .bottom { display: none; }
+    main { grid-template-columns: 1fr 380px; padding-top: 32px; padding-bottom: 48px; align-items: start; }
+    main > .full { grid-column: 1 / -1; }
+    .col { display: grid; gap: 32px; }
+  }
+</style>
+</head>
+<body>
+<script src="icons.js"></script>
+<header class="top"><div class="in">
+  <a class="brand" href="#"><svg class="i"><use href="#shuttle"/></svg><span>Birdie<b>Atlas</b></span></a>
+  <nav class="nav" aria-label="Principal"><a aria-current="page" href="#">Início</a><a href="#">Torneios</a><a href="#">Ranking</a><a href="#">Atletas</a><a href="#">Clubes</a></nav>
+  <div class="end"><button class="btn btn-ghost btn-icon" aria-label="Alternar tema"><svg class="i"><use href="#moon"/></svg></button></div>
+</div></header>
+
+<main>
+  <label class="search full"><svg class="i"><use href="#search"/></svg>Buscar atleta, clube ou torneio</label>
+
+  <div class="col">
+    <section>
+      <div class="sec-head"><h2 class="h2">Ao vivo agora</h2><a href="#">Agenda completa</a></div>
+      <div class="surface rows">
+        <div class="live-t"><span class="live">Ao vivo</span><span class="h3">Open de Campinas</span><span class="caption">Rodada 3 · 14 partidas em quadra</span></div>
+        <div class="match">
+          <div class="court">Quadra<b>1</b></div>
+          <div class="player win">Rafael Mendes</div><div class="sets score num"><span>21</span><span>15</span><span class="cur">8</span></div>
+          <div class="player lose">Thiago Araújo</div><div class="sets score num muted"><span>18</span><span>21</span><span class="cur">5</span></div>
+        </div>
+        <div class="match">
+          <div class="court">Quadra<b>2</b></div>
+          <div class="player">Ana Ribeiro / Júlia Prado</div><div class="sets score num"><span class="cur">11</span></div>
+          <div class="player">Carla Nunes / Bia Lopes</div><div class="sets score num"><span class="cur">9</span></div>
+        </div>
+        <div class="match">
+          <div class="court">Quadra<b>3</b></div>
+          <div class="player">Pedro Lima / Marina Sá</div><div class="sets score num"><span>21</span><span class="cur">3</span></div>
+          <div class="player lose">Lucas Faria / Elisa Rocha</div><div class="sets score num muted"><span>12</span><span class="cur">2</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2 class="h2">Próximos torneios</h2><a href="#">Ver todos</a></div>
+      <div class="surface rows">
+        <a class="row" href="#"><div class="date"><b class="num">06</b><span>dez</span></div><div class="grow"><div class="h3">Circuito Paulista — 4ª etapa</div><div class="caption">Sorocaba · Inscrições até 28/11</div></div><span class="chip chip-neutral">Estadual</span><svg class="i muted"><use href="#chevron"/></svg></a>
+        <a class="row" href="#"><div class="date"><b class="num">13</b><span>dez</span></div><div class="grow"><div class="h3">Torneio de Encerramento Sub-17</div><div class="caption">São Paulo · Inscrições abertas</div></div><span class="chip chip-neutral">Regional</span><svg class="i muted"><use href="#chevron"/></svg></a>
+        <a class="row" href="#"><div class="date"><b class="num">24</b><span>jan</span></div><div class="grow"><div class="h3">Aberto de Verão</div><div class="caption">Santos · Inscrições em breve</div></div><span class="chip chip-neutral">Local</span><svg class="i muted"><use href="#chevron"/></svg></a>
+      </div>
+    </section>
+  </div>
+
+  <section>
+    <div class="sec-head"><h2 class="h2">Ranking estadual</h2><a href="#">Completo</a></div>
+    <div class="tabs" role="tablist" style="margin-bottom:8px">
+      <span class="tab" role="tab" aria-selected="true">SM</span><span class="tab" role="tab">SF</span><span class="tab" role="tab">DM</span><span class="tab" role="tab">DF</span><span class="tab" role="tab">DX</span>
+    </div>
+    <div class="surface rows">
+      <a class="row" href="#"><span class="pos p1">1</span><div class="grow"><div class="label" style="font-size:.9375rem">Rafael Mendes</div><div class="caption">EC Pinheiros</div></div><span class="pts num">12.480</span></a>
+      <a class="row" href="#"><span class="pos p2">2</span><div class="grow"><div class="label" style="font-size:.9375rem">Thiago Araújo</div><div class="caption">Clube Campineiro</div></div><span class="pts num">11.920</span></a>
+      <a class="row" href="#"><span class="pos p3">3</span><div class="grow"><div class="label" style="font-size:.9375rem">Gustavo Tanaka</div><div class="caption">AABB Santos</div></div><span class="pts num">10.305</span></a>
+      <a class="row" href="#"><span class="pos num">4</span><div class="grow"><div class="label" style="font-size:.9375rem">Diego Martins</div><div class="caption">Sorocaba Badminton</div></div><span class="pts num">9.870</span></a>
+      <a class="row" href="#"><span class="pos num">5</span><div class="grow"><div class="label" style="font-size:.9375rem">Caio Ferreira</div><div class="caption">EC Pinheiros</div></div><span class="pts num">9.115</span></a>
+    </div>
+  </section>
+</main>
+
+<nav class="bottom" aria-label="Principal">
+  <a aria-current="page" href="#"><svg class="i"><use href="#home"/></svg>Início</a>
+  <a href="#"><svg class="i"><use href="#calendar"/></svg>Torneios</a>
+  <a href="#"><svg class="i"><use href="#ranking"/></svg>Ranking</a>
+  <a href="#"><svg class="i"><use href="#search"/></svg>Buscar</a>
+</nav>
+</body>
+</html>
