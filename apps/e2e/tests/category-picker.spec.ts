@@ -1,33 +1,38 @@
 import { expect, test } from '@playwright/test'
 import { createCategory, createTournament, uniqueTag } from '../support/factories.js'
 
-// Seletor de categoria com muitas categorias: busca pelo nome e filtros de modalidade e classe.
+// Seletor de categoria com muitas categorias: botão com a categoria atual que abre a grade Modalidade × Classe.
 
-test('com muitas categorias, a busca e os filtros reduzem as pílulas e "Limpar filtros" volta tudo', async ({ page }) => {
+test('com muitas categorias, a grade Modalidade × Classe escolhe a categoria e fecha', async ({ page }) => {
   const tag = uniqueTag()
   const tournament = await createTournament({ name: `Muitas Categorias ${tag}`, status: 'registration_open' })
-  const classes = ['A', 'B', 'Sub 15']
-  for (const k of classes) {
+  for (const k of ['A', 'B', 'Sub 15']) {
     await createCategory(tournament.id, { name: `Simples Masculino ${k}`, discipline: 'MS' })
     await createCategory(tournament.id, { name: `Simples Feminino ${k}`, discipline: 'WS' })
     await createCategory(tournament.id, { name: `Duplas Mistas ${k}`, discipline: 'XD' })
   }
 
   await page.goto(`/admin/tournaments/${tournament.id}`)
-  const pills = page.getByRole('group', { name: 'Categoria' }).getByRole('radio')
-  await expect(pills).toHaveCount(9)
+  const toggle = page.getByRole('button', { name: /^Categoria: .*9 categorias/ })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
 
-  await page.getByRole('searchbox', { name: 'Buscar categoria' }).fill('sub 15')
-  await expect(page.getByText('3 de 9 categorias')).toBeVisible()
-  await expect(pills).toHaveCount(3)
-  await page.getByRole('searchbox', { name: 'Buscar categoria' }).fill('zzz')
-  await expect(page.getByText('Nenhuma categoria com esse filtro.')).toBeVisible()
+  const grid = page.getByRole('group', { name: 'Categoria' })
+  // 3 classes × 3 modalidades, cada célula é um radio com o nome da categoria.
+  await expect(grid.getByRole('radio')).toHaveCount(9)
+  await expect(grid.getByRole('rowheader', { name: 'Sub 15' })).toBeVisible()
+  // Pelo teclado: foco no radio e espaço (o visual é a célula; o radio é sr-only).
+  await grid.getByRole('radio', { name: 'Duplas Mistas B' }).focus()
+  await page.keyboard.press('Space')
 
-  await page.getByRole('button', { name: 'Limpar filtros' }).first().click()
-  await page.getByText('Filtros', { exact: true }).click()
-  await page.getByRole('group', { name: 'Modalidade' }).getByText('Duplas mistas').click()
-  await page.getByRole('group', { name: 'Classe' }).getByText('B', { exact: true }).click()
-  await expect(page.getByText('1 de 9 categorias')).toBeVisible()
-  await page.getByRole('group', { name: 'Categoria' }).getByText('Duplas Mistas B').click()
-  await expect(page.getByRole('group', { name: 'Categoria' }).getByRole('radio', { name: 'Duplas Mistas B' })).toBeChecked()
+  await expect(toggle).toContainText('Duplas Mistas B')
+  await expect(page.getByText('Duplas Mistas B —')).toBeVisible()
+  // Seta vai para a vizinha sem fechar a grade.
+  await page.keyboard.press('ArrowRight')
+  await expect(grid).toBeVisible()
+
+  // Esc fecha e devolve o foco ao botão.
+  await page.keyboard.press('Escape')
+  await expect(grid).toBeHidden()
+  await expect(toggle).toBeFocused()
 })
