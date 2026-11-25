@@ -72,7 +72,7 @@ test('no diálogo de resultado, o histórico mostra a correção', async ({ page
   await page.goto(`/admin/tournaments/${prepared.tournament.id}`)
   await page.getByRole('tab', { name: 'Chaveamento', exact: true }).click()
   await page.getByRole('button', { name: /Abrir resultado/ }).first().click()
-  const dialog = page.getByRole('dialog', { name: /Editar Resultado/ })
+  const dialog = page.getByRole('dialog', { name: /Editar resultado/ })
   await dialog.getByText('Histórico de alterações (2)').click()
   await expect(dialog.getByText('De 21-10 21-11 para')).toBeVisible()
   await expect(dialog.getByText('Diálogo de resultado').first()).toBeVisible()

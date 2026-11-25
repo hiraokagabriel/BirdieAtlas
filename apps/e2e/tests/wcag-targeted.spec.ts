@@ -283,7 +283,7 @@ test.describe('teclado e foco', () => {
     await expect(page.getByRole('region', { name: /^Chave de/ })).toBeVisible()
     await tabUntil(page, { selector: 'button', name: 'Abrir resultado' })
     await page.keyboard.press('Enter')
-    const dialog = page.getByRole('dialog', { name: 'Lançar Resultado' })
+    const dialog = page.getByRole('dialog', { name: 'Lançar resultado' })
     await expect(dialog).toBeVisible()
     expect(await focusIsInside(page, dialog), 'o foco entra no diálogo').toBe(true)
 
@@ -487,7 +487,7 @@ test.describe('formulários', () => {
     await page.goto(`/admin/tournaments/${data.running.tournament.id}`)
     await page.getByRole('tab', { name: 'Chaveamento' }).click()
     await page.getByRole('button', { name: /Abrir resultado/ }).first().click()
-    const dialog = page.getByRole('dialog', { name: 'Lançar Resultado' })
+    const dialog = page.getByRole('dialog', { name: 'Lançar resultado' })
     await dialog.getByRole('button', { name: 'Confirmar resultado' }).click()
     const alert = dialog.getByRole('alert')
     await expect(alert).toBeVisible()
