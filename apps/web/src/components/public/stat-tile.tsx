@@ -11,14 +11,22 @@ interface StatTileProps {
   label: string
   value: ReactNode
   hint?: string
+  /** Âncora da seção que detalha o número (ex.: `#history-title`): o bloco inteiro vira o alvo do link. */
+  href?: string
+  /** Nome do link para leitor de tela (ex.: "Ver o histórico de torneios"). */
+  linkLabel?: string
 }
 
 /** Célula de `STAT_GRID`; deve ficar dentro de um `<dl>`. */
-export function StatTile({ label, value, hint }: StatTileProps) {
+export function StatTile({ label, value, hint, href, linkLabel }: StatTileProps) {
   return (
-    <div className="bg-card px-4 py-3">
+    <div className={href ? 'relative bg-card px-4 py-3 transition-colors hover:bg-muted/60' : 'bg-card px-4 py-3'}>
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-heading text-3xl font-bold leading-none tabular-nums">{value}</dd>
+      <dd className="mt-1 font-heading text-3xl font-bold leading-none tabular-nums">
+        {value}
+        {/* Link esticado sobre o bloco (posicionado pelo div): o alvo de toque é a célula inteira e o texto não muda. */}
+        {href && <a href={href} className="absolute inset-0 rounded-[inherit] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring" aria-label={linkLabel ?? label} />}
+      </dd>
       {hint && <dd className="mt-1 text-xs text-muted-foreground">{hint}</dd>}
     </div>
   )
