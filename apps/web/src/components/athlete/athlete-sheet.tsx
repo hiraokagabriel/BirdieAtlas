@@ -82,7 +82,7 @@ export function AthleteSheet({
 
             {/* Info */}
             <div className="py-4 space-y-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações</h3>
+              <h3 className="text-[0.8125rem] font-semibold text-muted-foreground ">Informações</h3>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Badge variant="secondary" className={GENDER_PILL[athlete.gender]}>
@@ -108,7 +108,7 @@ export function AthleteSheet({
 
             {/* Affiliation history */}
             <div className="py-4 space-y-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Histórico de Filiações</h3>
+              <h3 className="text-[0.8125rem] font-semibold text-muted-foreground ">Histórico de Filiações</h3>
               {isLoading ? (
                 <div className="space-y-2">
                   {[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}

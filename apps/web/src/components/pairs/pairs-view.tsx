@@ -237,12 +237,12 @@ export function PairsView() {
               <caption className="sr-only">Duplas cadastradas. Use os botões do cabeçalho para ordenar.</caption>
               <thead>
                 <tr className="border-b border-border bg-muted/40">
-                  <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8">#</th>
+                  <th scope="col" className="text-left px-4 py-3 text-[0.8125rem] font-semibold text-muted-foreground  w-8">#</th>
                   <SortHeader label="Atleta 1" active={sortField === 'athlete1'} direction={sortDir} onSort={() => toggleSort('athlete1')} />
                   <SortHeader label="Atleta 2" active={sortField === 'athlete2'} direction={sortDir} onSort={() => toggleSort('athlete2')} />
                   <SortHeader label="Disciplina" active={sortField === 'discipline'} direction={sortDir} onSort={() => toggleSort('discipline')} />
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clubes</th>
+                  <th scope="col" className="px-4 py-3 text-left text-[0.8125rem] font-semibold text-muted-foreground ">Status</th>
+                  <th scope="col" className="px-4 py-3 text-left text-[0.8125rem] font-semibold text-muted-foreground ">Clubes</th>
                   <th scope="col" className="px-4 py-3"><span className="sr-only">Ações</span></th>
                 </tr>
               </thead>
@@ -263,7 +263,7 @@ export function PairsView() {
 
                     {/* Disciplina */}
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm border text-xs font-medium ${
                         DISCIPLINE_PILL[pair.discipline]
                       }`}>
                         {disciplineLabel[pair.discipline]}
@@ -272,7 +272,7 @@ export function PairsView() {
 
                     {/* Status */}
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium ${
                         pair.active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
                       }`}>
                         {pair.active ? 'Ativa' : 'Inativa'}

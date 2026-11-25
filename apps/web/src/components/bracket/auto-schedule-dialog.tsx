@@ -46,7 +46,7 @@ function PreviewCell({ assignment }: { assignment: AutoScheduleAssignment | unde
   return (
     <div className="space-y-1 min-w-40">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${pill}`}>{assignment.categoryName}</span>
+        <span className={`inline-block rounded-sm border px-2 py-0.5 text-xs font-semibold ${pill}`}>{assignment.categoryName}</span>
         <span className="text-xs text-muted-foreground">{assignment.roundLabel}</span>
       </div>
       <p className="text-sm whitespace-normal">{matchLabel(assignment)}</p>
@@ -311,7 +311,7 @@ export function AutoScheduleDialog({ tournamentId, defaultStartDate, open, onClo
                       <TableBody>
                         {day.rows.map((row) => (
                           <TableRow key={row.time}>
-                            <TableHead scope="row" className="tabular-nums">{row.time}</TableHead>
+                            <TableHead scope="row" className="text-sm text-foreground tabular-nums">{row.time}</TableHead>
                             {day.courts.map((court) => (
                               <TableCell key={court} className="align-top whitespace-normal">
                                 <PreviewCell assignment={row.cells.get(court)} />

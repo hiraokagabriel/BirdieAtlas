@@ -218,19 +218,19 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
         }))}
         value={activeCategoryId}
         onChange={(id) => { setActiveCategoryId(id); setShowForm(false); setError(null); setAthlete1(null); setAthlete2Id('') }}
-        optionClassName="rounded-full px-3 py-1.5 text-xs font-semibold"
+        optionClassName="px-3 text-xs font-semibold"
       />
 
       {/* Tabela de inscritos */}
       <div className="rounded-xl border border-border overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-          <p className="text-sm font-semibold">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border bg-muted/30 px-4 py-3">
+          <p className="min-w-0 text-sm font-semibold">
             {activeCategory?.name} —{' '}
             <span className="text-muted-foreground font-normal">
               {isLoading ? '...' : `${total} ${total === 1 ? 'inscrição' : 'inscrições'}`}
             </span>
           </p>
-          <div className="flex items-start gap-3">
+          <div className="flex flex-wrap items-start gap-2">
           <ExportCsvButton path={`/tournaments/${tournamentId}/registrations/export.csv`} fallbackName="inscritos.csv" />
           {locked ? (
             <span className="self-center text-xs text-muted-foreground">Torneio encerrado: inscrições bloqueadas</span>
@@ -239,7 +239,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
               type="button"
               aria-expanded={showForm}
               onClick={() => { setShowForm((v) => !v); setError(null) }}
-              className="inline-flex min-h-8 items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex min-h-(--control-h) items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
               Inscrever
@@ -406,10 +406,10 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                       </p>
                     </div>
 
-                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>{badge.label}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-sm shrink-0 ${badge.className}`}>{badge.label}</span>
 
                     {reg.status === 'approved' && (locked ? (
-                      reg.checkedInAt && <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-success/10 text-success">Presente</span>
+                      reg.checkedInAt && <span className="text-xs px-2 py-0.5 rounded-sm shrink-0 bg-success/10 text-success">Presente</span>
                     ) : (
                       <button
                         type="button"
@@ -418,7 +418,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                         aria-pressed={reg.checkedInAt !== null}
                         aria-label={`Presente: ${reg.athleteName ?? reg.athleteId}${reg.athlete2Name ? ` / ${reg.athlete2Name}` : ''}`}
                         title={reg.checkedInAt ? 'Presença confirmada. Clique para desfazer.' : 'Confirmar presença na mesa'}
-                        className={`inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors disabled:opacity-50 ${reg.checkedInAt ? 'border-success bg-success/10 text-success' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                        className={`inline-flex min-h-(--control-h) shrink-0 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors disabled:opacity-50 ${reg.checkedInAt ? 'border-success bg-success/10 text-success' : 'border-border text-muted-foreground hover:text-foreground'}`}
                       >
                         <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
                         Presente
@@ -507,12 +507,12 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
                         onChange={(e) => setRejectReason(e.target.value)}
                         placeholder="Motivo da recusa (obrigatório)"
                         maxLength={1000}
-                        className="h-8 flex-1 rounded-lg border border-field-border bg-background px-3 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="h-(--control-h) flex-1 rounded-md border border-field-border bg-background px-3 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <button
                         type="submit"
                         disabled={busy || !rejectReason.trim()}
-                        className="h-8 px-3 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                        className="h-(--control-h) px-3 rounded-md bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                       >
                         Recusar
                       </button>

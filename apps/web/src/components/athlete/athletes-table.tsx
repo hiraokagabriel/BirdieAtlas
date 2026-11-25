@@ -11,7 +11,6 @@ import { ChoiceGroup } from '@/components/ui/choice-group'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { AthleteSheet } from './athlete-sheet'
 import { Search, Users } from 'lucide-react'
-import { GENDER_PILL } from '@/lib/discipline'
 import { ageFromBirthYear } from '@/lib/birth-year'
 
 const genderLabel = { M: 'Masculino', F: 'Feminino' }
@@ -63,7 +62,7 @@ export function AthletesTable({
           options={GENDER_FILTERS}
           value={genderFilter}
           onChange={onGenderFilterChange}
-          optionClassName="min-h-8 px-3 py-1 text-xs font-semibold"
+          optionClassName="px-3 py-1 text-xs font-semibold"
         />
         <div role="status" className="flex items-center gap-1.5 text-sm text-muted-foreground ml-auto">
           <Users className="w-4 h-4" aria-hidden="true" />
@@ -79,9 +78,9 @@ export function AthletesTable({
             <TableRow className="bg-muted/40">
               <TableHead>Atleta</TableHead>
               <TableHead>Gênero</TableHead>
-              <TableHead>Idade</TableHead>
+              <TableHead className="hidden md:table-cell">Idade</TableHead>
               <TableHead>Clube atual</TableHead>
-              <TableHead>Filiado desde</TableHead>
+              <TableHead className="hidden md:table-cell">Filiado desde</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -96,7 +95,7 @@ export function AthletesTable({
               filtered.map((athlete) => (
                 <TableRow
                   key={athlete.id}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  className="cursor-pointer"
                   onClick={() => setSelectedAthlete(athlete)}
                 >
                   <TableCell>
@@ -117,11 +116,11 @@ export function AthletesTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className={GENDER_PILL[athlete.gender]}>
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground">
                       {genderLabel[athlete.gender]}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{ageFromBirthYear(athlete.birthYear)}</TableCell>
+                  <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{ageFromBirthYear(athlete.birthYear)}</TableCell>
                   <TableCell>
                     {athlete.clubName ? (
                       <span className="text-sm font-medium">{athlete.clubName}</span>
@@ -129,7 +128,7 @@ export function AthletesTable({
                       <span className="text-sm text-muted-foreground">Sem clube</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
                     {athlete.affiliationStart
                       ? new Date(athlete.affiliationStart).toLocaleDateString('pt-BR')
                       : '—'}

@@ -220,7 +220,7 @@ function SidePanel({
     <div className={cn('flex flex-col gap-3 rounded-2xl border bg-card p-4', isWinner ? 'border-primary bg-primary/5' : 'border-border')}>
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 text-lg font-semibold leading-tight">{display}</p>
-        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">
+        <span className="shrink-0 rounded-sm bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">
           {won} {won === 1 ? 'set' : 'sets'}
         </span>
       </div>
@@ -359,7 +359,7 @@ function QueueItem({
   return (
     <li className={cn('flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-center', highlight ? 'border-primary/50' : 'border-border')}>
       <div className="min-w-0 flex-1 space-y-0.5">
-        {highlight && <p className="text-xs font-semibold uppercase tracking-wider text-primary">Próxima partida</p>}
+        {highlight && <p className="text-sm font-semibold">Próxima partida</p>}
         <p className="text-base font-semibold leading-tight">{item.participant1} <Presence checkedIn={item.checkedIn1} /></p>
         <p className="text-sm text-muted-foreground">contra</p>
         <p className="text-base font-semibold leading-tight">{item.participant2} <Presence checkedIn={item.checkedIn2} /></p>
@@ -519,7 +519,7 @@ function CourtPanel({ tournamentId }: { tournamentId: string }) {
 
       {queueHere.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <h3 className="text-lg">
             {blockedByLive ? 'Depois desta' : 'Fila da quadra'}
           </h3>
           <ul className="space-y-3">
@@ -543,7 +543,7 @@ function CourtPanel({ tournamentId }: { tournamentId: string }) {
 
       {unassigned.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Sem quadra definida</h3>
+          <h3 className="text-lg">Sem quadra definida</h3>
           <ul className="space-y-3">
             {unassigned.map((item) => (
               <QueueItem
@@ -596,7 +596,7 @@ export function CourtConsole() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <div className="space-y-1.5">
         <label htmlFor="live-tournament" className="text-sm font-medium">
           Torneio

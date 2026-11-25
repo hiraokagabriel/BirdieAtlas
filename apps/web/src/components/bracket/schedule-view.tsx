@@ -200,7 +200,7 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                           setSelectedP1(p1)
                           setSelectedP2(p2)
                         }}
-                        className="inline-flex size-(--control-h) items-center justify-center justify-self-end rounded-md transition-colors hover:bg-accent"
+                        className="inline-flex size-(--control-h) items-center justify-center justify-self-end rounded-md transition-colors hover:bg-muted"
                       >
                         <Pencil className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
                       </button>

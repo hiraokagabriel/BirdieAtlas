@@ -28,7 +28,7 @@ export function SortHeader({
       <button
         type="button"
         onClick={onSort}
-        className="flex min-h-(--control-h) items-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+        className="flex min-h-(--control-h) items-center text-[0.8125rem] font-semibold  text-muted-foreground hover:text-foreground"
       >
         {label}
         <span className="sr-only">: ordenar</span>
