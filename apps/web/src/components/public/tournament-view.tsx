@@ -188,10 +188,15 @@ function RegistrationsList({ categoryId, isDoubles, slug }: { categoryId: string
 // ---------------------------------------------------------------------------
 // Página principal
 // ---------------------------------------------------------------------------
-export function TournamentView({ slug, share, initialCategoryId }: { slug: string; share: TournamentShare; initialCategoryId?: string }) {
+export function TournamentView({ slug, share, initialCategoryId, initialTab = 'bracket' }: {
+  slug: string
+  share: TournamentShare
+  initialCategoryId?: string
+  initialTab?: 'bracket' | 'registrations' | 'schedule'
+}) {
   const [summary, setSummary]   = useState<PublicSummary | null>(null)
   const [notFound, setNotFound] = useState(false)
-  const [tab, setTab]           = useState<'bracket' | 'registrations' | 'schedule'>('bracket')
+  const [tab, setTab]           = useState<'bracket' | 'registrations' | 'schedule'>(initialTab)
   const [activeCategoryId, setActiveCategoryId] = useState('')
 
   // Estado do chaveamento

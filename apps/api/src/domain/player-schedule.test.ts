@@ -47,7 +47,7 @@ describe('buildPlayerSchedule', () => {
 
   it('sem ninguém conhecido do outro lado, o adversário é null (a definir)', () => {
     const empty = bracket.map((x) => (x.id === 's2' ? { ...x, registration2Id: null } : x))
-    expect(buildPlayerSchedule(empty, new Set(['me']), nameOf, () => [])[1]!.ifWin).toEqual({ roundLabel: 'Final', opponent: null })
+    expect(buildPlayerSchedule(empty, new Set(['me']), nameOf, () => [])[1]!.ifWin).toMatchObject({ roundLabel: 'Final', opponent: null })
   })
 
   it('na próxima se vencer, usa o adversário já definido ou "vencedor de" da outra partida', () => {
@@ -57,11 +57,11 @@ describe('buildPlayerSchedule', () => {
 
     // Quando a outra semi já tem os dois lados, a final mostra "vencedor de Caio × Edu".
     const filled = live.map((x) => (x.id === 's2' ? { ...x, registration1Id: 'c' } : x))
-    expect(buildPlayerSchedule(filled, new Set(['me']), nameOf, () => [])[1]!.ifWin).toEqual({ roundLabel: 'Final', opponent: 'vencedor de Caio × Edu' })
+    expect(buildPlayerSchedule(filled, new Set(['me']), nameOf, () => [])[1]!.ifWin).toMatchObject({ roundLabel: 'Final', opponent: 'vencedor de Caio × Edu' })
 
     // Quando o adversário da final já está lá, é o nome dele.
     const known = filled.map((x) => (x.id === 'f' ? { ...x, registration2Id: 'c' } : x))
-    expect(buildPlayerSchedule(known, new Set(['me']), nameOf, () => [])[1]!.ifWin).toEqual({ roundLabel: 'Final', opponent: 'Caio' })
+    expect(buildPlayerSchedule(known, new Set(['me']), nameOf, () => [])[1]!.ifWin).toMatchObject({ roundLabel: 'Final', opponent: 'Caio' })
   })
 
   it('partida jogada traz resultado e placar do ponto de vista do jogador, sem próxima condicional', () => {

@@ -7,7 +7,7 @@ import { shareMetadata } from '@/lib/share-metadata'
 // O resultado muda a cada partida e a cada encerramento; renderiza por requisição.
 export const dynamic = 'force-dynamic'
 
-type PageProps = { params: Promise<{ slug: string }>; searchParams: Promise<{ categoria?: string | string[] }> }
+type PageProps = { params: Promise<{ slug: string }>; searchParams: Promise<{ categoria?: string | string[]; aba?: string | string[] }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
@@ -25,7 +25,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function PublicTournamentPage({ params, searchParams }: PageProps) {
   const { slug } = await params
   // `?categoria=<id>` abre direto o chaveamento dessa categoria (link "Se vencer → Final" da página do jogador).
-  const { categoria } = await searchParams
+  // `?aba=agenda` ou `?aba=inscritos` abre direto nessa aba (link do horário na linha de partida).
+  const { categoria, aba } = await searchParams
+  const initialTab = aba === 'agenda' ? 'schedule' : aba === 'inscritos' ? 'registrations' : 'bracket'
   const load = await loadTournamentShare(slug)
   // Sem dados (API fora do ar ou torneio inexistente) a view cuida do próprio estado de erro/404;
   // o texto de compartilhamento só perde o resumo.
@@ -33,5 +35,5 @@ export default async function PublicTournamentPage({ params, searchParams }: Pag
     load.status === 'ok'
       ? { title: load.title, text: load.description }
       : { title: 'Torneio · BirdieAtlas', text: 'Chave e resultados no BirdieAtlas.' }
-  return <TournamentView slug={slug} share={share} initialCategoryId={typeof categoria === 'string' ? categoria : undefined} />
+  return <TournamentView slug={slug} share={share} initialCategoryId={typeof categoria === 'string' ? categoria : undefined} initialTab={initialTab} />
 }

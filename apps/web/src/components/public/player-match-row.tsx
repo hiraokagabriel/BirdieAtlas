@@ -22,15 +22,28 @@ export type PlayerMatch = {
   score: string | null
   courtNumber: number | null
   scheduledAt: string | null
-  ifWin: { roundLabel: string; opponent: string | null } | null
+  ifWin: { roundLabel: string; opponent: string | null; players: Player[]; pending: Pending | null } | null
   opponentPlayers: Player[]
-  pending: { via: 'vencedor' | 'perdedor'; sides: Player[][] } | null
+  pending: Pending | null
 }
+
+type Pending = { via: 'vencedor' | 'perdedor'; sides: Player[][] }
 
 type Player = { id: string; name: string }
 
 // Nome que é link, sem mudar a cor do texto: sublinhado discreto que acende no hover e no foco.
 const NAME_LINK = 'rounded-sm underline decoration-border underline-offset-4 hover:decoration-primary'
+
+/** "vencedor de A × B" (ou "do jogo de A") com os nomes ligados aos perfis. */
+function PendingLinks({ pending }: { pending: Pending }) {
+  return (
+    <>
+      {pending.via} {pending.sides.length === 2 ? 'de ' : 'do jogo de '}
+      <PlayerLinks players={pending.sides[0] ?? []} />
+      {pending.sides[1] && <> × <PlayerLinks players={pending.sides[1]} /></>}
+    </>
+  )
+}
 
 /** Atletas de um lado, cada um com link ao perfil, separados por " / ". */
 function PlayerLinks({ players }: { players: Player[] }) {
@@ -93,24 +106,41 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
         highlight && 'bg-secondary',
       )}
     >
-      <div className="flex items-baseline gap-x-4 sm:block sm:space-y-1">
-        {free ? (
-          <p className="font-heading text-2xl font-bold leading-none">{m.kind === 'bye' ? 'Bye' : 'Folga'}</p>
-        ) : clock ? (
-          <p className="font-heading text-2xl font-bold leading-none tabular-nums">{clock}</p>
+      {(() => {
+        const when = (
+          <>
+            {free ? (
+              <span className="block font-heading text-2xl font-bold leading-none">{m.kind === 'bye' ? 'Bye' : 'Folga'}</span>
+            ) : clock ? (
+              <span className="block font-heading text-2xl font-bold leading-none tabular-nums">{clock}</span>
+            ) : (
+              <span className="block text-sm text-muted-foreground">Sem horário</span>
+            )}
+            {day && <span className="block text-xs tabular-nums text-muted-foreground">{day}</span>}
+            {!free && (m.courtNumber != null ? (
+              <span className="flex items-baseline gap-1">
+                <span className="text-xs font-semibold text-muted-foreground">Quadra</span>
+                <span className="font-heading text-xl font-bold leading-none tabular-nums">{m.courtNumber}</span>
+              </span>
+            ) : (
+              <span className="block text-xs text-muted-foreground">Quadra a definir</span>
+            ))}
+          </>
+        )
+        const layout = 'flex items-baseline gap-x-4 sm:block sm:space-y-1'
+        // Horário e quadra levam à Agenda do torneio; a célula toda é o alvo.
+        return tournamentSlug && !free ? (
+          <Link
+            href={`/t/${tournamentSlug}?aba=agenda`}
+            aria-label={`${[clock || 'Sem horário', day, m.courtNumber != null ? `quadra ${m.courtNumber}` : 'quadra a definir'].filter(Boolean).join(', ')} (ver na agenda)`}
+            className={cn(layout, '-m-2 self-start rounded-md p-2 hover:bg-muted/60')}
+          >
+            {when}
+          </Link>
         ) : (
-          <p className="text-sm text-muted-foreground">Sem horário</p>
-        )}
-        {day && <p className="text-xs tabular-nums text-muted-foreground">{day}</p>}
-        {!free && (m.courtNumber != null ? (
-          <p className="flex items-baseline gap-1">
-            <span className="text-xs font-semibold text-muted-foreground">Quadra</span>
-            <span className="font-heading text-xl font-bold leading-none tabular-nums">{m.courtNumber}</span>
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">Quadra a definir</p>
-        ))}
-      </div>
+          <div className={layout}>{when}</div>
+        )
+      })()}
 
       <div className="min-w-0 space-y-2">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -142,11 +172,7 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
             )}
           </p>
         ) : m.pending && m.pending.sides.some((s) => s.length) ? (
-          <p className="break-words text-base">
-            Contra o {m.pending.via} {m.pending.sides.length === 2 ? 'de ' : 'do jogo de '}
-            <PlayerLinks players={m.pending.sides[0]!} />
-            {m.pending.sides[1] && <> × <PlayerLinks players={m.pending.sides[1]} /></>}
-          </p>
+          <p className="break-words text-base">Contra o <PendingLinks pending={m.pending} /></p>
         ) : m.opponent ? (
           <p className="break-words text-base">Contra o {m.opponent}</p>
         ) : (
@@ -179,7 +205,17 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
                   <span className="font-heading text-xl font-bold leading-tight">{m.ifWin.roundLabel}</span>
                 )}
               </p>
-              <p className="break-words text-sm text-muted-foreground">{m.ifWin.opponent ? `contra ${m.ifWin.opponent}` : 'adversário a definir'}</p>
+              <p className="break-words text-sm text-muted-foreground">
+                {m.ifWin.players.length > 0 ? (
+                  <>contra <PlayerLinks players={m.ifWin.players} /></>
+                ) : m.ifWin.pending && m.ifWin.pending.sides.some((s) => s.length) ? (
+                  <>contra o <PendingLinks pending={m.ifWin.pending} /></>
+                ) : m.ifWin.opponent ? (
+                  `contra ${m.ifWin.opponent}`
+                ) : (
+                  'adversário a definir'
+                )}
+              </p>
             </div>
           )}
         </div>
