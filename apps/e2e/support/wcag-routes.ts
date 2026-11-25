@@ -61,6 +61,14 @@ export function publicPages(data: () => WcagData): PageCase[] {
     },
   },
   {
+    // "Encontre sua próxima partida": partidas de um jogador do torneio em andamento.
+    name: 'partidas do jogador no torneio',
+    path: () => `/t/${data().running.tournament.slug}/jogador/${data().running.athletes[0]!.id}`,
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 1, name: data().running.athletes[0]!.name })).toBeVisible()
+    },
+  },
+  {
     name: 'súmulas do torneio em andamento',
     path: () => `/t/${data().running.tournament.slug}/sumulas`,
     ready: async (p) => {
