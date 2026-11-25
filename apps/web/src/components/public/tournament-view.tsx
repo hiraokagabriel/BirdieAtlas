@@ -188,7 +188,7 @@ function RegistrationsList({ categoryId, isDoubles, slug }: { categoryId: string
 // ---------------------------------------------------------------------------
 // Página principal
 // ---------------------------------------------------------------------------
-export function TournamentView({ slug, share }: { slug: string; share: TournamentShare }) {
+export function TournamentView({ slug, share, initialCategoryId }: { slug: string; share: TournamentShare; initialCategoryId?: string }) {
   const [summary, setSummary]   = useState<PublicSummary | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [tab, setTab]           = useState<'bracket' | 'registrations' | 'schedule'>('bracket')
@@ -227,10 +227,11 @@ export function TournamentView({ slug, share }: { slug: string; share: Tournamen
 
   // 2. Define categoria ativa inicial
   useEffect(() => {
-    if (summary?.categories.length && !activeCategoryId) {
-      setActiveCategoryId(summary.categories[0].id)
-    }
-  }, [summary, activeCategoryId])
+    if (!summary?.categories.length || activeCategoryId) return
+    // Categoria pedida na URL (se existir neste torneio); senão, a primeira.
+    const wanted = summary.categories.find((c) => c.id === initialCategoryId)
+    setActiveCategoryId((wanted ?? summary.categories[0]).id)
+  }, [summary, activeCategoryId, initialCategoryId])
 
   // 3. Carrega draw da categoria ativa
   useEffect(() => {
