@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Barlow_Condensed, Geist, Geist_Mono } from 'next/font/google'
+import { Barlow, Barlow_Condensed } from 'next/font/google'
 import './globals.css'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryProvider } from '@/providers/query-provider'
@@ -9,8 +9,13 @@ import { getSiteUrl } from '@/lib/share'
 import { BRAND } from '@/lib/share-image/brand'
 import { ServiceWorkerRegister } from '@/components/shared/service-worker-register'
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'], display: 'swap' })
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'], display: 'swap' })
+// Texto em Barlow e títulos e placares em Barlow Condensed: mesma família (docs/DESIGN.md, Typography).
+const barlow = Barlow({
+  variable: '--font-barlow',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+})
 const barlowCondensed = Barlow_Condensed({
   variable: '--font-barlow-condensed',
   subsets: ['latin'],
@@ -33,7 +38,7 @@ export const viewport: Viewport = { themeColor: BRAND.green }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // suppressHydrationWarning: o script de tema altera class/style de <html> antes da hidratação.
-    <html lang="pt-BR" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${barlowCondensed.variable} h-full antialiased`}>
+    <html lang="pt-BR" suppressHydrationWarning className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}>
       <head>
         {/* Script síncrono: define a classe `dark` antes da primeira pintura (sem flash). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

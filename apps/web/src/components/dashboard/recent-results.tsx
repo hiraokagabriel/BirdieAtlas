@@ -71,7 +71,7 @@ export function RecentResults() {
                   <TableCell className="text-muted-foreground text-sm">{r.roundLabel ?? roundLabel(r.round)}</TableCell>
                   <TableCell className="font-medium">{r.winnerName}</TableCell>
                   <TableCell className="text-muted-foreground">{r.loserName}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{r.score}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">{r.score}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -382,7 +382,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories }:
               return (
                 <div key={reg.id} className="px-4 py-3 hover:bg-muted/20 transition-colors">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">{index + 1}</span>
+                    <span className="w-6 text-center text-xs text-muted-foreground tabular-nums shrink-0">{index + 1}</span>
 
                     {reg.seed ? (
                       <span className="inline-flex items-center gap-1 w-8 shrink-0">

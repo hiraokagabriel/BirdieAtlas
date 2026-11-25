@@ -230,7 +230,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
                   className="w-full h-full object-contain p-1"
                 />
               ) : (
-                <span aria-hidden="true" className="text-3xl font-black" style={{ color: clubInkOnWhite(primary) }}>
+                <span aria-hidden="true" className="text-3xl font-bold" style={{ color: clubInkOnWhite(primary) }}>
                   {club.name.charAt(0)}
                 </span>
               )}

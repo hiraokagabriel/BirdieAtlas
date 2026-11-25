@@ -8,9 +8,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-barlow-condensed), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-barlow-condensed), var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --color-primary-strong: var(--primary-strong);
+  --color-live: var(--live);
+  --color-live-foreground: var(--live-foreground);
+  --color-court-line: var(--court-line);
+  --shadow-raised: var(--elevation-raised);
+  --shadow-overlay: var(--elevation-overlay);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -104,6 +109,15 @@
   --popover-foreground: oklch(0.22 0.03 160);
   --primary: oklch(0.48 0.115 155);
   --primary-foreground: oklch(0.985 0.006 95);
+  /* Hover do botão principal (docs/DESIGN.md, Colors). */
+  --primary-strong: oklch(0.42 0.11 155);
+  /* Amarelo-peteca do estado vivo: "Ao vivo", "Chamada". Separado de --accent, que o shadcn usa no hover de menus. */
+  --live: oklch(0.92 0.11 97);
+  --live-foreground: oklch(0.28 0.05 95);
+  /* Conectores da chave e réguas finas: cor de linha, nunca de fundo. */
+  --court-line: oklch(0.48 0.115 155 / 0.22);
+  --elevation-raised: 0 1px 2px oklch(0.22 0.03 160 / 0.06), 0 4px 12px -4px oklch(0.22 0.03 160 / 0.1);
+  --elevation-overlay: 0 2px 4px oklch(0.22 0.03 160 / 0.08), 0 16px 40px -8px oklch(0.22 0.03 160 / 0.22);
   --secondary: oklch(0.95 0.025 145);
   --secondary-foreground: oklch(0.3 0.06 155);
   --muted: oklch(0.955 0.01 95);
@@ -166,7 +180,7 @@
   --discipline-xd-border: oklch(0.85 0.06 55);
   --discipline-xd-solid: oklch(0.5 0.14 55);
   --discipline-xd-solid-foreground: oklch(0.99 0 0);
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --club-ink-mix: 0%;
   --sidebar: oklch(0.975 0.012 110);
   --sidebar-foreground: oklch(0.22 0.03 160);
@@ -187,6 +201,12 @@
   --popover-foreground: oklch(0.95 0.01 95);
   --primary: oklch(0.7 0.14 155);
   --primary-foreground: oklch(0.18 0.03 160);
+  --primary-strong: oklch(0.76 0.14 155);
+  --live: oklch(0.86 0.15 97);
+  --live-foreground: oklch(0.22 0.04 95);
+  --court-line: oklch(0.7 0.14 155 / 0.25);
+  --elevation-raised: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px -4px oklch(0 0 0 / 0.4);
+  --elevation-overlay: 0 2px 4px oklch(0 0 0 / 0.35), 0 16px 40px -8px oklch(0 0 0 / 0.6);
   --secondary: oklch(0.27 0.03 155);
   --secondary-foreground: oklch(0.92 0.03 145);
   --muted: oklch(0.27 0.025 160);
