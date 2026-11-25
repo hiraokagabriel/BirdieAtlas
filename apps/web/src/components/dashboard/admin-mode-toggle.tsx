@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { ShieldCheck, ShieldOff } from 'lucide-react'
 import { useAdminMode } from '@/hooks/use-admin-mode'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input'
 // ---------------------------------------------------------------------------
 // AdminModeToggle
 //
-// Botão flutuante no canto inferior direito.
+// Botão na barra superior do admin.
 // - API sem PIN: aparece só em desenvolvimento e liga/desliga o modo admin global.
 // - API com PIN (rede local): aparece sempre; "Entrar como admin" pede o PIN, e com a sessão ativa o clique sai.
 // ---------------------------------------------------------------------------
@@ -40,26 +41,25 @@ export function AdminModeToggle() {
         onClick={handleClick}
         disabled={mode.isSyncing}
         title={title}
-        className={[
-          'fixed bottom-5 right-5 z-50',
-          'flex items-center gap-2 px-3 py-2 rounded-full',
-          'text-xs font-semibold shadow-lg border',
-          'transition-all duration-200 select-none',
-          mode.isSyncing ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:scale-105 active:scale-95',
+        aria-pressed={mode.pinRequired ? undefined : mode.isAdmin}
+        className={cn(
+          // Estado do modo admin na barra superior (template admin: "Modo admin" com ✓), não flutuante.
+          'inline-flex h-(--control-h) shrink-0 select-none items-center gap-1.5 whitespace-nowrap rounded-md border px-3 text-xs font-semibold transition-colors',
+          mode.isSyncing ? 'cursor-wait opacity-60' : 'cursor-pointer',
           mode.isAdmin
-            ? 'bg-primary border-primary text-primary-foreground hover:bg-primary/90'
-            : 'bg-foreground border-foreground text-background/80 hover:text-background',
-        ].join(' ')}
+            ? 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80'
+            : 'border-field-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
       >
-        {mode.isAdmin ? <ShieldCheck size={14} aria-hidden="true" /> : <ShieldOff size={14} aria-hidden="true" />}
+        {mode.isAdmin ? <ShieldCheck className="size-4" aria-hidden="true" /> : <ShieldOff className="size-4" aria-hidden="true" />}
         <span>
           {mode.pinRequired
             ? mode.isAdmin ? 'Sair do modo admin' : 'Entrar como admin'
-            : mode.isAdmin ? 'Admin ON' : 'Admin OFF'}
+            : 'Modo admin'}
         </span>
       </button>
       {mode.error && (
-        <p role="alert" className="fixed bottom-16 right-5 z-50 max-w-xs rounded-md border border-destructive bg-background px-3 py-2 text-xs font-medium text-destructive shadow-lg">
+        <p role="alert" className="fixed right-4 top-16 z-50 max-w-xs rounded-md border border-destructive bg-card px-3 py-2 text-xs font-medium text-destructive shadow-raised">
           {mode.error}
         </p>
       )}

@@ -2,78 +2,72 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Feather, ChevronRight, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Separator } from '@/components/ui/separator'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
+import { BrandMark } from '@/components/shared/brand-mark'
 import { AdminModeToggle } from '@/components/dashboard/admin-mode-toggle'
 import { ADMIN_NAV, isNavItemActive } from '@/lib/navigation'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/shared/skip-link'
+
+/** Item do menu lateral: ativo em névoa de quadra (docs/DESIGN.md, Navigation > Admin). */
+const SIDE_ITEM = 'flex h-9 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors'
+const SIDE_IDLE = 'text-muted-foreground hover:bg-muted hover:text-foreground'
+const SIDE_ACTIVE = 'bg-secondary text-secondary-foreground [&>svg]:text-primary'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const current = ADMIN_NAV.find(({ href }) => isNavItemActive(pathname, href, '/admin'))
 
   return (
-    <div data-density="compact" className="flex h-screen bg-background overflow-hidden">
+    <div data-density="compact" className="flex h-screen overflow-hidden bg-background">
       <SkipLink />
-      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0">
-        <div className="flex items-center gap-3 px-6 py-5">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-            <Feather className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <p className="font-semibold text-sm leading-none">BirdieAtlas</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Administração</p>
-          </div>
-        </div>
+      {/* Menu lateral de 232 px; no tablet (md) recolhe para ícones, com o nome ainda lido pelo leitor de tela. */}
+      <aside className="hidden w-16 shrink-0 flex-col border-r border-border bg-sidebar md:flex lg:w-58">
+        <Link href="/admin" className="flex h-14 items-center gap-2 border-b border-border px-5 font-heading text-xl font-bold leading-none">
+          <BrandMark />
+          <span className="sr-only lg:not-sr-only">
+            Birdie<span className="text-primary">Atlas</span>
+          </span>
+        </Link>
 
-        <Separator />
-
-        <nav aria-label="Navegação administrativa" className="flex-1 px-3 py-4 space-y-1">
+        <nav aria-label="Navegação administrativa" className="flex-1 space-y-0.5 px-3 py-3">
           {ADMIN_NAV.map(({ label, href, icon: Icon }) => {
             const active = isNavItemActive(pathname, href, '/admin')
             return (
               <Link
                 key={href}
                 href={href}
+                title={label}
                 aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                )}
+                className={cn(SIDE_ITEM, 'justify-center lg:justify-start', active ? SIDE_ACTIVE : SIDE_IDLE)}
               >
-                <Icon className="w-4 h-4 shrink-0" />
-                {label}
-                {active && <ChevronRight className="w-3 h-3 ml-auto" />}
+                <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                <span className="sr-only lg:not-sr-only">{label}</span>
               </Link>
             )
           })}
         </nav>
 
-        <Separator />
-
-        <div className="px-3 py-4">
-          <Link
-            href="/"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <ExternalLink className="w-4 h-4 shrink-0" />
-            Ver site público
+        <div className="border-t border-border px-3 py-3">
+          <Link href="/" title="Portal público" className={cn(SIDE_ITEM, SIDE_IDLE, 'justify-center lg:justify-start')}>
+            <ExternalLink className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            <span className="sr-only lg:not-sr-only">Portal público</span>
           </Link>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between gap-4 px-4 md:px-8 py-4 border-b border-border shrink-0">
-          <h1 className="text-xl font-semibold">{current?.label ?? 'Administração'}</h1>
-          <ThemeToggle />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-4 md:px-6">
+          <h1 className="truncate font-heading text-xl font-bold">{current?.label ?? 'Administração'}</h1>
+          <div className="flex items-center gap-2">
+            <AdminModeToggle />
+            <ThemeToggle />
+          </div>
         </header>
 
-        {/* Celular e tablet: a sidebar some e a mesma navegação vira uma faixa rolável. */}
-        <nav aria-label="Navegação administrativa" className="md:hidden flex gap-1 overflow-x-auto border-b border-border px-3 py-2 shrink-0">
+        {/* Celular: a sidebar some e a mesma navegação vira uma faixa rolável. */}
+        <nav aria-label="Navegação administrativa" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-3 py-2 md:hidden">
           {ADMIN_NAV.map(({ label, href, icon: Icon }) => {
             const active = isNavItemActive(pathname, href, '/admin')
             return (
@@ -81,26 +75,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={href}
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                )}
+                className={cn(SIDE_ITEM, 'shrink-0 gap-2', active ? SIDE_ACTIVE : SIDE_IDLE)}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
                 {label}
               </Link>
             )
           })}
         </nav>
 
-        <main id={MAIN_CONTENT_ID} tabIndex={-1} className="focus:outline-none flex-1 overflow-auto p-4 md:p-8">
-          {children}
+        <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 overflow-auto focus:outline-none">
+          <div className="mx-auto max-w-350 p-4 md:p-6">{children}</div>
         </main>
       </div>
-
-      <AdminModeToggle />
     </div>
   )
 }

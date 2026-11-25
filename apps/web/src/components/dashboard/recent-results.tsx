@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api'
-import { DISCIPLINE_PILL } from '@/lib/discipline'
+import { DisciplineChip } from '@/components/public/discipline-chip'
+import { EmptyNotice, ErrorNotice } from '@/components/public/notices'
 
 type RecentMatch = {
   matchId: string
@@ -28,33 +28,38 @@ function roundLabel(round: number): string {
 }
 
 export function RecentResults() {
-  const [results, setResults] = useState<RecentMatch[] | null>(null)
-
-  useEffect(() => {
-    apiFetch<RecentMatch[]>('/dashboard/recent-matches').then(setResults).catch(() => setResults([]))
-  }, [])
+  const { data: results, isPending, isError } = useQuery({
+    queryKey: ['dashboard', 'recent-matches'],
+    queryFn: () => apiFetch<RecentMatch[]>('/dashboard/recent-matches'),
+  })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Resultados Recentes</CardTitle>
-        <CardDescription>Últimas partidas encerradas no torneio</CardDescription>
+    <Card className="gap-0 py-0">
+      <CardHeader className="border-b py-3">
+        <CardTitle>Resultados recentes</CardTitle>
+        <CardDescription>Últimas partidas encerradas nos torneios em andamento</CardDescription>
       </CardHeader>
-      <CardContent>
-        {results === null ? (
-          <div role="status" aria-busy="true" className="space-y-2">
+      <CardContent className="px-0">
+        {isError ? (
+          <div className="p-4">
+            <ErrorNotice>Não foi possível carregar os resultados. Recarregue a página para tentar de novo.</ErrorNotice>
+          </div>
+        ) : isPending ? (
+          <div role="status" aria-busy="true" className="space-y-2 p-4">
             <span className="sr-only">Carregando resultados recentes…</span>
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
         ) : results.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma partida encerrada ainda.</p>
+          <div className="p-4">
+            <EmptyNotice>Nenhuma partida encerrada ainda. Os resultados aparecem aqui assim que forem lançados.</EmptyNotice>
+          </div>
         ) : (
           <Table label="Resultados recentes">
-            <TableCaption className="sr-only">Últimas partidas encerradas no torneio</TableCaption>
+            <TableCaption className="sr-only">Últimas partidas encerradas nos torneios em andamento</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Fase</TableHead>
+                <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                <TableHead className="hidden sm:table-cell">Fase</TableHead>
                 <TableHead>Vencedor</TableHead>
                 <TableHead>Derrotado</TableHead>
                 <TableHead className="text-right">Placar</TableHead>
@@ -62,16 +67,17 @@ export function RecentResults() {
             </TableHeader>
             <TableBody>
               {results.map((r) => (
-                <TableRow key={r.matchId} className="hover:bg-accent/50">
-                  <TableCell>
-                    <Badge variant="secondary" className={DISCIPLINE_PILL[r.discipline]}>
-                      {r.discipline}
-                    </Badge>
+                <TableRow key={r.matchId}>
+                  <TableCell className="hidden sm:table-cell">
+                    <DisciplineChip discipline={r.discipline} />
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{r.roundLabel ?? roundLabel(r.round)}</TableCell>
-                  <TableCell className="font-medium">{r.winnerName}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.loserName}</TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">{r.score}</TableCell>
+                  <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{r.roundLabel ?? roundLabel(r.round)}</TableCell>
+                  <TableCell className="whitespace-normal font-medium">
+                    <DisciplineChip discipline={r.discipline} className="mr-1.5 sm:hidden" />
+                    {r.winnerName}
+                  </TableCell>
+                  <TableCell className="whitespace-normal text-muted-foreground">{r.loserName}</TableCell>
+                  <TableCell className="text-right font-heading text-base font-bold tabular-nums">{r.score}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
