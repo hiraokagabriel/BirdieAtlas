@@ -37,6 +37,8 @@ export function GuestListForm({ categoryId, discipline, onDone }: { categoryId: 
 
   const mutation = useMutation({
     mutationFn: () => apiFetch<Summary>(`/tournaments/categories/${categoryId}/guests`, { method: 'POST', json: { text } }),
+    // O erro aparece no próprio formulário (linhas ou mensagem da API): sem o toast global.
+    onError: () => {},
     onSuccess: (result) => {
       setSummary(result)
       setText('')
@@ -91,7 +93,7 @@ export function GuestListForm({ categoryId, discipline, onDone }: { categoryId: 
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={mutation.isPending || !text.trim()}>
-          {mutation.isPending ? 'Adicionando...' : 'Adicionar jogadores'}
+          {mutation.isPending ? 'Adicionando...' : mutation.isError && !errors.length ? 'Tentar de novo' : 'Adicionar jogadores'}
         </Button>
         <Button type="button" variant="outline" onClick={onDone}>Fechar</Button>
       </div>

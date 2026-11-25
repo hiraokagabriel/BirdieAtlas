@@ -14,6 +14,7 @@ import { ChoiceGroup } from '@/components/ui/choice-group'
 import { EditRegistrationForm } from '@/components/tournament/edit-registration-form'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
 import { GuestListForm } from '@/components/tournament/guest-list-form'
+import { Button } from '@/components/ui/button'
 import { ClipboardList } from 'lucide-react'
 
 type Category = {
@@ -242,25 +243,15 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
           ) : (
             <>
             {friendly && (
-              <button
-                type="button"
-                aria-expanded={showGuests}
-                onClick={() => { setShowGuests((v) => !v); setShowForm(false) }}
-                className="inline-flex min-h-(--control-h) items-center gap-1.5 rounded-md border border-field-border bg-card px-3 text-xs font-semibold transition-colors hover:bg-muted"
-              >
-                <ClipboardList className="size-3.5" aria-hidden="true" />
+              <Button type="button" variant="outline" aria-expanded={showGuests} onClick={() => { setShowGuests((v) => !v); setShowForm(false) }}>
+                <ClipboardList aria-hidden="true" />
                 Colar lista
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              aria-expanded={showForm}
-              onClick={() => { setShowForm((v) => !v); setShowGuests(false); setError(null) }}
-              className="inline-flex min-h-(--control-h) items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-            >
-              <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
+            <Button type="button" aria-expanded={showForm} onClick={() => { setShowForm((v) => !v); setShowGuests(false); setError(null) }}>
+              <UserPlus aria-hidden="true" />
               Inscrever
-            </button>
+            </Button>
             </>
           )}
           </div>
