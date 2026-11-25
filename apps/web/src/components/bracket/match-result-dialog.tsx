@@ -9,7 +9,8 @@ import { ChoiceGroup } from '@/components/ui/choice-group'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Trophy, Loader2, AlertCircle } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Check, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { ResultHistory } from './result-history'
 
 type GameScore = { score1: string; score2: string }
@@ -74,26 +75,26 @@ function validateGames(games: GameScore[], resultType: 'completed' | 'walkover' 
 
   const filled = games.filter((g) => g.score1 !== '' && g.score2 !== '')
 
-  if (filled.length < 2) return 'Preencha ao menos 2 games.'
+  if (filled.length < 2) return 'Preencha ao menos 2 sets.'
 
   const g1 = getGameWinner(games[0])
   const g2 = getGameWinner(games[1])
 
-  if (!g1) return 'Game 1 não tem vencedor definido (placar empatado ou inválido).'
-  if (!g2) return 'Game 2 não tem vencedor definido (placar empatado ou inválido).'
+  if (!g1) return 'O 1º set não tem vencedor (placar empatado ou inválido).'
+  if (!g2) return 'O 2º set não tem vencedor (placar empatado ou inválido).'
 
   if (g1 === g2) {
     // Partida decidida em 2 games — 3º game não deve ser preenchido
     if (games[2] && (games[2].score1 !== '' || games[2].score2 !== '')) {
-      return '3º game não é necessário: o vencedor já foi definido nos 2 primeiros games.'
+      return 'O 3º set não é necessário: o vencedor já foi definido nos 2 primeiros sets.'
     }
   } else {
     // Empate 1x1 — 3º game obrigatório
     if (!games[2] || games[2].score1 === '' || games[2].score2 === '') {
-      return '3º game obrigatório: os 2 primeiros games terminaram empatados (1x1).'
+      return 'O 3º set é obrigatório: os 2 primeiros sets terminaram 1 × 1.'
     }
     const g3 = getGameWinner(games[2])
-    if (!g3) return '3º game não tem vencedor definido.'
+    if (!g3) return 'O 3º set não tem vencedor.'
   }
 
   return null
@@ -201,7 +202,9 @@ export function MatchResultDialog({
 
   function updateGame(idx: number, field: 'score1' | 'score2', value: string) {
     setGames((prev) => {
-      const updated = prev.map((g, i) => i === idx ? { ...g, [field]: value } : g)
+      // Sempre 3 posições: sem isso o 3º game (índice 2) não existia no estado e a digitação se perdia.
+      const slots = [0, 1, 2].map((i) => prev[i] ?? { score1: '', score2: '' })
+      const updated = slots.map((g, i) => i === idx ? { ...g, [field]: value } : g)
       // Se 3º game não é mais necessário, limpa-o
       const w1 = getGameWinner(updated[0])
       const w2 = getGameWinner(updated[1])
@@ -225,109 +228,86 @@ export function MatchResultDialog({
   ]
 
   const showValidationError = submitAttempted && !isSpecialModeValid
+  const setsWon = (side: 1 | 2) => displayGames.filter((g) => getGameWinner(g) === side).length
+  const names = [player1Name, player2Name] as const
+  // Veredito só com o placar fechado: o vencedor aparece antes de salvar (docs/DESIGN.md, Inputs > Placar).
+  const verdict = winner && isSpecialModeValid
+    ? resultType === 'completed'
+      ? `Vitória de ${names[winner - 1]} por ${setsWon(winner)} sets a ${setsWon(winner === 1 ? 2 : 1)}`
+      : `${resultType === 'walkover' ? 'W.O.' : 'Desistência'}: ${names[winner - 1]} avança`
+    : null
+
+  const scoreClass = (win: boolean) => cn(
+    // `md:text-[1.75rem]` repete o tamanho para vencer o `md:text-sm` do Input.
+    'h-14 w-12 px-0 text-center font-heading text-[1.75rem] font-bold tabular-nums sm:w-16 md:text-[1.75rem] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+    win && 'border-primary/50 bg-secondary text-secondary-foreground',
+  )
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
+        {/* Formulário: Enter em qualquer campo salva (o rodapé ensina o atalho). */}
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} className="grid gap-4">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Editar Resultado' : 'Lançar Resultado'}</DialogTitle>
-          <DialogDescription>{roundLabel}: {player1Name} contra {player2Name}.</DialogDescription>
+          <DialogTitle>{isEdit ? 'Editar resultado' : 'Lançar resultado'}</DialogTitle>
+          <DialogDescription>{roundLabel}</DialogDescription>
         </DialogHeader>
 
         {isEdit && (
-          <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
-            <span aria-hidden="true">⚠️</span>
-            <span>Se o vencedor mudar, as partidas seguintes serão reabertas automaticamente.</span>
-          </div>
+          <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-sm">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            Se o vencedor mudar, as partidas seguintes serão reabertas automaticamente.
+          </p>
         )}
 
-        {/* Players */}
-        <div className="rounded-lg border border-border overflow-hidden">
-          <div className={`flex items-center gap-3 px-4 py-3 border-b border-border ${
-            winner === 1 ? 'bg-success/10' : 'bg-muted/30'
-          }`}>
-            {winner === 1 && <Trophy className="w-4 h-4 text-warning shrink-0" aria-hidden="true" />}
-            <span className={`text-sm flex-1 truncate ${
-              winner === 1 ? 'font-semibold' : winner === 2 ? 'text-muted-foreground' : 'font-medium'
-            }`}>{player1Name}{winner === 1 && <span className="sr-only"> (vencedor)</span>}</span>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {displayGames.filter((g) => getGameWinner(g) === 1).length} games
-            </span>
-          </div>
-          <div className={`flex items-center gap-3 px-4 py-3 ${
-            winner === 2 ? 'bg-success/10' : ''
-          }`}>
-            {winner === 2 && <Trophy className="w-4 h-4 text-warning shrink-0" aria-hidden="true" />}
-            <span className={`text-sm flex-1 truncate ${
-              winner === 2 ? 'font-semibold' : winner === 1 ? 'text-muted-foreground' : 'font-medium'
-            }`}>{player2Name}{winner === 2 && <span className="sr-only"> (vencedor)</span>}</span>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {displayGames.filter((g) => getGameWinner(g) === 2).length} games
-            </span>
-          </div>
-        </div>
-
-        {/* Result type tabs */}
         <ChoiceGroup
           legend="Tipo de resultado"
           hideLegend
           options={RESULT_TYPES}
           value={resultType}
           onChange={handleResultTypeChange}
-          optionClassName="flex-1 min-h-8 text-xs font-semibold"
+          optionClassName="flex-1 font-semibold"
         />
 
-        {/* Games — modo Normal */}
+        {/* Súmula: uma linha por lado e uma coluna por set. No HTML os campos seguem set a set
+            (1º set lado 1, 1º set lado 2…), a ordem do Tab ao copiar a súmula de papel. */}
         {resultType === 'completed' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parciais</h3>
-              <p className="text-xs text-muted-foreground">
-                {showThirdGame ? '3 games (1x1 — decidindo)' : '2 games'}
-              </p>
-            </div>
-            <div className="grid grid-cols-[1fr_40px_1fr_8px] gap-2 px-1">
-              <p className="text-xs text-muted-foreground truncate">{player1Name.split(' ')[0]}</p>
-              <div />
-              <p className="text-xs text-muted-foreground truncate">{player2Name.split(' ')[0]}</p>
-              <div />
-            </div>
-            {[0, 1, ...(showThirdGame ? [2] : [])].map((idx) => {
+          <div role="group" aria-label="Parciais" className="grid grid-cols-[minmax(0,1fr)_repeat(3,3rem)] items-center gap-x-2 gap-y-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,4rem)] sm:gap-x-3">
+            {[0, 1, 2].map((idx) => (
+              <span key={`h${idx}`} style={{ gridRow: 1, gridColumn: idx + 2 }} className="text-center text-[0.8125rem] font-semibold text-muted-foreground">
+                {idx + 1}º set
+              </span>
+            ))}
+            {names.map((name, i) => {
+              const side = (i + 1) as 1 | 2
+              return (
+                <p key={`n${i}`} style={{ gridRow: i + 2, gridColumn: 1 }} className={cn('min-w-0 break-words leading-snug', winner === side ? 'font-semibold' : winner ? 'text-muted-foreground' : 'font-medium')}>
+                  {name}
+                  {winner === side && <span className="sr-only"> (vencedor)</span>}
+                </p>
+              )
+            })}
+            {[0, 1, 2].flatMap((idx) => {
               const game = displayGames[idx]
               const gw = getGameWinner(game)
-              const isThird = idx === 2
-              return (
-                <div key={idx} className={`grid grid-cols-[1fr_40px_1fr_8px] gap-2 items-center ${
-                  isThird ? 'pt-1 border-t border-dashed border-border' : ''
-                }`}>
-                  <Input
-                    type="number" min={0} max={30} placeholder="0"
-                    aria-label={`Pontos de ${player1Name} no game ${idx + 1}`}
-                    aria-invalid={showValidationError || undefined}
-                    aria-describedby={showValidationError ? ERROR_ID : undefined}
-                    value={game.score1}
-                    onChange={(e) => updateGame(idx, 'score1', e.target.value)}
-                    className={`text-center tabular-nums ${
-                      gw === 1 ? 'border-success bg-success/10 font-bold' : ''
-                    }`}
-                  />
-                  <p className="text-center text-xs text-muted-foreground font-medium">
-                    {isThird ? <>G3 <span aria-hidden="true">🏸</span></> : `G${idx + 1}`}
-                  </p>
-                  <Input
-                    type="number" min={0} max={30} placeholder="0"
-                    aria-label={`Pontos de ${player2Name} no game ${idx + 1}`}
-                    aria-invalid={showValidationError || undefined}
-                    aria-describedby={showValidationError ? ERROR_ID : undefined}
-                    value={game.score2}
-                    onChange={(e) => updateGame(idx, 'score2', e.target.value)}
-                    className={`text-center tabular-nums ${
-                      gw === 2 ? 'border-success bg-success/10 font-bold' : ''
-                    }`}
-                  />
-                  <div />
-                </div>
-              )
+              if (idx === 2 && !showThirdGame) {
+                return [
+                  <span key="g3-off" aria-hidden="true" style={{ gridRow: '2 / span 2', gridColumn: 4 }} className="flex h-full min-h-14 items-center justify-center rounded-md border border-dashed border-field-border text-sm text-muted-foreground">—</span>,
+                ]
+              }
+              return ([1, 2] as const).map((side) => (
+                <Input
+                  key={`${idx}-${side}`}
+                  type="number" inputMode="numeric" min={0} max={30} placeholder="–"
+                  aria-label={`Pontos de ${names[side - 1]} no ${idx + 1}º set`}
+                  aria-invalid={showValidationError || undefined}
+                  aria-describedby={showValidationError ? ERROR_ID : undefined}
+                  value={side === 1 ? game.score1 : game.score2}
+                  onChange={(e) => updateGame(idx, side === 1 ? 'score1' : 'score2', e.target.value)}
+                  style={{ gridRow: side + 1, gridColumn: idx + 2 }}
+                  className={scoreClass(gw === side)}
+                />
+              ))
             })}
           </div>
         )}
@@ -335,18 +315,12 @@ export function MatchResultDialog({
         {/* Seleção de vencedor — W.O. e Ret. */}
         {resultType !== 'completed' && (
           <div className="space-y-3">
-            <div className={`flex items-start gap-2 text-xs rounded-lg px-3 py-2 border ${
-              resultType === 'walkover'
-                ? 'bg-warning/10 border-warning/30 text-warning'
-                : 'bg-info/10 border-info/30 text-info'
-            }`}>
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
-              <span>
-                {resultType === 'walkover'
-                  ? 'W.O.: selecione quem avança. O placar será registrado como 21–0 para o vencedor.'
-                  : 'Ret.: selecione quem estava vencendo quando a partida foi interrompida.'}
-              </span>
-            </div>
+            <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-sm">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              {resultType === 'walkover'
+                ? 'W.O.: selecione quem avança. O placar será registrado como 21–0 para o vencedor.'
+                : 'Ret.: selecione quem estava vencendo quando a partida foi interrompida.'}
+            </p>
 
             <ChoiceGroup
               legend={resultType === 'walkover' ? 'Quem avança?' : 'Quem estava vencendo?'}
@@ -360,12 +334,12 @@ export function MatchResultDialog({
                 setGames([game, game])
               }}
               className="space-y-2"
-              optionClassName="flex-1 min-w-[40%] px-3 py-2 text-sm"
+              optionClassName="flex-1 min-w-[40%] px-3 text-sm"
             />
 
             {showValidationError && (
-              <p id={ERROR_ID} role="alert" className="flex items-center gap-1.5 text-xs text-destructive font-medium">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <p id={ERROR_ID} role="alert" className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+                <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
                 Selecione o vencedor antes de confirmar.
               </p>
             )}
@@ -374,15 +348,24 @@ export function MatchResultDialog({
 
         {/* Erro de validação — modo Normal */}
         {resultType === 'completed' && showValidationError && gameValidationError && (
-          <p id={ERROR_ID} role="alert" className="flex items-center gap-1.5 text-xs text-destructive font-medium">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <p id={ERROR_ID} role="alert" className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+            <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
             {gameValidationError}
           </p>
         )}
 
+        <div role="status" aria-atomic="true">
+          {verdict && (
+            <p className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2.5 font-semibold text-secondary-foreground">
+              <Check className="size-4 shrink-0" aria-hidden="true" />
+              {verdict}
+            </p>
+          )}
+        </div>
+
         {submitError && (
-          <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <p role="alert" className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             {submitError}
           </p>
         )}
@@ -390,15 +373,20 @@ export function MatchResultDialog({
         {/* Também em partida sem resultado: ela pode ter perdido um em cascata. */}
         {match && <ResultHistory matchId={match.id} enabled={open} />}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={isPending}>
+        <DialogFooter className="items-center gap-2">
+          <p className="mr-auto hidden text-[0.8125rem] text-muted-foreground sm:block">
+            <kbd className="rounded-sm border border-border bg-muted px-1.5 font-sans text-xs font-semibold">Tab</kbd> próximo campo ·{' '}
+            <kbd className="rounded-sm border border-border bg-muted px-1.5 font-sans text-xs font-semibold">Enter</kbd> salva
+          </p>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
+          <Button type="submit" disabled={isPending}>
             {isPending
-              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />Salvando...</>
+              ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Salvando...</>
               : isEdit ? 'Salvar alterações' : 'Confirmar resultado'
             }
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

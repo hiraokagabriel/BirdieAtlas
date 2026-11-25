@@ -73,14 +73,14 @@ const overlays: OverlayCase[] = [
     name: 'resultado: lançar',
     open: async (page) => {
       await openBracketMatch(page, data.running.tournament.id, /Abrir resultado/)
-      await expectOpenDialog(page, 'Lançar Resultado')
+      await expectOpenDialog(page, 'Lançar resultado')
     },
   },
   {
     name: 'resultado: erro de validação',
     open: async (page) => {
       await openBracketMatch(page, data.running.tournament.id, /Abrir resultado/)
-      await expectOpenDialog(page, 'Lançar Resultado')
+      await expectOpenDialog(page, 'Lançar resultado')
       await dialog(page).getByRole('button', { name: 'Confirmar resultado' }).click()
       await expect(dialog(page).getByRole('alert')).toBeVisible()
     },
@@ -89,7 +89,7 @@ const overlays: OverlayCase[] = [
     name: 'resultado: W.O.',
     open: async (page) => {
       await openBracketMatch(page, data.running.tournament.id, /Abrir resultado/)
-      await expectOpenDialog(page, 'Lançar Resultado')
+      await expectOpenDialog(page, 'Lançar resultado')
       // O <input> do rádio fica escondido (sr-only); o usuário clica no rótulo.
       await dialog(page).getByText('W.O.', { exact: true }).click()
       await expect(dialog(page).getByRole('radio', { name: 'W.O.' })).toBeChecked()
@@ -102,7 +102,7 @@ const overlays: OverlayCase[] = [
       await page.goto(`/admin/tournaments/${data.readyToFinalize.tournament.id}`)
       await openTab(page, 'Chaveamento')
       await page.getByRole('button', { name: /Abrir resultado/ }).first().click()
-      await expectOpenDialog(page, 'Editar Resultado')
+      await expectOpenDialog(page, 'Editar resultado')
     },
   },
   {

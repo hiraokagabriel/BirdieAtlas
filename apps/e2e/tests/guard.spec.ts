@@ -147,7 +147,7 @@ test.describe('interface', () => {
     await page.getByRole('tab', { name: 'Chaveamento' }).click()
     await page.getByRole('button', { name: /^(?!.*vencedor).*Abrir resultado/ }).first().click()
 
-    const dialog = page.getByRole('dialog', { name: 'Lançar Resultado' })
+    const dialog = page.getByRole('dialog', { name: 'Lançar resultado' })
     const scores = dialog.getByRole('spinbutton')
     await scores.nth(0).fill('21')
     await scores.nth(1).fill('10')

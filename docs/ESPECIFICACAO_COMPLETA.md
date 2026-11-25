@@ -288,6 +288,7 @@ draft → registration_open → registration_closed → in_progress → complete
 
 - Resultado é uma lista de sets. O vencedor é quem venceu mais sets, e avança automaticamente para a partida seguinte.
 - Alterar o vencedor de uma partida já decidida desfaz em cascata as partidas seguintes que dependiam dele.
+- O diálogo de resultado (admin) é uma súmula: uma linha por lado e uma coluna por set, campos de 56 px em Barlow Condensed, o 3º set tracejado até os dois primeiros ficarem 1 × 1; os campos seguem set a set na ordem do Tab, Enter salva (também num rádio do W.O./Ret.; a validação vale igual), e o vencedor ("Vitória de X por 2 sets a 1") aparece antes de salvar, numa região `role="status"` sempre montada.
 - No W.O., o diálogo de resultado grava 21-0 para quem avança. Na desistência (`retired`), grava as parciais com o vencedor fazendo 21. O vencedor é sempre lido dos sets salvos, nunca presumido pelo slot.
 - Resultado de partida de torneio `completed` ou `cancelled` é recusado com `409 TOURNAMENT_LOCKED`; reabra o torneio para corrigir (o `reopen` zera `finalPlacement` e revoga os pontos).
 - A gravação do resultado é uma função só (`apps/api/src/services/match-result.ts`, `saveMatchResult`), usada pela rota `POST /draws/matches/:matchId/result` e pelo encerramento de uma partida ao vivo. Ela roda numa transação que trava a linha da partida (`FOR UPDATE`), grava os sets, faz o vencedor avançar, desfaz a cascata e apaga qualquer placar provisório da partida.

@@ -51,7 +51,7 @@ async function enterNextResult(page: Page, sets: [[string, string], [string, str
 }
 
 async function fillResultDialog(page: Page, sets: [[string, string], [string, string]], submit: RegExp): Promise<void> {
-  const dialog = page.getByRole('dialog', { name: /Lançar Resultado|Editar Resultado/ })
+  const dialog = page.getByRole('dialog', { name: /Lançar resultado|Editar resultado/ })
   const scores = dialog.getByRole('spinbutton')
   await expect(scores).toHaveCount(4)
   await scores.nth(0).fill(sets[0][0])
@@ -127,9 +127,9 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     const pending = page.getByRole('button', { name: /^(?!.*vencedor).*Abrir resultado/ })
     await expect(pending).toHaveCount(2)
     await pending.first().click()
-    const dialog = page.getByRole('dialog', { name: 'Lançar Resultado' })
+    const dialog = page.getByRole('dialog', { name: 'Lançar resultado' })
     await dialog.getByRole('button', { name: 'Confirmar resultado' }).click()
-    await expect(dialog.getByText('Preencha ao menos 2 games.')).toBeVisible()
+    await expect(dialog.getByText('Preencha ao menos 2 sets.')).toBeVisible()
     await dialog.getByRole('button', { name: 'Cancelar' }).click()
     await expect(dialog).toBeHidden()
 
@@ -191,7 +191,7 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     await expect(bracket).toBeVisible()
 
     await bracket.getByRole('button', { name: /^Final.*vencedor.*Abrir resultado/ }).click()
-    const dialog = page.getByRole('dialog', { name: 'Editar Resultado' })
+    const dialog = page.getByRole('dialog', { name: 'Editar resultado' })
     await fillResultDialog(page, [['10', '21'], ['12', '21']], /Salvar alterações/)
 
     const alert = dialog.getByRole('alert')
@@ -234,7 +234,7 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     await page.getByRole('tab', { name: 'Chaveamento' }).click()
     const bracket = page.getByRole('region', { name: 'Chave de Simples Masculino' })
     await bracket.getByRole('button', { name: /^Final.*vencedor.*Abrir resultado/ }).click()
-    const dialog = page.getByRole('dialog', { name: 'Editar Resultado' })
+    const dialog = page.getByRole('dialog', { name: 'Editar resultado' })
     await expect(dialog.getByRole('spinbutton').nth(0)).toHaveValue('21') // o lado de cima tinha vencido
     await fillResultDialog(page, [['10', '21'], ['12', '21']], /Salvar alterações/)
     await expect(dialog).toBeHidden()
