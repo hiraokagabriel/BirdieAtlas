@@ -1,5 +1,6 @@
 'use client'
 
+import { CategoryPicker } from '@/components/shared/category-picker'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
@@ -9,7 +10,6 @@ import { ErrorNotice } from '@/components/public/notices'
 import { BracketSkeleton } from './bracket-tree'
 import type { BracketMatch, BracketEntry, SetScore } from '@/lib/bracket'
 import { Eye, EyeOff, Loader2, Trophy, AlertTriangle, CheckCircle2, Shuffle, Star, RotateCcw, X, Lock } from 'lucide-react'
-import { DISCIPLINE_PILL, DISCIPLINE_PILL_ACTIVE } from '@/lib/discipline'
 import { ChoiceGroup } from '@/components/ui/choice-group'
 import { adminAuthHeaders } from '@/lib/admin-token'
 
@@ -216,15 +216,8 @@ export function BracketView({
     <div className="space-y-4">
 
       {/* Category selector */}
-      <ChoiceGroup
-        legend="Categoria"
-        hideLegend
-        options={categories.map((cat) => ({
-          value: cat.id,
-          label: cat.name,
-          className: DISCIPLINE_PILL[cat.discipline] ?? 'bg-muted text-muted-foreground border-border',
-          activeClassName: DISCIPLINE_PILL_ACTIVE[cat.discipline] ?? 'bg-primary text-primary-foreground border-primary',
-        }))}
+      <CategoryPicker
+        categories={categories}
         value={activeCategoryId}
         onChange={(id) => { setActiveCategoryId(id); setGenerateError(null); setShowRedraw(false) }}
         optionClassName="px-4"
