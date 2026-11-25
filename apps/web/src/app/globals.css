@@ -91,11 +91,12 @@
   --color-discipline-xd-border: var(--discipline-xd-border);
   --color-discipline-xd-solid: var(--discipline-xd-solid);
   --color-discipline-xd-solid-foreground: var(--discipline-xd-solid-foreground);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  /* Escala fixa de docs/DESIGN.md (Shapes): 4px chips, 6px controles, 8px superfícies (xl = lg). */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
@@ -181,6 +182,8 @@
   --discipline-xd-solid: oklch(0.5 0.14 55);
   --discipline-xd-solid-foreground: oklch(0.99 0 0);
   --radius: 0.5rem;
+  /* Altura de botão, campo e select: 44px no portal público (alvo de toque), 36px no admin (ver regra abaixo). */
+  --control-h: 2.75rem;
   --club-ink-mix: 0%;
   --sidebar: oklch(0.975 0.012 110);
   --sidebar-foreground: oklch(0.22 0.03 160);
@@ -277,6 +280,11 @@
   --sidebar-accent-foreground: oklch(0.95 0.05 97);
   --sidebar-border: oklch(0.95 0.01 95 / 12%);
   --sidebar-ring: oklch(0.65 0.13 155);
+}
+
+/* Admin é mesa de controle: controles de 36px. :has alcança também os diálogos, que o Radix renderiza fora do layout. */
+:root:has([data-density='compact']) {
+  --control-h: 2.25rem;
 }
 
 @layer base {

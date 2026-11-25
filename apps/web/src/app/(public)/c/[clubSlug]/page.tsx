@@ -196,7 +196,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
   const primary   = club.primaryColor   ?? '#01696f'
   const secondary = club.secondaryColor ?? primary
 
-  const selectCls = 'h-9 rounded-lg border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
+  const selectCls = 'h-(--control-h) rounded-md border border-field-border bg-background px-3 text-sm text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
 
   return (
     <div className="space-y-8">
@@ -303,7 +303,7 @@ export default function PublicClubPage({ params }: { params: Promise<{ clubSlug:
               type="search"
               aria-label="Buscar atleta do plantel"
               placeholder="Buscar atleta..."
-              className="w-full h-9 rounded-lg border border-field-border bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+              className="w-full h-(--control-h) rounded-md border border-field-border bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

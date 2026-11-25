@@ -72,7 +72,7 @@ function AthleteBadge({ athlete }: { athlete: AthleteInPair }) {
 type SortField = 'athlete1' | 'athlete2' | 'discipline' | 'createdAt'
 type SortDir = 'asc' | 'desc'
 
-const selectCls = 'h-9 rounded-lg border border-field-border bg-background px-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
+const selectCls = 'h-(--control-h) rounded-md border border-field-border bg-background px-3 text-sm focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring cursor-pointer'
 
 // ---------------------------------------------------------------------------
 // Page

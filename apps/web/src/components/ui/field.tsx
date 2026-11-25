@@ -65,4 +65,4 @@ export function Field({ label, hint, error, required, muted, className, children
 
 /** Classes dos campos de formulário escritos à mão: borda 3:1, foco sólido, erro. Prefira `Input` e `Field`. */
 export const FIELD_CONTROL_CLASS =
-  'w-full h-9 rounded-lg border border-field-border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/30 disabled:opacity-60'
+  'w-full h-(--control-h) rounded-md border border-field-border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/30 disabled:opacity-60'

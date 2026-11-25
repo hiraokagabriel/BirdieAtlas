@@ -15,7 +15,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const current = ADMIN_NAV.find(({ href }) => isNavItemActive(pathname, href, '/admin'))
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div data-density="compact" className="flex h-screen bg-background overflow-hidden">
       <SkipLink />
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0">
         <div className="flex items-center gap-3 px-6 py-5">

@@ -219,12 +219,12 @@ export function RankingView({ tenantSlug, share }: { tenantSlug: string; share: 
           </p>
           <div className="flex items-center gap-2 print:hidden">
             <button type="button" aria-label="Página anterior" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-              className="inline-flex size-9 items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="inline-flex size-(--control-h) items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             </button>
             <span className="text-sm font-medium px-3">{page} / {pagination.totalPages}</span>
             <button type="button" aria-label="Próxima página" onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}
-              className="inline-flex size-9 items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="inline-flex size-(--control-h) items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
