@@ -79,6 +79,10 @@ test('partida ao vivo mostra o placar corrente do ponto de vista do jogador', as
   await page.goto(`/t/${tournament.slug}/jogador/${side2.athleteId}`)
   const next = page.getByRole('region', { name: 'Jogando agora' })
   await expect(next).toContainText('2-1')
+  // Simples: o adversário leva ao confronto direto dos dois; a fase, ao chaveamento.
+  const side1 = regs.find((r) => r.id === match!.registration1Id)!
+  await expect(next.getByRole('link', { name: `${side1.athleteName} (confronto direto)` })).toHaveAttribute('href', `/a/${side2.athleteId}/vs/${side1.athleteId}`)
+  await expect(next.getByRole('link', { name: /\(ver o chaveamento\)$/ })).toHaveAttribute('href', `/t/${tournament.slug}?categoria=${category.id}`)
 })
 
 test('a página do jogador abre pelos Inscritos, pelo perfil do atleta e pelo admin', async ({ page }) => {
