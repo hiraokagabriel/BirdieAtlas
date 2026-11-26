@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { registerErrorHandling } from './errors.js'
 import { READ_LIMIT_PER_MINUTE, WRITE_LIMIT_PER_MINUTE, registerNetwork } from './network.js'
 import { readServerConfig } from '../domain/server-config.js'
+import { API_CONTRACT_HEADER, API_CONTRACT_VERSION } from '@birdie-atlas/validators'
 
 const prod = readServerConfig({ NODE_ENV: 'production', ADMIN_PIN: 'x'.repeat(16), CORS_ORIGINS: 'https://site.vercel.app', TRUST_PROXY: '0', ADMIN_SESSION_SECRET: 's'.repeat(32) })
 
@@ -30,6 +31,15 @@ describe('CORS', () => {
     const app = await buildApp(readServerConfig({}))
     const res = await app.inject({ method: 'GET', url: '/publico', headers: { origin: 'http://192.168.0.10:3000' } })
     expect(res.headers['access-control-allow-origin']).toBe('http://192.168.0.10:3000')
+  })
+})
+
+describe('contrato', () => {
+  it('toda resposta leva x-api-contract, exposto ao navegador', async () => {
+    const app = await buildApp()
+    const res = await app.inject({ method: 'GET', url: '/publico', headers: { origin: 'https://site.vercel.app' } })
+    expect(res.headers[API_CONTRACT_HEADER]).toBe(String(API_CONTRACT_VERSION))
+    expect(String(res.headers['access-control-expose-headers'])).toContain(API_CONTRACT_HEADER)
   })
 })
 
