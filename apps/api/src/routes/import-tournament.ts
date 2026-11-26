@@ -1,19 +1,93 @@
 import type { FastifyInstance } from 'fastify'
 import { randomUUID } from 'crypto'
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
-import { importTournamentSchema, type ImportIssue, type ImportReport } from '@birdie-atlas/validators'
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import {
+  importIntoTournamentSchema, importTournamentSchema,
+  type ImportIntoTournamentInput, type ImportIssue, type ImportReport, type ImportTournamentInput,
+} from '@birdie-atlas/validators'
+import { z } from 'zod'
 import { db } from '../db/index.js'
 import {
-  athleteAffiliations, athletes, clubs, pairs, tournamentCategories, tournamentRegistrations, tournaments,
+  athleteAffiliations, athletes, clubs, draws, pairs, tournamentCategories, tournamentRegistrations, tournaments,
 } from '../db/schema.js'
 import { checkRegistrationEligibility, isDoublesDiscipline, normalizePair } from '../domain/eligibility.js'
 import {
-  fold, personKey, toSlug, validateImportInput, type Gender, type NormalizedEntry, type PersonRef,
+  fold, personKey, toSlug, validateImportInput, type ExistingCategory, type Gender, type NormalizedEntry, type PersonRef,
 } from '../domain/tournament-import.js'
+import type { DrawFormat } from '../domain/placements.js'
 import { getDefaultTenantId } from '../tenant.js'
 
 // POST /import/tournament: cria um torneio inteiro (categorias, atletas, clubes, duplas e inscrições) a partir das
-// linhas de uma planilha já lidas pelo navegador. `dryRun` (padrão) só valida e mostra o que seria criado.
+// linhas de uma planilha já lidas pelo navegador. POST /tournaments/:id/import: o mesmo, para dentro de um torneio
+// já criado (só categorias e inscritos). `dryRun` (padrão) só valida e mostra o que seria criado.
+
+/** Torneio de destino da importação para torneio existente, com o que já está inscrito nele. */
+interface ExistingTarget {
+  id: string
+  name: string
+  slug: string
+  kind: 'official' | 'friendly'
+  categories: ExistingCategory[]
+  /** Atletas já inscritos (inscrição não recusada) por id de categoria. */
+  takenByCategory: Map<string, Set<string>>
+  /** Inscrições não recusadas por id de categoria. */
+  countByCategory: Map<string, number>
+  /** Estado lido na validação, para conferir de novo sob trava na gravação. */
+  snapshot: Awaited<ReturnType<typeof readCategoryState>>
+}
+
+type Reader = Pick<typeof db, 'select'>
+
+/** Inscritos (não recusados), contagem e chave sorteada das categorias. Fora e dentro da transação de gravação. */
+async function readCategoryState(ex: Reader, categoryIds: string[]) {
+  const takenByCategory = new Map<string, Set<string>>()
+  const countByCategory = new Map<string, number>()
+  if (categoryIds.length === 0) return { takenByCategory, countByCategory, drawn: new Set<string>() }
+  const regs = await ex.select({ categoryId: tournamentRegistrations.categoryId, athleteId: tournamentRegistrations.athleteId, a1: pairs.athlete1Id, a2: pairs.athlete2Id })
+    .from(tournamentRegistrations)
+    .leftJoin(pairs, eq(pairs.id, tournamentRegistrations.pairId))
+    .where(and(inArray(tournamentRegistrations.categoryId, categoryIds), isNull(tournamentRegistrations.deletedAt), ne(tournamentRegistrations.status, 'rejected')))
+  for (const r of regs) {
+    const set = takenByCategory.get(r.categoryId) ?? new Set<string>()
+    for (const id of [r.athleteId, r.a1, r.a2]) if (id) set.add(id)
+    takenByCategory.set(r.categoryId, set)
+    countByCategory.set(r.categoryId, (countByCategory.get(r.categoryId) ?? 0) + 1)
+  }
+  // Categoria com chave sorteada não recebe inscrição nova (a chave não a veria).
+  const drawn = new Set((await ex.select({ categoryId: draws.categoryId }).from(draws).where(inArray(draws.categoryId, categoryIds))).map((d) => d.categoryId))
+  return { takenByCategory, countByCategory, drawn }
+}
+
+/** Retrato comparável do estado de uma categoria: se mudou entre a validação e a gravação, a importação para. */
+function fingerprint(state: Awaited<ReturnType<typeof readCategoryState>>, id: string): string {
+  return `${state.countByCategory.get(id) ?? 0}|${state.drawn.has(id)}|${[...(state.takenByCategory.get(id) ?? [])].sort().join(',')}`
+}
+
+/** Status em que o torneio ainda aceita inscrições pela planilha. */
+const IMPORTABLE_STATUSES = new Set(['draft', 'registration_open', 'registration_closed'])
+
+async function loadTarget(tournamentId: string, tenantId: string): Promise<ExistingTarget | { status: 404 | 409; error: string; code: string }> {
+  const [t] = await db.select().from(tournaments)
+    .where(and(eq(tournaments.id, tournamentId), eq(tournaments.tenantId, tenantId), isNull(tournaments.deletedAt)))
+  if (!t) return { status: 404, error: 'Torneio não encontrado.', code: 'TOURNAMENT_NOT_FOUND' }
+  if (!IMPORTABLE_STATUSES.has(t.status)) {
+    return { status: 409, error: 'A planilha só entra em torneio em rascunho ou com inscrições abertas ou encerradas.', code: 'TOURNAMENT_LOCKED' }
+  }
+  const cats = await db.select().from(tournamentCategories)
+    .where(and(eq(tournamentCategories.tournamentId, tournamentId), isNull(tournamentCategories.deletedAt)))
+  const { takenByCategory, countByCategory, drawn } = await readCategoryState(db, cats.map((c) => c.id))
+  return {
+    id: t.id, name: t.name, slug: t.slug, kind: t.kind,
+    categories: cats.map((c) => ({
+      locked: drawn.has(c.id),
+      id: c.id, name: c.name, discipline: c.discipline, drawType: c.drawType as DrawFormat, maxEntries: c.maxEntries,
+      scoring: { pointsPerSet: c.pointsPerSet, setPointCap: c.setPointCap, setsToWin: c.setsToWin },
+    })),
+    takenByCategory,
+    countByCategory,
+    snapshot: { takenByCategory, countByCategory, drawn },
+  }
+}
 
 interface ResolvedPerson {
   /** Id do atleta existente, ou null se será criado. */
@@ -25,13 +99,34 @@ interface ResolvedPerson {
   active: boolean
 }
 
+const tournamentParamsSchema = z.object({ id: z.string().trim().min(1) })
+
 export async function importTournamentRoutes(app: FastifyInstance) {
   app.post('/import/tournament', async (request, reply) => {
     const input = importTournamentSchema.parse(request.body)
-    const validated = validateImportInput(input)
+    const result = await runImport(input, null, await getDefaultTenantId())
+    return reply.status(result.status).send(result.body)
+  })
+
+  app.post('/tournaments/:id/import', async (request, reply) => {
+    const { id } = tournamentParamsSchema.parse(request.params)
+    const input = importIntoTournamentSchema.parse(request.body)
+    const tenantId = await getDefaultTenantId()
+    const target = await loadTarget(id, tenantId)
+    if ('status' in target) return reply.status(target.status).send({ error: target.error, code: target.code })
+    const result = await runImport(input, target, tenantId)
+    return reply.status(result.status).send(result.body)
+  })
+}
+
+async function runImport(
+  input: ImportTournamentInput | ImportIntoTournamentInput,
+  target: ExistingTarget | null,
+  tenantId: string,
+): Promise<{ status: number; body: unknown }> {
+    const validated = validateImportInput(input, target?.categories)
     const errors: ImportIssue[] = [...validated.errors]
     const warnings: ImportIssue[] = [...validated.warnings]
-    const tenantId = await getDefaultTenantId()
 
     const report: ImportReport = {
       ok: false,
@@ -39,8 +134,11 @@ export async function importTournamentRoutes(app: FastifyInstance) {
       errors,
       warnings,
       summary: {
-        tournament: { name: validated.tournament?.name ?? input.tournament.name, slug: '', kind: validated.tournament?.kind ?? 'official' },
-        categories: validated.categories.length,
+        tournament: target
+          ? { name: target.name, slug: target.slug, kind: target.kind }
+          : { name: validated.tournament?.name ?? ('tournament' in input ? input.tournament.name : ''), slug: '', kind: validated.tournament?.kind ?? 'official' },
+        categories: validated.categories.filter((c) => !c.existingId).length,
+        ...(target ? { existingCategories: validated.categories.filter((c) => c.existingId).length } : {}),
         registrations: validated.entries.filter((e) => e.status !== 'rejected').length,
         athletes: { existing: 0, created: 0 },
         clubs: { existing: 0, created: 0 },
@@ -49,9 +147,9 @@ export async function importTournamentRoutes(app: FastifyInstance) {
     }
 
     // ----- Endereço (slug) do torneio
-    const existingSlugs = new Set((await db.select({ slug: tournaments.slug }).from(tournaments).where(isNull(tournaments.deletedAt))).map((t) => t.slug))
-    let slug = ''
-    if (validated.tournament) {
+    const existingSlugs = new Set(target ? [] : (await db.select({ slug: tournaments.slug }).from(tournaments).where(isNull(tournaments.deletedAt))).map((t) => t.slug))
+    let slug = target?.slug ?? ''
+    if (validated.tournament && !target) {
       if (validated.tournament.slug) {
         slug = validated.tournament.slug
         if (existingSlugs.has(slug)) errors.push({ sheet: 'Torneio', row: 0, field: 'Endereço (slug)', message: 'Já existe um torneio com esse endereço. Escolha outro.' })
@@ -61,11 +159,11 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         for (let n = 2; existingSlugs.has(slug); n++) slug = `${base}-${n}`
       }
     }
-    report.summary.tournament.slug = slug
+    if (!target) report.summary.tournament.slug = slug
 
     // Amistoso: os jogadores são avulsos (ver "Avulsos" na especificação). O nome casa só com outro avulso, nunca
     // com atleta cadastrado; os novos nascem avulsos, sem clube nem filiação.
-    const friendly = validated.tournament?.kind === 'friendly'
+    const friendly = (target?.kind ?? validated.tournament?.kind) === 'friendly'
 
     // ----- Atletas e clubes existentes (carregados uma vez; a conferência de nomes ignora acento e caixa)
     const athleteRows = await db
@@ -172,8 +270,14 @@ export async function importTournamentRoutes(app: FastifyInstance) {
     ).size
 
     // ----- Elegibilidade (gênero da disciplina, inativo, repetido, vagas), categoria a categoria
+    // Torneio existente: quem já está inscrito ocupa a vaga e não pode entrar de novo na mesma categoria.
     const taken = new Map<string, Set<string>>()
     const counts = new Map<string, number>()
+    for (const c of validated.categories) {
+      if (!c.existingId || !target) continue
+      taken.set(c.key, new Set(target.takenByCategory.get(c.existingId) ?? []))
+      counts.set(c.key, target.countByCategory.get(c.existingId) ?? 0)
+    }
     for (const entry of validated.entries) {
       const a = resolved.get(personKey(entry.athlete))
       const p = entry.partner ? resolved.get(personKey(entry.partner)) : null
@@ -220,14 +324,14 @@ export async function importTournamentRoutes(app: FastifyInstance) {
     report.ok = errors.length === 0
     if (!report.ok || input.dryRun) {
       if (!report.ok && !input.dryRun) {
-        return reply.status(422).send({ error: 'A planilha tem erros. Corrija e tente de novo.', code: 'IMPORT_INVALID', details: report })
+        return { status: 422, body: { error: 'A planilha tem erros. Corrija e tente de novo.', code: 'IMPORT_INVALID', details: report } }
       }
-      return report
+      return { status: 200, body: report }
     }
 
     // ----- Grava tudo numa transação
-    const t = validated.tournament!
-    const tournamentId = randomUUID()
+    const tournamentId = target?.id ?? randomUUID()
+    try {
     await db.transaction(async (tx) => {
       // Mesmo lock da lista colada: lotes simultâneos não criam o mesmo avulso duas vezes.
       if (friendly) await tx.execute(sql`select pg_advisory_xact_lock(hashtext('athletes:guest'))`)
@@ -256,15 +360,36 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         if (clubId) await tx.insert(athleteAffiliations).values({ id: randomUUID(), athleteId: id, clubId, tenantId, startedAt: today })
       }
 
-      await tx.insert(tournaments).values({
-        id: tournamentId, tenantId, status: 'draft', name: t.name, slug, kind: t.kind, level: t.level,
-        startDate: t.startDate, endDate: t.endDate, city: t.city, state: t.state, location: t.location,
-      })
+      if (!target) {
+        const t = validated.tournament!
+        await tx.insert(tournaments).values({
+          id: tournamentId, tenantId, status: 'draft', name: t.name, slug, kind: t.kind, level: t.level,
+          startDate: t.startDate, endDate: t.endDate, city: t.city, state: t.state, location: t.location,
+        })
+      } else {
+        // Trava o torneio: o status não muda (ex.: iniciar) enquanto as inscrições entram.
+        const [locked] = await tx.select({ status: tournaments.status }).from(tournaments)
+          .where(and(eq(tournaments.id, tournamentId), eq(tournaments.tenantId, tenantId), isNull(tournaments.deletedAt))).for('update')
+        if (!locked || !IMPORTABLE_STATUSES.has(locked.status)) throw new ImportConflict()
+        // As categorias que recebem inscrições ficam travadas (a mesma trava da inscrição pela tela e do sorteio), em
+        // ordem de id; se algo mudou nelas desde a verificação, nada é gravado.
+        const receiving = [...new Set(validated.categories.flatMap((c) => (c.existingId ? [c.existingId] : [])))].sort()
+        if (receiving.length) {
+          await tx.select({ id: tournamentCategories.id }).from(tournamentCategories)
+            .where(inArray(tournamentCategories.id, receiving)).orderBy(asc(tournamentCategories.id)).for('update')
+          const now = await readCategoryState(tx, receiving)
+          if (receiving.some((id) => fingerprint(now, id) !== fingerprint(target.snapshot, id))) throw new ImportConflict()
+        }
+      }
       const categoryIdByKey = new Map<string, string>()
       for (const c of validated.categories) {
+        if (c.existingId) { categoryIdByKey.set(c.key, c.existingId); continue }
         const id = randomUUID()
         categoryIdByKey.set(c.key, id)
-        await tx.insert(tournamentCategories).values({ id, tournamentId, name: c.name, discipline: c.discipline, drawType: c.drawType, maxEntries: c.maxEntries })
+        await tx.insert(tournamentCategories).values({
+          id, tournamentId, name: c.name, discipline: c.discipline, drawType: c.drawType, maxEntries: c.maxEntries,
+          pointsPerSet: c.scoring.pointsPerSet, setPointCap: c.scoring.setPointCap, setsToWin: c.scoring.setsToWin,
+        })
       }
 
       const pairIdByKey = new Map<string, string>()
@@ -294,8 +419,17 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         })
       }
     })
+    } catch (err) {
+      if (err instanceof ImportConflict) return { status: 409, body: { error: 'O torneio ou as inscrições mudaram durante a importação. Verifique a planilha de novo.', code: 'IMPORT_STALE' } }
+      // Segunda barreira: índice único de inscrição (o mesmo atleta entrou por outro caminho ao mesmo tempo).
+      const code = (err as { code?: string; cause?: { code?: string } }).code ?? (err as { cause?: { code?: string } }).cause?.code
+      if (code === '23505') return { status: 409, body: { error: 'Alguém foi inscrito na mesma categoria durante a importação. Verifique a planilha de novo.', code: 'IMPORT_STALE' } }
+      throw err
+    }
 
     report.tournamentId = tournamentId
-    return reply.status(201).send(report)
-  })
+    return { status: 201, body: report }
 }
+
+/** O torneio mudou de status entre a verificação e a gravação. */
+class ImportConflict extends Error {}

@@ -1,0 +1,4 @@
+﻿Categoria;Atleta;Parceiro(a);Sexo;Sexo do parceiro(a);Clube;Clube do parceiro(a);Cabeça de chave;Situação;Disciplina;Formato;Máx. inscrições;Pontuação
+Exemplo Simples Masculino A;Exemplo Carlos Almeida;;M;;Clube Exemplo;;1;Aprovada;Simples Masculino;Eliminação simples;16;21
+Exemplo Simples Masculino A;Exemplo Bruno Costa;;M;;Clube Exemplo;;;Pendente;Simples Masculino;Eliminação simples;16;21
+Exemplo Duplas Mistas;Exemplo Diego Lima;Exemplo Ana Souza;M;F;Clube Modelo;Clube Modelo;;Aprovada;Misto;Grupos + eliminatória;;15

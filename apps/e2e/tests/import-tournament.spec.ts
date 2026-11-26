@@ -1,10 +1,11 @@
+import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { api, apiCall } from '../support/api.js'
 import { expectNoViolations } from '../support/axe.js'
 import { settle, THEMES, useTheme } from '../support/wcag-page.js'
-import { affiliate, createAthlete, createClub, uniqueTag } from '../support/factories.js'
+import { affiliate, createAthlete, createCategory, createClub, createTournament, generateDraw, registerApproved, createAthletes, transition, uniqueTag } from '../support/factories.js'
 
 // Importação de torneio por planilha: API (validação, resolução de atletas e clubes, gravação) e tela
 // (modelo para baixar, leitura de .xlsx e .csv, relatório de erros).
@@ -182,27 +183,18 @@ async function openDialog(page: Page) {
 }
 
 test.describe('importar torneio (tela)', () => {
-  test('o modelo .xlsx baixado é lido de volta, verificado e importado', async ({ page }) => {
+  test('o modelo .xlsx baixado é lido de volta, com os exemplos ignorados', async ({ page }) => {
     const dialog = await openDialog(page)
     const downloadPromise = page.waitForEvent('download')
-    await dialog.getByRole('button', { name: 'Baixar modelo (.xlsx)' }).click()
+    await dialog.getByRole('link', { name: 'Baixar modelo (.xlsx)' }).click()
     const download = await downloadPromise
-    expect(download.suggestedFilename()).toBe('modelo-torneio.xlsx')
+    expect(download.suggestedFilename()).toBe('modelo-importacao-campeonato.xlsx')
     const file = join(tmpdir(), `modelo-${uniqueTag()}.xlsx`)
     await download.saveAs(file)
 
     await dialog.locator('input[type="file"]').setInputFiles(file)
-    await expect(dialog.getByText(/Lidas 3 categorias e 7 inscrições/)).toBeVisible()
-    await expect(dialog.getByRole('textbox', { name: /^Nome/ })).toHaveValue('Aberto de Exemplo')
-    await expect(dialog.getByLabel('Início')).toHaveValue('15/11/2026')
-
-    await dialog.getByRole('button', { name: 'Verificar planilha' }).click()
-    await expect(dialog.getByText('Planilha válida')).toBeVisible()
-    await expect(dialog.getByText('3', { exact: true }).first()).toBeVisible()
-    await dialog.getByRole('button', { name: 'Importar torneio' }).click()
-
-    await expect(page).toHaveURL(/\/admin\/tournaments\/[0-9a-f-]{36}$/)
-    await expect(page.getByRole('heading', { name: /Aberto de Exemplo/ })).toBeVisible()
+    await expect(dialog.getByText(/Lidas 0 categorias e 0 inscrições/)).toBeVisible()
+    await expect(dialog.getByText('3 linhas de exemplo ignoradas.')).toBeVisible()
   })
 
   test('CSV com erros mostra a tabela de erros e não oferece importar', async ({ page }) => {
@@ -227,16 +219,16 @@ test.describe('importar torneio (tela)', () => {
     await expect(dialog.getByRole('button', { name: 'Importar torneio' })).toHaveCount(0)
   })
 
-  test('CSV válido (modelo em CSV) cria o torneio', async ({ page }) => {
+  test('modelo em CSV preenchido por cima dos exemplos cria o torneio', async ({ page }) => {
     const dialog = await openDialog(page)
     const downloadPromise = page.waitForEvent('download')
-    await dialog.getByRole('button', { name: 'Baixar modelo (.csv)' }).click()
+    await dialog.getByRole('link', { name: 'Baixar modelo (.csv)' }).click()
     const download = await downloadPromise
-    const file = join(tmpdir(), `modelo-${uniqueTag()}.csv`)
-    await download.saveAs(file)
+    const tag = uniqueTag()
+    const filled = readFileSync((await download.path())!, 'utf-8').replaceAll('Exemplo ', `T${tag} `)
 
-    await dialog.locator('input[type="file"]').setInputFiles(file)
-    await dialog.getByRole('textbox', { name: /^Nome/ }).fill(`Via CSV ${uniqueTag()}`)
+    await dialog.locator('input[type="file"]').setInputFiles({ name: 'preenchido.csv', mimeType: 'text/csv', buffer: Buffer.from(filled, 'utf-8') })
+    await dialog.getByRole('textbox', { name: /^Nome/ }).fill(`Via CSV ${tag}`)
     await dialog.getByLabel('Início').fill('15/11/2099')
     await dialog.getByLabel('Término').fill('16/11/2099')
     await dialog.getByRole('button', { name: 'Verificar planilha' }).click()
@@ -282,4 +274,70 @@ test.describe('importar torneio (tela)', () => {
       await expectNoViolations(page, `importar planilha [${theme}]`)
     })
   }
+})
+
+test.describe('importar para um torneio já criado', () => {
+  test('a planilha entra no torneio: categoria existente recebe inscrições e a nova é criada com 15 pontos', async ({ page }) => {
+    const tag = uniqueTag()
+    const t = await createTournament({ status: 'registration_open', name: `Destino ${tag}` })
+    const existing = await createCategory(t.id, { name: 'Simples Masculino A', discipline: 'MS', drawType: 'round_robin' })
+    const [already] = await createAthletes(1, { gender: 'M', prefix: `Ja ${tag}` })
+    await registerApproved(existing.id, [already!])
+
+    const csv = [
+      'Categoria;Atleta;Parceiro(a);Sexo;Sexo do parceiro(a);Clube;Disciplina;Formato;Máx. inscrições;Pontuação',
+      `Simples Masculino A;Um ${tag};;M;;Clube ${tag};;;;`,
+      `Simples Masculino A;Dois ${tag};;M;;Clube ${tag};;;;`,
+      `Duplas Mistas B;Tres ${tag};Quatro ${tag};M;F;Clube ${tag};Misto;Grupos + eliminatória;;15`,
+      `Exemplo Simples Masculino A;Exemplo Carlos Almeida;;M;;;;;;`,
+    ].join('\r\n')
+
+    await page.goto(`/admin/tournaments/${t.id}`)
+    await page.getByRole('button', { name: 'Importar planilha' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Importar inscrições por planilha' })
+    await expect(dialog.getByRole('textbox', { name: /^Nome/ })).toHaveCount(0) // sem dados do torneio
+    await dialog.locator('input[type="file"]').setInputFiles({ name: 'inscritos.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') })
+    await expect(dialog.getByText('1 linha de exemplo ignorada.')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Verificar planilha' }).click()
+    await expect(dialog.getByText('Planilha válida')).toBeVisible()
+    await expect(dialog.getByText('1 nova, 1 já existente')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Importar inscrições' }).click()
+    await expect(dialog).toBeHidden()
+
+    const cats = await api.get<{ id: string; name: string; drawType: string; pointsPerSet: number }[]>(`/tournaments/${t.id}/categories`)
+    expect(cats).toHaveLength(2)
+    const mixed = cats.find((c) => c.name === 'Duplas Mistas B')!
+    expect(mixed).toMatchObject({ drawType: 'group_then_elimination', pointsPerSet: 15 })
+    const regs = await api.get<unknown[]>(`/tournaments/categories/${existing.id}/registrations`)
+    expect(regs).toHaveLength(3)
+    await expect(page.getByText('Dois ' + tag).first()).toBeVisible()
+  })
+
+  test('API: atleta já inscrito, categoria sorteada e torneio em andamento são recusados', async () => {
+    const tag = uniqueTag()
+    const t = await createTournament({ status: 'registration_open', name: `Recusa ${tag}` })
+    const open = await createCategory(t.id, { name: 'Aberta', discipline: 'MS' })
+    const drawn = await createCategory(t.id, { name: 'Sorteada', discipline: 'MS' })
+    const people = await createAthletes(3, { gender: 'M', prefix: `Rec ${tag}` })
+    await registerApproved(open.id, [people[0]!])
+    await registerApproved(drawn.id, [people[1]!, people[2]!])
+    await generateDraw(drawn.id)
+
+    const r = await apiCall<Report>('POST', `/tournaments/${t.id}/import`, {
+      dryRun: true,
+      categories: [],
+      entries: [
+        { row: 2, category: 'Aberta', athlete: people[0]!.name },
+        { row: 3, category: 'Sorteada', athlete: `Novo ${tag} Cinco`, gender: 'M' },
+      ],
+    })
+    expect(r.status).toBe(200)
+    expect(r.body.ok).toBe(false)
+    expect(r.body.errors.map((e) => e.row).sort()).toEqual([2, 3])
+
+    await transition(t.id, 'registration_closed')
+    await transition(t.id, 'in_progress')
+    const locked = await apiCall('POST', `/tournaments/${t.id}/import`, { dryRun: true, categories: [], entries: [] })
+    expect(locked.status).toBe(409)
+  })
 })

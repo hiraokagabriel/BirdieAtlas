@@ -6,9 +6,8 @@ import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Upload } from '
 import type { ImportReport } from '@birdie-atlas/validators'
 import { ApiError, apiFetch } from '@/lib/api'
 import {
-  downloadTemplateCsv,
-  downloadTemplateXlsx,
   EMPTY_TOURNAMENT_FIELDS,
+  TEMPLATE_FILES,
   parseImportFile,
   type ParsedImport,
   type TournamentFields,
@@ -23,9 +22,21 @@ function isReport(value: unknown): value is ImportReport {
   return typeof value === 'object' && value !== null && Array.isArray((value as ImportReport).errors) && 'summary' in value
 }
 
-/** Importa um torneio inteiro (categorias, atletas, clubes, duplas e inscrições) de uma planilha .xlsx ou .csv. */
-export function ImportTournamentDialog() {
+/** Torneio já criado na plataforma que recebe a planilha (só categorias e inscritos). */
+export interface ImportTarget {
+  id: string
+  name: string
+  /** Chamado depois de gravar, para recarregar a página do torneio. */
+  onImported: () => void
+}
+
+/**
+ * Importa de uma planilha .xlsx ou .csv. Sem `target`, cria um torneio inteiro (categorias, atletas, clubes, duplas e
+ * inscrições); com `target`, coloca categorias e inscritos dentro de um torneio já criado.
+ */
+export function ImportTournamentDialog({ target }: { target?: ImportTarget } = {}) {
   const router = useRouter()
+  const endpoint = target ? `/tournaments/${target.id}/import` : '/import/tournament'
   const [open, setOpen] = useState(false)
   const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState<ParsedImport | null>(null)
@@ -79,6 +90,8 @@ export function ImportTournamentDialog() {
   }
 
   function body(dryRun: boolean) {
+    const rows = { categories: parsed?.categories ?? [], entries: parsed?.entries ?? [] }
+    if (target) return { dryRun, ...rows }
     return {
       dryRun,
       tournament: {
@@ -101,7 +114,7 @@ export function ImportTournamentDialog() {
     setBusy('checking')
     setError(null)
     try {
-      setReport(await apiFetch<ImportReport>('/import/tournament', { method: 'POST', json: body(true) }))
+      setReport(await apiFetch<ImportReport>(endpoint, { method: 'POST', json: body(true) }))
     } catch (err) {
       setReport(null)
       setError(err instanceof Error ? err.message : 'Não foi possível verificar a planilha.')
@@ -114,9 +127,10 @@ export function ImportTournamentDialog() {
     setBusy('importing')
     setError(null)
     try {
-      const done = await apiFetch<ImportReport>('/import/tournament', { method: 'POST', json: body(false) })
+      const done = await apiFetch<ImportReport>(endpoint, { method: 'POST', json: body(false) })
       close()
-      router.push(`/admin/tournaments/${done.tournamentId}`)
+      if (target) target.onImported()
+      else router.push(`/admin/tournaments/${done.tournamentId}`)
     } catch (err) {
       if (err instanceof ApiError && isReport(err.details)) setReport(err.details)
       setError(err instanceof Error ? err.message : 'Não foi possível importar.')
@@ -131,29 +145,35 @@ export function ImportTournamentDialog() {
 
   return (
     <>
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+      {/* Mesma borda e fundo dos botões Exportar do cabeçalho do torneio. */}
+      <Button type="button" variant="outline" onClick={() => setOpen(true)} className="border-field-border bg-card">
         <FileSpreadsheet aria-hidden="true" />
         Importar planilha
       </Button>
       <Dialog open={open} onOpenChange={(next) => !next && close()}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Importar torneio por planilha</DialogTitle>
+            <DialogTitle>{target ? 'Importar inscrições por planilha' : 'Importar torneio por planilha'}</DialogTitle>
             <DialogDescription>
-              Uma planilha .xlsx (abas Torneio, Categorias e Inscritos), uma planilha consolidada (coluna Mod/cat., uma aba por torneio) ou um .csv cria o torneio, as categorias, os atletas e clubes que ainda não existem,
-              as duplas e as inscrições. Antes de gravar, você confere um resumo e os erros.
+              {target
+                ? <>As categorias e os inscritos da planilha entram em {target.name}. Categorias com o mesmo nome recebem as inscrições; as outras são criadas.</>
+                : <>Uma planilha .xlsx (abas Categorias e Inscritos, e opcionalmente Torneio), uma planilha consolidada (coluna Mod/cat., uma aba por torneio) ou um .csv cria o torneio, as categorias, os atletas e clubes que ainda não existem, as duplas e as inscrições. Antes de gravar, você confere um resumo e os erros.</>}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => void downloadTemplateXlsx()}>
-                <Download aria-hidden="true" />
-                Baixar modelo (.xlsx)
+            <div className="-ml-3 flex flex-wrap items-center gap-2">
+              <Button asChild variant="ghost">
+                <a href={TEMPLATE_FILES.xlsx} download>
+                  <Download aria-hidden="true" />
+                  Baixar modelo (.xlsx)
+                </a>
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={downloadTemplateCsv}>
-                <Download aria-hidden="true" />
-                Baixar modelo (.csv)
+              <Button asChild variant="ghost">
+                <a href={TEMPLATE_FILES.csv} download>
+                  <Download aria-hidden="true" />
+                  Baixar modelo (.csv)
+                </a>
               </Button>
             </div>
 
@@ -191,6 +211,7 @@ export function ImportTournamentDialog() {
                   </ul>
                 )}
 
+                {!target && (
                 <fieldset className="space-y-3 rounded-xl border border-border p-4">
                   <legend className="px-1 text-sm font-semibold">Dados do torneio</legend>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -236,8 +257,9 @@ export function ImportTournamentDialog() {
                     </div>
                   </div>
                 </fieldset>
+                )}
 
-                {report && <ReportView report={report} />}
+                {report && <ReportView report={report} intoExisting={!!target} />}
               </>
             )}
           </div>
@@ -249,9 +271,10 @@ export function ImportTournamentDialog() {
                 {busy === 'checking' ? 'Verificando...' : 'Verificar planilha'}
               </Button>
             )}
-            {parsed && report?.ok && (
+            {/* Planilha válida mas vazia (só exemplos): nada para importar. */}
+            {parsed && report?.ok && (report.summary.registrations > 0 || report.summary.categories > 0) && (
               <Button type="button" onClick={importNow} disabled={busy !== null}>
-                {busy === 'importing' ? 'Importando...' : 'Importar torneio'}
+                {busy === 'importing' ? 'Importando...' : target ? 'Importar inscrições' : 'Importar torneio'}
               </Button>
             )}
           </DialogFooter>
@@ -261,7 +284,7 @@ export function ImportTournamentDialog() {
   )
 }
 
-function ReportView({ report }: { report: ImportReport }) {
+function ReportView({ report, intoExisting }: { report: ImportReport; intoExisting: boolean }) {
   const s = report.summary
   return (
     <div className="space-y-3" role="status" aria-label="Resultado da verificação">
@@ -277,19 +300,23 @@ function ReportView({ report }: { report: ImportReport }) {
         </p>
       )}
 
-      <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+      <dl className="divide-y divide-border rounded-lg border border-border text-sm">
         {[
-          ['Torneio', `${s.tournament.name} (${s.tournament.kind === 'friendly' ? 'amistoso' : 'oficial'})`],
-          ['Endereço', s.tournament.slug || '—'],
-          ['Categorias', String(s.categories)],
+          ...(intoExisting
+            ? [['Categorias', `${plural(s.categories, 'nova', 'novas')}, ${plural(s.existingCategories ?? 0, 'já existente', 'já existentes')}`]]
+            : [
+                ['Torneio', `${s.tournament.name} (${s.tournament.kind === 'friendly' ? 'amistoso' : 'oficial'})`],
+                ['Endereço', s.tournament.slug || '—'],
+                ['Categorias', String(s.categories)],
+              ]),
           ['Inscrições', String(s.registrations)],
-          ['Atletas', `${s.athletes.created} novos, ${s.athletes.existing} já cadastrados`],
-          ['Clubes', `${s.clubs.created} novos, ${s.clubs.existing} já cadastrados`],
-          ['Duplas', `${s.pairs.created} novas, ${s.pairs.existing} já cadastradas`],
+          ['Atletas', `${plural(s.athletes.created, 'novo', 'novos')}, ${plural(s.athletes.existing, 'já cadastrado', 'já cadastrados')}`],
+          ['Clubes', `${plural(s.clubs.created, 'novo', 'novos')}, ${plural(s.clubs.existing, 'já cadastrado', 'já cadastrados')}`],
+          ['Duplas', `${plural(s.pairs.created, 'nova', 'novas')}, ${plural(s.pairs.existing, 'já cadastrada', 'já cadastradas')}`],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-border bg-card px-3 py-2">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-medium">{value}</dd>
+          <div key={label} className="flex items-baseline justify-between gap-4 px-3 py-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-right font-medium">{value}</dd>
           </div>
         ))}
       </dl>
@@ -300,13 +327,20 @@ function ReportView({ report }: { report: ImportReport }) {
   )
 }
 
+/** "1 nova", "2 novas". */
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
 function IssueTable({ title, issues, tone }: { title: string; issues: ImportReport['errors']; tone: 'error' | 'warning' }) {
   return (
+    <div className="space-y-1.5">
+    <h3 className={tone === 'error' ? 'text-sm font-semibold text-destructive' : 'text-sm font-semibold'}>{title} ({issues.length})</h3>
     <div tabIndex={0} role="region" aria-label={title} className="max-h-56 overflow-auto rounded-lg border border-border">
       <table className="w-full text-xs">
         <caption className="sr-only">{title} da planilha: aba, linha, campo e mensagem.</caption>
         <thead>
-          <tr className={tone === 'error' ? 'bg-destructive/10' : 'bg-muted/40'}>
+          <tr className={tone === 'error' ? 'bg-destructive/10' : 'bg-warning/10'}>
             <th scope="col" className="px-3 py-2 text-left font-medium">Aba</th>
             <th scope="col" className="px-3 py-2 text-left font-medium">Linha</th>
             <th scope="col" className="px-3 py-2 text-left font-medium">Campo</th>
@@ -324,6 +358,7 @@ function IssueTable({ title, issues, tone }: { title: string; issues: ImportRepo
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   )
 }

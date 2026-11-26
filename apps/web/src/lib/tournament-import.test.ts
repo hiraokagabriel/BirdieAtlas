@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildTemplateCsv, cellText, EXAMPLE_ENTRIES, fold, parseCsv, parseSheets } from './tournament-import'
+import { fileURLToPath } from 'node:url'
+import { buildTemplateCsv, cellText, EXAMPLE_ENTRIES, fold, parseCsv, parseSheets, TEMPLATE_FILES } from './tournament-import'
 
 describe('parseCsv', () => {
   it('separador ; (Excel pt-BR), aspas, quebra de linha dentro de campo e BOM', () => {
@@ -62,13 +63,30 @@ describe('parseSheets', () => {
   })
 })
 
-describe('modelo em CSV', () => {
-  it('é lido de volta pelo próprio leitor: categorias e inscritos completos', () => {
-    const r = parseSheets([{ name: 'Inscritos', grid: parseCsv(buildTemplateCsv()) }])
+describe('modelo', () => {
+  it('CSV: os exemplos são ignorados e o resto da linha vira a categoria', () => {
+    const csv = buildTemplateCsv()
+    const exemplo = parseSheets([{ name: 'Inscritos', grid: parseCsv(csv) }])
+    expect(exemplo.entries).toEqual([])
+    expect(exemplo.notes[0]).toBe(`${EXAMPLE_ENTRIES.length} linhas de exemplo ignoradas.`)
+
+    // Preenchido por cima dos exemplos: categoria com disciplina, formato, limite e pontuação.
+    const filled = csv.replaceAll('Exemplo ', '')
+    const r = parseSheets([{ name: 'Inscritos', grid: parseCsv(filled) }])
     expect(r.entries).toHaveLength(EXAMPLE_ENTRIES.length)
-    expect(r.categories.map((c) => c.name)).toEqual(['Simples Masculino', 'Simples Feminino', 'Duplas Masculinas'])
-    expect(r.categories.every((c) => c.discipline !== '')).toBe(true)
-    expect(r.categories[0]).toMatchObject({ drawType: 'Eliminação simples', maxEntries: '16' })
+    expect(r.categories[0]).toMatchObject({ name: 'Simples Masculino A', discipline: 'Simples Masculino', drawType: 'Eliminação simples', maxEntries: '16', scoring: '21' })
+    expect(r.categories[1]).toMatchObject({ name: 'Duplas Mistas', discipline: 'Misto', scoring: '15' })
+  })
+
+  it('XLSX versionado em public/modelos é lido pelo próprio leitor', async () => {
+    const { default: readExcelFile } = await import('read-excel-file/node')
+    const path = fileURLToPath(new URL(`../../public${TEMPLATE_FILES.xlsx}`, import.meta.url))
+    const sheets = await readExcelFile(path)
+    expect(sheets.map((x) => x.sheet)).toEqual(['Instruções', 'Categorias', 'Inscritos'])
+    const r = parseSheets(sheets.map((x) => ({ name: x.sheet, grid: x.data as unknown[][] })))
+    expect(r.categories).toEqual([])
+    expect(r.entries).toEqual([])
+    expect(r.notes[0]).toBe(`${EXAMPLE_ENTRIES.length} linhas de exemplo ignoradas.`)
   })
 })
 
@@ -76,5 +94,17 @@ describe('fold', () => {
   it('ignora acento e pontuação', () => {
     expect(fold('Máx. inscrições')).toBe('max inscricoes')
     expect(fold('E-mail do parceiro(a)')).toBe('e mail do parceiro a')
+  })
+})
+
+describe('linhas de exemplo', () => {
+  it('só os pares exatos do modelo são ignorados; nome real parecido entra', () => {
+    const grid = [
+      ['Categoria', 'Atleta'],
+      ['Exemplo Simples Masculino A', 'Exemplo Carlos Almeida'],
+      ['Exemplo Sub-15', 'Exemplo Silva'],
+    ]
+    const r = parseSheets([{ name: 'Inscritos', grid }])
+    expect(r.entries.map((e) => e.athlete)).toEqual(['Exemplo Silva'])
   })
 })

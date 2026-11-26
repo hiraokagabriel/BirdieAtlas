@@ -46,7 +46,8 @@ export function fold(value: unknown): string {
 
 type Key<T> = keyof T & string
 
-const ENTRY_HEADERS: Record<string, Key<ImportEntryInput> | 'discipline' | 'drawType' | 'maxEntries'> = {
+const ENTRY_HEADERS: Record<string, Key<ImportEntryInput> | 'discipline' | 'drawType' | 'maxEntries' | 'scoring'> = {
+  pontuacao: 'scoring',
   categoria: 'category',
   atleta: 'athlete',
   nome: 'athlete',
@@ -78,6 +79,7 @@ const CATEGORY_HEADERS: Record<string, Key<ImportCategoryInput>> = {
   'max inscricoes': 'maxEntries',
   'maximo de inscricoes': 'maxEntries',
   vagas: 'maxEntries',
+  pontuacao: 'scoring',
 }
 
 const TOURNAMENT_LABELS: Record<string, keyof TournamentFields> = {
@@ -177,7 +179,7 @@ function deriveCategories(entries: ImportEntryInput[], attrs: Map<string, Partia
     const key = fold(e.category)
     if (!key || seen.has(key)) continue
     const a = attrs.get(key) ?? {}
-    seen.set(key, { row: rows.get(key) ?? e.row, name: e.category, discipline: a.discipline ?? '', ...(a.drawType ? { drawType: a.drawType } : {}), ...(a.maxEntries ? { maxEntries: a.maxEntries } : {}) })
+    seen.set(key, { row: rows.get(key) ?? e.row, name: e.category, discipline: a.discipline ?? '', ...(a.drawType ? { drawType: a.drawType } : {}), ...(a.maxEntries ? { maxEntries: a.maxEntries } : {}), ...(a.scoring ? { scoring: a.scoring } : {}) })
   }
   return [...seen.values()]
 }
@@ -194,6 +196,7 @@ function entriesFrom(rows: { row: number; values: Partial<Record<string, string>
       if (values.discipline && !a.discipline) a.discipline = values.discipline
       if (values.drawType && !a.drawType) a.drawType = values.drawType
       if (values.maxEntries && !a.maxEntries) a.maxEntries = values.maxEntries
+      if (values.scoring && !a.scoring) a.scoring = values.scoring
       attrs.set(key, a)
       if (!firstRow.has(key)) firstRow.set(key, row)
     }
@@ -213,6 +216,13 @@ function entriesFrom(rows: { row: number; values: Partial<Record<string, string>
   return { entries, attrs, firstRow }
 }
 
+/** Categorias e pares (categoria, atleta) de exemplo do modelo: só essas linhas são ignoradas, nunca um nome real parecido. */
+const EXAMPLE_CATEGORY_KEYS = (): Set<string> => new Set(EXAMPLE_CATEGORIES.map((c) => fold(c[0])))
+const EXAMPLE_ENTRY_KEYS = (): Set<string> => new Set(EXAMPLE_ENTRIES.map((e) => `${fold(e[0])}|${fold(e[1])}`))
+export const isExampleCategory = (name: string | undefined): boolean => EXAMPLE_CATEGORY_KEYS().has(fold(name))
+export const isExampleEntry = (category: string | undefined, athlete: string | undefined): boolean =>
+  EXAMPLE_ENTRY_KEYS().has(`${fold(category)}|${fold(athlete)}`)
+
 /** Monta o que a API espera a partir das abas (XLSX) ou de uma tabela só (CSV). */
 export function parseSheets(sheets: { name: string; grid: Grid }[]): ParsedImport {
   const consolidated = parseConsolidatedWorkbook(sheets)
@@ -229,7 +239,11 @@ export function parseSheets(sheets: { name: string; grid: Grid }[]): ParsedImpor
     return { tournament: {}, categories: [], entries: [], notes }
   }
 
-  const table = readTable(entriesSheet.grid, ENTRY_HEADERS)
+  const read = readTable(entriesSheet.grid, ENTRY_HEADERS)
+  // Linhas de exemplo do modelo ("Exemplo ...") não entram: o modelo pode ser preenchido por cima delas.
+  const table = { ...read, rows: read.rows.filter((r) => !isExampleEntry(r.values.category, r.values.athlete)) }
+  const skipped = read.rows.length - table.rows.length
+  if (skipped > 0) notes.push(`${skipped} ${skipped === 1 ? 'linha de exemplo ignorada' : 'linhas de exemplo ignoradas'}.`)
   if (table.rows.length === 0) notes.push('A aba de inscritos não tem linhas com dados.')
   if (table.ignored.length > 0) notes.push(`Colunas ignoradas: ${table.ignored.join(', ')}.`)
   const { entries, attrs, firstRow } = entriesFrom(table.rows)
@@ -237,12 +251,13 @@ export function parseSheets(sheets: { name: string; grid: Grid }[]): ParsedImpor
   let categories: ImportCategoryInput[]
   if (categoriesSheet) {
     const cats = readTable(categoriesSheet.grid, CATEGORY_HEADERS)
-    categories = cats.rows.map(({ row, values }) => ({
+    categories = cats.rows.filter(({ values }) => !isExampleCategory(values.name)).map(({ row, values }) => ({
       row,
       name: values.name ?? '',
       discipline: values.discipline ?? '',
       ...(values.drawType ? { drawType: values.drawType } : {}),
       ...(values.maxEntries ? { maxEntries: values.maxEntries } : {}),
+      ...(values.scoring ? { scoring: values.scoring } : {}),
     }))
   } else {
     categories = deriveCategories(entries, attrs, firstRow)
@@ -271,86 +286,63 @@ export async function parseImportFile(file: File): Promise<ParsedImport> {
 // ---------------------------------------------------------------------------
 
 export const ENTRY_COLUMNS = ['Categoria', 'Atleta', 'Parceiro(a)', 'Sexo', 'Sexo do parceiro(a)', 'Clube', 'Clube do parceiro(a)', 'Cabeça de chave', 'Situação'] as const
-export const CATEGORY_COLUMNS = ['Nome', 'Disciplina', 'Formato', 'Máx. inscrições'] as const
+export const CATEGORY_COLUMNS = ['Nome', 'Disciplina', 'Formato', 'Máx. inscrições', 'Pontuação'] as const
+/** CSV (uma tabela só): os inscritos mais os atributos da categoria, que valem na primeira linha dela. */
+export const CSV_COLUMNS = [...ENTRY_COLUMNS, 'Disciplina', 'Formato', 'Máx. inscrições', 'Pontuação'] as const
 
-export const EXAMPLE_TOURNAMENT: [string, string, string][] = [
-  ['Nome', 'Aberto de Exemplo', 'Obrigatório.'],
-  ['Endereço (slug)', '', 'Opcional. Em branco, é gerado do nome.'],
-  ['Tipo', 'Oficial', 'Oficial (pontua nos rankings) ou Amistoso (não pontua).'],
-  ['Nível', 'Estadual', 'Local, Regional, Estadual, Nacional ou Internacional.'],
-  ['Início', '15/11/2026', 'DD/MM/AAAA. Obrigatório.'],
-  ['Término', '17/11/2026', 'DD/MM/AAAA. Obrigatório.'],
-  ['Cidade', 'São Paulo', 'Opcional.'],
-  ['Estado', 'SP', 'Opcional. Sigla com 2 letras.'],
-  ['Local', 'Ginásio Central', 'Opcional.'],
-]
+/** Opções das listas do modelo (a API aceita também siglas e variações; ver docs). */
+export const TEMPLATE_OPTIONS = {
+  discipline: ['Simples Masculino', 'Simples Feminino', 'Duplas Masculinas', 'Duplas Femininas', 'Misto'],
+  drawType: ['Eliminação simples', 'Todos contra todos', 'Grupos + eliminatória', 'Suíço', 'Eliminação dupla'],
+  scoring: ['21', '15', '11'],
+  gender: ['M', 'F'],
+  status: ['Aprovada', 'Pendente', 'Recusada'],
+} as const
 
+/** Linhas de exemplo: começam com "Exemplo" e a importação as ignora. */
 export const EXAMPLE_CATEGORIES: string[][] = [
-  ['Simples Masculino', 'Simples Masculino', 'Eliminação simples', '16'],
-  ['Simples Feminino', 'Simples Feminino', 'Todos contra todos', ''],
-  ['Duplas Masculinas', 'Duplas Masculinas', 'Grupos + eliminatória', ''],
+  ['Exemplo Simples Masculino A', 'Simples Masculino', 'Eliminação simples', '16', '21'],
+  ['Exemplo Duplas Mistas', 'Misto', 'Grupos + eliminatória', '', '15'],
 ]
 
 export const EXAMPLE_ENTRIES: string[][] = [
-  ['Simples Masculino', 'Exemplo Carlos Almeida', '', 'M', '', 'Clube Exemplo', '', '1', 'Aprovada'],
-  ['Simples Masculino', 'Exemplo Bruno Costa', '', 'M', '', 'Clube Exemplo', '', '2', 'Aprovada'],
-  ['Simples Masculino', 'Exemplo Diego Lima', '', 'M', '', 'Clube Modelo', '', '', 'Pendente'],
-  ['Simples Feminino', 'Exemplo Ana Souza', '', 'F', '', 'Clube Modelo', '', '', 'Aprovada'],
-  ['Simples Feminino', 'Exemplo Bia Martins', '', 'F', '', 'Clube Exemplo', '', '', 'Aprovada'],
-  ['Duplas Masculinas', 'Exemplo Carlos Almeida', 'Exemplo Bruno Costa', 'M', 'M', 'Clube Exemplo', 'Clube Exemplo', '1', 'Aprovada'],
-  ['Duplas Masculinas', 'Exemplo Diego Lima', 'Exemplo Eduardo Reis', 'M', 'M', 'Clube Modelo', 'Clube Modelo', '', 'Aprovada'],
+  ['Exemplo Simples Masculino A', 'Exemplo Carlos Almeida', '', 'M', '', 'Clube Exemplo', '', '1', 'Aprovada'],
+  ['Exemplo Simples Masculino A', 'Exemplo Bruno Costa', '', 'M', '', 'Clube Exemplo', '', '', 'Pendente'],
+  ['Exemplo Duplas Mistas', 'Exemplo Diego Lima', 'Exemplo Ana Souza', 'M', 'F', 'Clube Modelo', 'Clube Modelo', '', 'Aprovada'],
 ]
 
-const INSTRUCTIONS: string[] = [
+export const TEMPLATE_INSTRUCTIONS: string[] = [
   'Como preencher',
-  '',
-  'Aba Torneio: dados gerais (campo na coluna A, valor na coluna B). Nome, Início e Término são obrigatórios.',
-  'Aba Categorias: uma linha por categoria. Disciplina: Simples Masculino, Simples Feminino, Duplas Masculinas, Duplas Femininas ou Misto.',
+  'Crie e configure o campeonato no BirdieAtlas. Depois, na página dele, use "Importar planilha" com este arquivo.',
+  'Aba Categorias: uma linha por categoria. Se o nome for igual ao de uma categoria já criada na plataforma, as inscrições entram nela e a configuração de lá vale.',
+  'Disciplina: Simples Masculino, Simples Feminino, Duplas Masculinas, Duplas Femininas ou Misto.',
   'Formato: Eliminação simples (padrão), Todos contra todos, Grupos + eliminatória, Suíço ou Eliminação dupla. Máx. inscrições é opcional.',
-  'Aba Inscritos: uma linha por inscrição. A categoria precisa existir na aba Categorias.',
-  'Duplas: preencha Parceiro(a). Simples: deixe Parceiro(a) em branco.',
-  'Atletas já cadastrados são reconhecidos pelo nome (sem diferenciar acentos). Se houver nomes iguais, informe o Clube.',
-  'Atleta novo: em Simples o Sexo vem da categoria (Masculino = M, Feminino = F) e pode ficar em branco; em Duplas informe o Sexo (M ou F) do atleta e do parceiro(a). O clube é criado se ainda não existir.',
+  'Pontuação: 21 (21 pontos, teto 30, padrão), 15 (15 pontos, teto 21) ou 11 (11 pontos, melhor de 5).',
+  'Aba Inscritos: uma linha por inscrição. Duplas: preencha Parceiro(a). Simples: deixe em branco.',
+  'Atletas já cadastrados são reconhecidos pelo nome (sem diferenciar acentos). Com nomes iguais, informe o Clube.',
+  'Atleta novo: em Simples o Sexo vem da categoria; em Duplas informe o Sexo (M ou F) dos dois. Clube que não existe é criado.',
   'Cabeça de chave (opcional): 1, 2, 3... Situação: Aprovada (padrão), Pendente ou Recusada.',
-  'Arquivo CSV: uma tabela só, com as colunas da aba Inscritos mais Disciplina, Formato e Máx. inscrições (valem para a categoria na primeira linha dela). Os dados do torneio são preenchidos na tela.',
-  'As linhas de exemplo deste modelo criam atletas "Exemplo ..." de verdade: apague-as antes de importar o seu torneio.',
+  'As linhas de exemplo (em cinza, com nomes "Exemplo ...") são ignoradas: escreva por cima delas ou apague-as.',
+  'Antes de gravar, a plataforma verifica tudo e mostra os erros por linha. Nada é gravado enquanto houver erro.',
+  'Prefere CSV? Use o modelo .csv: uma tabela só, separada por ponto e vírgula, com as colunas de Inscritos mais Disciplina, Formato, Máx. inscrições e Pontuação.',
 ]
+
+/** Arquivos do modelo, gerados por `pnpm --filter web template:import` em `public/modelos`. */
+export const TEMPLATE_FILES = {
+  xlsx: '/modelos/modelo-importacao-campeonato.xlsx',
+  csv: '/modelos/modelo-importacao-campeonato.csv',
+} as const
 
 function csvEscape(value: string): string {
   return /[;"\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
 }
 
-/** CSV de uma tabela só (Excel em português): inscritos + atributos da categoria. */
+/** CSV de uma tabela só (Excel em português, `;` e BOM): inscritos + atributos da categoria. */
 export function buildTemplateCsv(): string {
-  const header = [...ENTRY_COLUMNS, 'Disciplina', 'Formato', 'Máx. inscrições']
   const categoryByName = new Map(EXAMPLE_CATEGORIES.map((c) => [c[0]!, c]))
   const rows = EXAMPLE_ENTRIES.map((e) => {
     const c = categoryByName.get(e[0]!)
-    return [...e, c?.[1] ?? '', c?.[2] ?? '', c?.[3] ?? '']
+    return [...e, c?.[1] ?? '', c?.[2] ?? '', c?.[3] ?? '', c?.[4] ?? '']
   })
-  return '﻿' + [header, ...rows].map((r) => r.map(csvEscape).join(';')).join('\r\n') + '\r\n'
-}
-
-export function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-export async function downloadTemplateXlsx(): Promise<void> {
-  const { default: writeExcelFile } = await import('write-excel-file/browser')
-  const head = (labels: readonly string[]) => labels.map((value) => ({ value, fontWeight: 'bold' as const }))
-  await writeExcelFile([
-    { sheet: 'Instruções', data: INSTRUCTIONS.map((line, i) => [i === 0 ? { value: line, fontWeight: 'bold' as const } : { value: line }]), columns: [{ width: 120 }] },
-    { sheet: 'Torneio', data: [head(['Campo', 'Valor', 'Observação']), ...EXAMPLE_TOURNAMENT.map((r) => r.map((value) => ({ value })))], columns: [{ width: 20 }, { width: 28 }, { width: 60 }] },
-    { sheet: 'Categorias', data: [head(CATEGORY_COLUMNS), ...EXAMPLE_CATEGORIES.map((r) => r.map((value) => ({ value })))], columns: [{ width: 26 }, { width: 22 }, { width: 24 }, { width: 16 }] },
-    { sheet: 'Inscritos', data: [head(ENTRY_COLUMNS), ...EXAMPLE_ENTRIES.map((r) => r.map((value) => ({ value })))], columns: ENTRY_COLUMNS.map(() => ({ width: 22 })) },
-  ]).toFile('modelo-torneio.xlsx')
-}
-
-export function downloadTemplateCsv(): void {
-  downloadBlob(new Blob([buildTemplateCsv()], { type: 'text/csv;charset=utf-8' }), 'modelo-torneio.csv')
+  return '\ufeff' + [[...CSV_COLUMNS], ...rows].map((r) => r.map(csvEscape).join(';')).join('\r\n') + '\r\n'
 }

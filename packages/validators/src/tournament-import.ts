@@ -35,6 +35,8 @@ export const importTournamentSchema = z.object({
         discipline: cell,
         drawType: cell.optional(),
         maxEntries: cell.optional(),
+        /** "21", "15", "11" (pontos do set, com os modelos de SCORING_PRESETS) ou vazio = 21. */
+        scoring: cell.optional(),
       }),
     )
     .max(IMPORT_MAX_CATEGORIES),
@@ -59,6 +61,13 @@ export const importTournamentSchema = z.object({
 });
 
 export type ImportTournamentInput = z.infer<typeof importTournamentSchema>;
+
+/**
+ * Importação para dentro de um torneio já criado na plataforma (`POST /tournaments/:id/import`): sem a aba Torneio.
+ * Categorias da planilha casam pelo nome com as do torneio; as que não existem são criadas.
+ */
+export const importIntoTournamentSchema = importTournamentSchema.omit({ tournament: true });
+export type ImportIntoTournamentInput = z.infer<typeof importIntoTournamentSchema>;
 export type ImportCategoryInput = ImportTournamentInput["categories"][number];
 export type ImportEntryInput = ImportTournamentInput["entries"][number];
 
@@ -78,6 +87,8 @@ export interface ImportReport {
   summary: {
     tournament: { name: string; slug: string; kind: "official" | "friendly" };
     categories: number;
+    /** Categorias que já existiam no torneio e receberam inscrições (só na importação para um torneio existente). */
+    existingCategories?: number;
     registrations: number;
     athletes: { existing: number; created: number };
     clubs: { existing: number; created: number };
