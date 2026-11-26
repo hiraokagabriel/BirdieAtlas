@@ -27,8 +27,12 @@ test('com muitas categorias, a grade Modalidade × Classe escolhe a categoria e 
 
   await expect(toggle).toContainText('Duplas Mistas B')
   await expect(page.getByText('Duplas Mistas B —')).toBeVisible()
-  // Seta vai para a vizinha sem fechar a grade.
-  await page.keyboard.press('ArrowRight')
+  // ↓ desce na mesma modalidade (linha de baixo) sem fechar a grade; ↑ volta.
+  await page.keyboard.press('ArrowDown')
+  await expect(grid.getByRole('radio', { name: 'Duplas Mistas Sub 15' })).toBeChecked()
+  await expect(grid.getByRole('radio', { name: 'Duplas Mistas Sub 15' })).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(grid.getByRole('radio', { name: 'Duplas Mistas B' })).toBeChecked()
   await expect(grid).toBeVisible()
 
   // Esc fecha e devolve o foco ao botão.
