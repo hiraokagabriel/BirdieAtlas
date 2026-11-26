@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDate } from '@/lib/format'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import type { AthleteRow } from './athletes-view'
@@ -145,8 +146,8 @@ export function AthleteSheet({
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                          {new Date(aff.startedAt).toLocaleDateString('pt-BR')}
-                          {aff.endedAt ? ` — ${new Date(aff.endedAt).toLocaleDateString('pt-BR')}` : ' — presente'}
+                          {formatDate(aff.startedAt)}
+                          {aff.endedAt ? ` — ${formatDate(aff.endedAt)}` : ' — presente'}
                         </p>
                       </div>
                     ))}

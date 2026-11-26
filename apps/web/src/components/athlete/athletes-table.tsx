@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDate } from '@/lib/format'
 import { useState } from 'react'
 import type { AthleteRow } from './athletes-view'
 import {
@@ -131,7 +132,7 @@ export function AthletesTable({
                   </TableCell>
                   <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
                     {athlete.affiliationStart
-                      ? new Date(athlete.affiliationStart).toLocaleDateString('pt-BR')
+                      ? formatDate(athlete.affiliationStart)
                       : '—'}
                   </TableCell>
                   <TableCell>
