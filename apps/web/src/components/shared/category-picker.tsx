@@ -92,6 +92,18 @@ function CategoryGrid({ categories, value, onChange, extra, className }: Omit<Pr
   // impediria navegar pela grade com o teclado. Fecha pelo botão ou por Esc.
   const choose = (id: string) => onChange(id)
 
+  // Setas ↑/↓ andam na coluna (mesma modalidade), pulando células vazias; ←/→ seguem o radio nativo (na linha).
+  const vertical = (cat: PickerCategory, step: 1 | -1) => {
+    const k = classes.indexOf(categoryClass(cat.name))
+    for (let r = k + step; r >= 0 && r < classes.length; r += step) {
+      const target = cell.get(`${classes[r]}|${cat.discipline}`)
+      if (!target) continue
+      choose(target.id)
+      document.getElementById(`${base}-${target.id}`)?.focus()
+      return
+    }
+  }
+
   const radio = (cat: PickerCategory, visible: ReactNode, boxClass: string) => (
     <label className="block">
       <input
@@ -100,6 +112,12 @@ function CategoryGrid({ categories, value, onChange, extra, className }: Omit<Pr
         value={cat.id}
         checked={cat.id === value}
         onChange={() => choose(cat.id)}
+        id={`${base}-${cat.id}`}
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+          e.preventDefault()
+          vertical(cat, e.key === 'ArrowDown' ? 1 : -1)
+        }}
         aria-label={cat.name}
         className="peer sr-only"
       />
