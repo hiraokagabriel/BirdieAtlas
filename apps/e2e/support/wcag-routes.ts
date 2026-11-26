@@ -76,6 +76,13 @@ export function publicPages(data: () => WcagData): PageCase[] {
     },
   },
   {
+    name: 'todas as chaves do torneio em andamento',
+    path: () => `/t/${data().running.tournament.slug}/chaves`,
+    ready: async (p) => {
+      await expect(p.getByRole('region', { name: /^Chave de/ }).first()).toBeVisible()
+    },
+  },
+  {
     name: 'telão do torneio em andamento',
     path: () => `/telao/${data().running.tournament.slug}`,
     forcedTheme: 'dark',

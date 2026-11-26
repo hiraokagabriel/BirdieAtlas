@@ -7,6 +7,7 @@
  * `print:hidden` do Tailwind direto no componente.
  *
  * - `.print-bracket-page`: a página que a contém imprime em A4 paisagem (chave), do cabeçalho ao fim.
+ * - `.print-bracket-section`: uma categoria por página (todas as chaves do torneio).
  * - `.print-ranking-page`: a página que a contém imprime em A4 retrato (ranking).
  * - `data-print-fit`: o PrintButton reduz o elemento (`zoom`) para caber na página em `beforeprint`.
  * - Tema claro: o PrintButton tira a classe `dark` de <html> em `beforeprint` e a devolve em `afterprint`.
@@ -24,6 +25,45 @@
 @page ranking {
   size: A4 portrait;
   margin: 10mm;
+}
+
+/* Medição do ajuste à página (PrintButton, em `beforeprint`): o mesmo desenrolar da chave do papel, na tela. */
+html.print-measuring .print-bracket-page [role='region'] {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+html.print-measuring .print-bracket-page [data-print-fit] {
+  width: max-content;
+  max-width: none;
+}
+
+/*
+ * Formatos em lista em /t/[slug]/chaves (`data-print-flow`): na largura útil da folha A4 paisagem (277 mm), em três
+ * colunas. Cada rodada (todos contra todos, suíço) ou grupo vira uma coluna; a classificação geral e a eliminatória
+ * dos grupos ocupam a largura toda. A escala do PrintButton então só depende da altura.
+ */
+html.print-measuring .print-bracket-page [data-print-flow] {
+  width: 1046px;
+}
+
+html.print-measuring .print-bracket-page [data-print-flow] > div {
+  column-count: 3;
+  column-gap: 1.5rem;
+  padding: 0;
+}
+
+html.print-measuring .print-bracket-page [data-print-flow] > div > section {
+  break-inside: avoid;
+}
+
+html.print-measuring .print-bracket-page [data-print-flow] > div > section:has(table):not(:has(h4)),
+html.print-measuring .print-bracket-page [data-print-flow] > div > section:has([data-print-fit]) {
+  column-span: all;
+}
+
+html.print-measuring .print-bracket-page [data-print-flow] .grid {
+  grid-template-columns: 1fr;
 }
 
 @media print {
@@ -68,6 +108,17 @@
 
   body:has(.print-ranking-page) {
     page: ranking;
+  }
+
+  /* Papel é plano: sem sombra nos cartões (docs/DESIGN.md). */
+  .print-bracket-page * {
+    box-shadow: none !important;
+  }
+
+  /* Todas as chaves (/t/[slug]/chaves): uma categoria por página. */
+  .print-bracket-section + .print-bracket-section {
+    break-before: page;
+    page-break-before: always;
   }
 
   /* A chave rola na tela; no papel ela é desenrolada e escalada por `data-print-fit`. */

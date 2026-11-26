@@ -8,21 +8,33 @@ import { A4_LANDSCAPE_USABLE, BRACKET_PRINT_RESERVED_HEIGHT, computePrintScale }
 /** Elementos com este atributo são reduzidos para caber numa página A4 paisagem ao imprimir. */
 const FIT_SELECTOR = '[data-print-fit]'
 
+/**
+ * Ajusta cada elemento `data-print-fit` à página. Só o de fora conta: um `data-print-fit` dentro de outro (a árvore
+ * dentro de uma categoria inteira, em /t/[slug]/chaves) fica sem zoom próprio, para a escala não se multiplicar.
+ * `data-print-reserved` (px) é a altura que o cabeçalho da página ocupa; `data-print-max-scale` permite ampliar.
+ */
 function fitElements(): void {
+  // Mede com o layout de papel (chave desenrolada, sem rolagem): o `beforeprint` ainda roda no layout de tela.
+  document.documentElement.classList.add('print-measuring')
   document.querySelectorAll<HTMLElement>(FIT_SELECTOR).forEach((element) => {
     element.style.zoom = ''
+    if (element.parentElement?.closest(FIT_SELECTOR)) return
     const { width, height } = element.getBoundingClientRect()
+    const reserved = Number(element.dataset.printReserved ?? BRACKET_PRINT_RESERVED_HEIGHT)
     const scale = computePrintScale({
       contentWidth: width,
       contentHeight: height,
       availableWidth: A4_LANDSCAPE_USABLE.width,
-      availableHeight: A4_LANDSCAPE_USABLE.height - BRACKET_PRINT_RESERVED_HEIGHT,
+      availableHeight: A4_LANDSCAPE_USABLE.height - reserved,
+      maxScale: Number(element.dataset.printMaxScale ?? 1),
+      ...(element.dataset.printMinScale ? { minScale: Number(element.dataset.printMinScale) } : {}),
     })
-    if (scale < 1) element.style.zoom = String(scale)
+    if (scale !== 1) element.style.zoom = String(scale)
   })
 }
 
 function resetElements(): void {
+  document.documentElement.classList.remove('print-measuring')
   document.querySelectorAll<HTMLElement>(FIT_SELECTOR).forEach((element) => {
     element.style.zoom = ''
   })

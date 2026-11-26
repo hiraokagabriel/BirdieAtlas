@@ -47,6 +47,32 @@ const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus, string> = {
   rejected: 'Recusada',
 }
 
+/**
+ * Inscrições públicas (não recusadas) das categorias: só nomes, nunca dado pessoal. Usada pela lista de inscritos
+ * da categoria e pelas chaves publicadas do torneio (`GET /tournaments/:id/brackets`).
+ */
+export async function publicRegistrations(categoryIds: string[]) {
+  if (categoryIds.length === 0) return []
+  const regs = await selectRegistrations(
+    and(inArray(tournamentRegistrations.categoryId, categoryIds), ne(tournamentRegistrations.status, 'rejected')),
+  )
+  const names = await namesFor(regs)
+  return regs.map((r) => ({
+    id: r.id,
+    categoryId: r.categoryId,
+    pairId: r.pairId,
+    athleteId: r.athleteId,
+    athlete2Id: r.athlete2Id,
+    athleteName: names.get(r.athleteId) ?? null,
+    athlete2Name: r.athlete2Id ? (names.get(r.athlete2Id) ?? null) : null,
+    seed: r.seed,
+    status: r.status,
+    rankingPointsAtEntry: r.rankingPointsAtEntry,
+    // Colocação final (só preenchida quando o torneio é encerrado): alimenta o pódio público.
+    finalPlacement: r.finalPlacement,
+  }))
+}
+
 async function namesFor(regs: ResolvedRegistration[]): Promise<Map<string, string>> {
   return athleteNames([...new Set(regs.flatMap((r) => [r.athleteId, r.athlete2Id].filter(Boolean) as string[]))])
 }
@@ -96,24 +122,7 @@ export async function registrationsRoutes(app: FastifyInstance) {
   // Público: quem está na disputa. Recusadas ficam de fora e `notes` (motivo interno) nunca sai daqui.
   app.get('/tournaments/categories/:categoryId/registrations', async (request) => {
     const { categoryId } = request.params as { categoryId: string }
-    const regs = await selectRegistrations(
-      and(eq(tournamentRegistrations.categoryId, categoryId), ne(tournamentRegistrations.status, 'rejected')),
-    )
-    const names = await namesFor(regs)
-    return regs.map((r) => ({
-      id: r.id,
-      categoryId: r.categoryId,
-      pairId: r.pairId,
-      athleteId: r.athleteId,
-      athlete2Id: r.athlete2Id,
-      athleteName: names.get(r.athleteId) ?? null,
-      athlete2Name: r.athlete2Id ? (names.get(r.athlete2Id) ?? null) : null,
-      seed: r.seed,
-      status: r.status,
-      rankingPointsAtEntry: r.rankingPointsAtEntry,
-      // Colocação final (só preenchida quando o torneio é encerrado): alimenta o pódio público.
-      finalPlacement: r.finalPlacement,
-    }))
+    return publicRegistrations([categoryId])
   })
 
   // Admin (ADMIN_ONLY_READS): inscritos por categoria em CSV. Só nome, clube, categoria e status:
