@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDate } from '@/lib/format'
 import { Fragment, use, useEffect, useState } from 'react'
 import type { Paginated } from '@birdie-atlas/types'
 import { apiFetch } from '@/lib/api'
@@ -672,7 +673,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{t.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(t.startDate).toLocaleDateString('pt-BR')} · {statusLabel[t.status] ?? t.status}
+                        {formatDate(t.startDate)} · {statusLabel[t.status] ?? t.status}
                         {t.pointsAwarded && ' · Pontos distribuídos'}
                       </p>
                     </div>
@@ -702,7 +703,7 @@ export default function RankingDetailPage({ params }: { params: Promise<{ rankin
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate text-muted-foreground">{t.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(t.startDate).toLocaleDateString('pt-BR')} · {statusLabel[t.status] ?? t.status}
+                        {formatDate(t.startDate)} · {statusLabel[t.status] ?? t.status}
                       </p>
                     </div>
                     <button

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateRange } from '@/lib/format'
 import { use, useCallback, useEffect, useState } from 'react'
 import { canTransitionTournament, type TournamentLevel, type TournamentStatus } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
@@ -104,7 +105,7 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
-              {new Date(tournament.startDate).toLocaleDateString('pt-BR')} — {new Date(tournament.endDate).toLocaleDateString('pt-BR')}
+              {formatDateRange(tournament.startDate, tournament.endDate)}
             </span>
             {tournament.city && (
               <span className="flex items-center gap-1.5">
