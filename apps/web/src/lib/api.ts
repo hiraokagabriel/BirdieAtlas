@@ -1,4 +1,5 @@
 import { unstable_rethrow } from 'next/navigation'
+import { checkContract } from './contract'
 import type { ApiErrorBody } from '@birdie-atlas/types'
 import { adminAuthHeaders } from '@/lib/admin-token'
 
@@ -66,6 +67,8 @@ export async function apiFetch<T>(path: string, options?: ApiFetchOptions): Prom
       'NETWORK_ERROR',
     )
   })
+
+  checkContract(res.headers)
 
   if (!res.ok) {
     throw await toApiError(res)

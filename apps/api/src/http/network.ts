@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { API_CONTRACT_HEADER, API_CONTRACT_VERSION } from '@birdie-atlas/validators'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import type { ServerConfig } from '../domain/server-config.js'
@@ -22,7 +23,12 @@ export async function registerNetwork(app: FastifyInstance, config: ServerConfig
   await app.register(cors, {
     origin: config.corsOrigin,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    exposedHeaders: ['Content-Disposition'],
+    // e o contrato (`x-api-contract`), que o web compara com o dele para avisar de versões diferentes.
+    exposedHeaders: ['Content-Disposition', API_CONTRACT_HEADER],
+  })
+
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header(API_CONTRACT_HEADER, String(API_CONTRACT_VERSION))
   })
 
   if (!config.production) return

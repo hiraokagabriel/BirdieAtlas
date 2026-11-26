@@ -4,6 +4,7 @@ import './globals.css'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryProvider } from '@/providers/query-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { ContractBanner } from '@/components/shared/contract-banner'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import { getSiteUrl } from '@/lib/share'
 import { BRAND } from '@/lib/share-image/brand'
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster />
+          <ContractBanner />
           <ServiceWorkerRegister />
         </QueryProvider>
       </body>
