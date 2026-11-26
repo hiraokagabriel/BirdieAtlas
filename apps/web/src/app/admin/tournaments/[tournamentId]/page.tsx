@@ -1,5 +1,6 @@
 'use client'
 
+import type { CategoryDrawConfig } from '@birdie-atlas/validators'
 import { formatDateRange } from '@/lib/format'
 import { use, useCallback, useEffect, useState } from 'react'
 import { canTransitionTournament, type TournamentLevel, type TournamentStatus } from '@birdie-atlas/validators'
@@ -24,7 +25,10 @@ type Tournament = {
   startDate: string; endDate: string; city: string; state: string; location: string
   pointsAwarded: boolean; tenantId: string; kind: 'official' | 'friendly'
 }
-type Category = { id: string; name: string; discipline: string; drawType: string; seedCount: number; maxEntries: number | null }
+type Category = {
+  id: string; name: string; discipline: string; drawType: string; seedCount: number; maxEntries: number | null
+  pointsPerSet: number; setPointCap: number; setsToWin: number; drawConfig: CategoryDrawConfig | null
+}
 
 const statusMap: Record<string, { label: string; color: string }> = {
   draft:                { label: 'Rascunho',             color: 'bg-muted text-muted-foreground' },

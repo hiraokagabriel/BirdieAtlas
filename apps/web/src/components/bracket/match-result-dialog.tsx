@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { AlertCircle, AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ResultHistory } from './result-history'
+import { DEFAULT_SCORING, maxSets, scoringLabel, validateSets, type ScoringRule } from '@birdie-atlas/validators'
 
 type GameScore = { score1: string; score2: string }
 
@@ -41,6 +42,8 @@ type Props = {
   drawId: string
   existingResults?: MatchResult[]
   roundLabel: string
+  /** Pontuação da categoria; padrão 21 pontos, teto 30, melhor de 3. */
+  scoring?: ScoringRule
 }
 
 const RESULT_TYPES = [
@@ -64,52 +67,43 @@ function inferMatchWinner(games: GameScore[]): 1 | 2 | null {
   return null
 }
 
-/** Valida as regras de games do badminton:
- * - Mínimo 2 games preenchidos
- * - Se game 2 definir vencedor da partida (um jogador vence 2 a 0), 3º game não deve existir ou está vazio
- * - 3º game só é válido se os 2 primeiros terminaram 1x1
- * - Retorna null se válido, ou uma string de erro
- */
-function validateGames(games: GameScore[], resultType: 'completed' | 'walkover' | 'retired'): string | null {
-  if (resultType !== 'completed') return null
+const emptyGames = (n: number): GameScore[] => Array.from({ length: n }, () => ({ score1: '', score2: '' }))
 
-  const filled = games.filter((g) => g.score1 !== '' && g.score2 !== '')
-
-  if (filled.length < 2) return 'Preencha ao menos 2 sets.'
-
-  const g1 = getGameWinner(games[0])
-  const g2 = getGameWinner(games[1])
-
-  if (!g1) return 'O 1º set não tem vencedor (placar empatado ou inválido).'
-  if (!g2) return 'O 2º set não tem vencedor (placar empatado ou inválido).'
-
-  if (g1 === g2) {
-    // Partida decidida em 2 games — 3º game não deve ser preenchido
-    if (games[2] && (games[2].score1 !== '' || games[2].score2 !== '')) {
-      return 'O 3º set não é necessário: o vencedor já foi definido nos 2 primeiros sets.'
-    }
-  } else {
-    // Empate 1x1 — 3º game obrigatório
-    if (!games[2] || games[2].score1 === '' || games[2].score2 === '') {
-      return 'O 3º set é obrigatório: os 2 primeiros sets terminaram 1 × 1.'
-    }
-    const g3 = getGameWinner(games[2])
-    if (!g3) return 'O 3º set não tem vencedor.'
+/** Quantos sets ficam abertos para digitar: os necessários para alguém vencer, mais um enquanto a partida segue empatada. */
+function visibleSets(games: GameScore[], rule: ScoringRule): number {
+  let visible = rule.setsToWin
+  for (;;) {
+    if (visible >= maxSets(rule)) return maxSets(rule)
+    const head = games.slice(0, visible)
+    if (head.some((g) => getGameWinner(g) === null)) return visible
+    const wins1 = head.filter((g) => getGameWinner(g) === 1).length
+    const wins2 = head.length - wins1
+    if (wins1 >= rule.setsToWin || wins2 >= rule.setsToWin) return visible
+    visible++
   }
+}
 
-  return null
+/** Valida o resultado normal pela pontuação da categoria (`validateSets`): sets em ordem, cada um fechado pela regra. */
+function validateGames(games: GameScore[], resultType: 'completed' | 'walkover' | 'retired', rule: ScoringRule): string | null {
+  if (resultType !== 'completed') return null
+  const firstEmpty = games.findIndex((g) => g.score1 === '' || g.score2 === '')
+  const count = firstEmpty === -1 ? games.length : firstEmpty
+  const gap = games.slice(count).some((g) => g.score1 !== '' || g.score2 !== '')
+  const half = games[count] !== undefined && (games[count].score1 === '') !== (games[count].score2 === '')
+  if (gap && !half) return 'Preencha os sets na ordem.'
+  if (half) return `Preencha os dois lados do ${count + 1}º set.`
+  if (count === 0) return 'Preencha o placar dos sets.'
+  return validateSets(games.slice(0, count).map((g) => ({ score1: Number(g.score1), score2: Number(g.score2) })), rule)
 }
 
 export function MatchResultDialog({
-  match, open, onClose, player1Name, player2Name, drawId, existingResults, roundLabel,
+  match, open, onClose, player1Name, player2Name, drawId, existingResults, roundLabel, scoring = DEFAULT_SCORING,
 }: Props) {
+  const totalSets = maxSets(scoring)
   const queryClient = useQueryClient()
   const isEdit = !!existingResults?.length
 
-  const [games, setGames] = useState<GameScore[]>([
-    { score1: '', score2: '' },
-    { score1: '', score2: '' },
-  ])
+  const [games, setGames] = useState<GameScore[]>(() => emptyGames(totalSets))
   const [resultType, setResultType] = useState<'completed' | 'walkover' | 'retired'>('completed')
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -129,28 +123,25 @@ export function MatchResultDialog({
     if (open && isEdit && existingResults) {
       const sorted = [...existingResults].sort((a, b) => a.setNumber - b.setNumber)
       const loaded = sorted.map((s) => ({ score1: String(s.score1), score2: String(s.score2) }))
-      // Garante mínimo 2 games
-      while (loaded.length < 2) loaded.push({ score1: '', score2: '' })
+      while (loaded.length < totalSets) loaded.push({ score1: '', score2: '' })
       setGames(loaded)
       if (matchStatus) setResultType(matchStatus as 'completed' | 'walkover' | 'retired')
     } else if (open && !isEdit) {
-      setGames([{ score1: '', score2: '' }, { score1: '', score2: '' }])
+      setGames(emptyGames(totalSets))
       setResultType('completed')
     }
     setSubmitAttempted(false)
     setSubmitError(null)
-  }, [open, isEdit])
+  }, [open, isEdit, totalSets])
 
   function handleResultTypeChange(type: 'completed' | 'walkover' | 'retired') {
     setResultType(type)
-    if (type !== 'completed') {
-      setGames([{ score1: '', score2: '' }, { score1: '', score2: '' }])
-    }
+    if (type !== 'completed') setGames(emptyGames(totalSets))
     setSubmitAttempted(false)
   }
 
   const winner = inferMatchWinner(games)
-  const gameValidationError = validateGames(games, resultType)
+  const gameValidationError = validateGames(games, resultType, scoring)
 
   // Para WO e Ret.: exige vencedor identificável
   const isSpecialModeValid = resultType === 'completed' ? !gameValidationError : winner !== null
@@ -182,7 +173,7 @@ export function MatchResultDialog({
   })
 
   function handleClose() {
-    setGames([{ score1: '', score2: '' }, { score1: '', score2: '' }])
+    setGames(emptyGames(totalSets))
     setResultType('completed')
     setSubmitAttempted(false)
     setSubmitError(null)
@@ -195,38 +186,24 @@ export function MatchResultDialog({
     submitResult()
   }
 
-  // Lógica de games: sempre 2 games fixos. 3º game aparece se games 1 e 2 estiverem 1x1
-  const g1Winner = getGameWinner(games[0])
-  const g2Winner = getGameWinner(games[1])
-  const showThirdGame = g1Winner !== null && g2Winner !== null && g1Winner !== g2Winner
+  // Sets abertos: os necessários para alguém vencer; outro abre enquanto a partida segue empatada.
+  const displayGames: GameScore[] = Array.from({ length: totalSets }, (_, i) => games[i] ?? { score1: '', score2: '' })
+  const visible = visibleSets(displayGames, scoring)
+  // Até 3 sets mostra todas as colunas (as não abertas tracejadas); em melhor de 5, só as abertas, para caber no celular.
+  const columns = totalSets <= 3 ? totalSets : visible
 
   function updateGame(idx: number, field: 'score1' | 'score2', value: string) {
     setGames((prev) => {
-      // Sempre 3 posições: sem isso o 3º game (índice 2) não existia no estado e a digitação se perdia.
-      const slots = [0, 1, 2].map((i) => prev[i] ?? { score1: '', score2: '' })
+      const slots = Array.from({ length: totalSets }, (_, i) => prev[i] ?? { score1: '', score2: '' })
       const updated = slots.map((g, i) => i === idx ? { ...g, [field]: value } : g)
-      // Se 3º game não é mais necessário, limpa-o
-      const w1 = getGameWinner(updated[0])
-      const w2 = getGameWinner(updated[1])
-      const needsThird = w1 !== null && w2 !== null && w1 !== w2
-      if (!needsThird && updated[2]) {
-        return [
-          updated[0],
-          updated[1],
-          { score1: '', score2: '' },
-        ]
-      }
-      return updated
+      // Set que deixou de ser necessário é limpo, para não ser enviado.
+      const open = visibleSets(updated, scoring)
+      return updated.map((g, i) => (i < open ? g : { score1: '', score2: '' }))
     })
   }
 
-  // Garante que o array tem slot para o 3º game
-  const displayGames: GameScore[] = [
-    games[0] ?? { score1: '', score2: '' },
-    games[1] ?? { score1: '', score2: '' },
-    games[2] ?? { score1: '', score2: '' },
-  ]
-
+  // Vencedor só com a partida decidida pela regra (em melhor de 5, liderar por 2 a 1 ainda não é vitória).
+  const decidedWinner = isSpecialModeValid ? winner : null
   const showValidationError = submitAttempted && !isSpecialModeValid
   const setsWon = (side: 1 | 2) => displayGames.filter((g) => getGameWinner(g) === side).length
   const names = [player1Name, player2Name] as const
@@ -250,7 +227,7 @@ export function MatchResultDialog({
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} className="grid gap-4">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar resultado' : 'Lançar resultado'}</DialogTitle>
-          <DialogDescription>{roundLabel}</DialogDescription>
+          <DialogDescription>{roundLabel} · {scoringLabel(scoring)}</DialogDescription>
         </DialogHeader>
 
         {isEdit && (
@@ -272,8 +249,8 @@ export function MatchResultDialog({
         {/* Súmula: uma linha por lado e uma coluna por set. No HTML os campos seguem set a set
             (1º set lado 1, 1º set lado 2…), a ordem do Tab ao copiar a súmula de papel. */}
         {resultType === 'completed' && (
-          <div role="group" aria-label="Parciais" className="grid grid-cols-[minmax(0,1fr)_repeat(3,3rem)] items-center gap-x-2 gap-y-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,4rem)] sm:gap-x-3">
-            {[0, 1, 2].map((idx) => (
+          <div role="group" aria-label="Parciais" style={{ gridTemplateColumns: `minmax(0,1fr) repeat(${columns}, var(--set-col))` }} className="grid items-center gap-x-2 gap-y-2 [--set-col:3rem] sm:gap-x-3 sm:[--set-col:4rem]">
+            {displayGames.slice(0, columns).map((_, idx) => (
               <span key={`h${idx}`} style={{ gridRow: 1, gridColumn: idx + 2 }} className="text-center text-[0.8125rem] font-semibold text-muted-foreground">
                 {idx + 1}º set
               </span>
@@ -281,24 +258,23 @@ export function MatchResultDialog({
             {names.map((name, i) => {
               const side = (i + 1) as 1 | 2
               return (
-                <p key={`n${i}`} style={{ gridRow: i + 2, gridColumn: 1 }} className={cn('min-w-0 break-words leading-snug', winner === side ? 'font-semibold' : winner ? 'text-muted-foreground' : 'font-medium')}>
+                <p key={`n${i}`} style={{ gridRow: i + 2, gridColumn: 1 }} className={cn('min-w-0 break-words leading-snug', decidedWinner === side ? 'font-semibold' : decidedWinner ? 'text-muted-foreground' : 'font-medium')}>
                   {name}
-                  {winner === side && <span className="sr-only"> (vencedor)</span>}
+                  {decidedWinner === side && <span className="sr-only"> (vencedor)</span>}
                 </p>
               )
             })}
-            {[0, 1, 2].flatMap((idx) => {
-              const game = displayGames[idx]
+            {displayGames.slice(0, columns).flatMap((game, idx) => {
               const gw = getGameWinner(game)
-              if (idx === 2 && !showThirdGame) {
+              if (idx >= visible) {
                 return [
-                  <span key="g3-off" aria-hidden="true" style={{ gridRow: '2 / span 2', gridColumn: 4 }} className="flex h-full min-h-14 items-center justify-center rounded-md border border-dashed border-field-border text-sm text-muted-foreground">—</span>,
+                  <span key={`g${idx}-off`} aria-hidden="true" style={{ gridRow: '2 / span 2', gridColumn: idx + 2 }} className="flex h-full min-h-14 items-center justify-center rounded-md border border-dashed border-field-border text-sm text-muted-foreground">—</span>,
                 ]
               }
               return ([1, 2] as const).map((side) => (
                 <Input
                   key={`${idx}-${side}`}
-                  type="number" inputMode="numeric" min={0} max={30} placeholder="–"
+                  type="number" inputMode="numeric" min={0} max={scoring.setPointCap} placeholder="–"
                   aria-label={`Pontos de ${names[side - 1]} no ${idx + 1}º set`}
                   aria-invalid={showValidationError || undefined}
                   aria-describedby={showValidationError ? ERROR_ID : undefined}
@@ -318,7 +294,7 @@ export function MatchResultDialog({
             <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-sm">
               <AlertCircle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               {resultType === 'walkover'
-                ? 'W.O.: selecione quem avança. O placar será registrado como 21–0 para o vencedor.'
+                ? `W.O.: selecione quem avança. O placar será registrado como ${scoring.pointsPerSet}–0 para o vencedor.`
                 : 'Ret.: selecione quem estava vencendo quando a partida foi interrompida.'}
             </p>
 
@@ -330,8 +306,9 @@ export function MatchResultDialog({
               ]}
               value={winner === 1 ? 'side1' : winner === 2 ? 'side2' : ''}
               onChange={(side) => {
-                const game = side === 'side1' ? { score1: '21', score2: '0' } : { score1: '0', score2: '21' }
-                setGames([game, game])
+                const top = String(scoring.pointsPerSet)
+                const game = side === 'side1' ? { score1: top, score2: '0' } : { score1: '0', score2: top }
+                setGames(Array.from({ length: scoring.setsToWin }, () => game))
               }}
               className="space-y-2"
               optionClassName="flex-1 min-w-[40%] px-3 text-sm"

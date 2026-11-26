@@ -5,3 +5,4 @@ export * from "./tournament.js";
 export * from "./schedule.js";
 export * from "./tournament-import.js";
 export * from "./contract.js";
+export * from "./scoring.js";

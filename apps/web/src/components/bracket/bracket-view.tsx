@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { BracketDraw } from './bracket-draw'
+import type { CategoryDrawConfig } from '@birdie-atlas/validators'
 import { DoubleEliminationConfigFields, EMPTY_GROUP_CONFIG, GroupConfigFields, SwissConfigFields, groupConfigBody, swissConfigBody, type GroupConfigForm } from './group-config-fields'
 import { ErrorNotice } from '@/components/public/notices'
 import { BracketSkeleton } from './bracket-tree'
@@ -16,7 +17,10 @@ import { adminAuthHeaders } from '@/lib/admin-token'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-type Category    = { id: string; name: string; discipline: string; drawType?: string }
+type Category    = {
+  id: string; name: string; discipline: string; drawType?: string
+  pointsPerSet?: number; setPointCap?: number; setsToWin?: number; drawConfig?: CategoryDrawConfig | null
+}
 type Match       = BracketMatch
 type Registration = BracketEntry
 type Draw        = { id: string; published: boolean; config?: { groupCount?: number; advancePerGroup?: number; rounds?: number } | null }
@@ -96,7 +100,14 @@ export function BracketView({
   const [redrawError,    setRedrawError]     = useState<string | null>(null)
   const [groupConfig,    setGroupConfig]     = useState<GroupConfigForm>(EMPTY_GROUP_CONFIG)
   const [swissRounds,    setSwissRounds]     = useState('')
-  const [deReset,        setDeReset]         = useState(true)
+  // null = padrão da categoria (o servidor completa o que o sorteio não informa).
+  const [deResetChoice,  setDeReset]         = useState<boolean | null>(null)
+
+  const categoryDefaults = activeCategory?.drawConfig ?? undefined
+  const deReset = deResetChoice ?? categoryDefaults?.doubleEliminationReset ?? true
+  const scoring = activeCategory?.pointsPerSet && activeCategory.setPointCap && activeCategory.setsToWin
+    ? { pointsPerSet: activeCategory.pointsPerSet, setPointCap: activeCategory.setPointCap, setsToWin: activeCategory.setsToWin }
+    : undefined
 
   const { data: draws, isLoading: loadingDraw, error: drawsError } = useQuery({
     queryKey: ['draws', activeCategoryId],
@@ -186,7 +197,7 @@ export function BracketView({
       const res = await fetch(`${API_URL}/draws/generate/${activeCategoryId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
-        body: JSON.stringify({ mode: selectedMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' ? { doubleEliminationReset: deReset } : {}) }),
+        body: JSON.stringify({ mode: selectedMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' && deResetChoice !== null ? { doubleEliminationReset: deResetChoice } : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao gerar chaveamento') }
       return res.json()
@@ -201,7 +212,7 @@ export function BracketView({
       const res = await fetch(`${API_URL}/draws/${draw!.id}/redraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
-        body: JSON.stringify({ mode: redrawMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' ? { doubleEliminationReset: deReset } : {}) }),
+        body: JSON.stringify({ mode: redrawMode, ...(activeCategory?.drawType === 'group_then_elimination' ? groupConfigBody(groupConfig) : {}), ...(activeCategory?.drawType === 'swiss' ? swissConfigBody(swissRounds) : {}), ...(activeCategory?.drawType === 'double_elimination' && deResetChoice !== null ? { doubleEliminationReset: deResetChoice } : {}) }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Erro ao ressortear') }
       return res.json()
@@ -294,9 +305,9 @@ export function BracketView({
 
           <DrawModeGroup legend="Modo do novo sorteio" value={redrawMode} onChange={setRedrawMode} />
           {activeCategory?.drawType === 'group_then_elimination' && (
-            <GroupConfigFields value={groupConfig} onChange={setGroupConfig} />
+            <GroupConfigFields value={groupConfig} onChange={setGroupConfig} defaults={categoryDefaults} />
           )}
-          {activeCategory?.drawType === 'swiss' && <SwissConfigFields value={swissRounds} onChange={setSwissRounds} />}
+          {activeCategory?.drawType === 'swiss' && <SwissConfigFields value={swissRounds} onChange={setSwissRounds} defaultRounds={categoryDefaults?.swissRounds} />}
           {activeCategory?.drawType === 'double_elimination' && <DoubleEliminationConfigFields reset={deReset} onChange={setDeReset} />}
 
           {redrawError && (
@@ -395,9 +406,9 @@ export function BracketView({
             </div>
             <DrawModeGroup legend="Modo de sorteio" value={selectedMode} onChange={setSelectedMode} />
             {activeCategory?.drawType === 'group_then_elimination' && (
-              <GroupConfigFields value={groupConfig} onChange={setGroupConfig} />
+              <GroupConfigFields value={groupConfig} onChange={setGroupConfig} defaults={categoryDefaults} />
             )}
-            {activeCategory?.drawType === 'swiss' && <SwissConfigFields value={swissRounds} onChange={setSwissRounds} />}
+            {activeCategory?.drawType === 'swiss' && <SwissConfigFields value={swissRounds} onChange={setSwissRounds} defaultRounds={categoryDefaults?.swissRounds} />}
             {activeCategory?.drawType === 'double_elimination' && <DoubleEliminationConfigFields reset={deReset} onChange={setDeReset} />}
             {generateError && (
               <div role="alert" className="flex items-center gap-2 w-full px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
@@ -424,6 +435,7 @@ export function BracketView({
             activeCategory={activeCategory}
             drawId={draw.id}
             drawType={activeCategory?.drawType}
+            {...(scoring ? { scoring } : {})}
             {...(draw.config?.advancePerGroup ? { advancePerGroup: draw.config.advancePerGroup } : {})}
             onKnockoutGenerated={invalidateAll}
             onRoundGenerated={invalidateAll}

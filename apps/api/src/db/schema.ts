@@ -13,6 +13,7 @@ import {
   check,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+import type { CategoryDrawConfig } from '@birdie-atlas/validators'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -163,6 +164,8 @@ export const tournaments = pgTable('tournaments', {
   location: text('location'),
   city: text('city'),
   state: text('state'),
+  // Informativo (aparece nas telas); quem fecha as inscrições continua sendo o ciclo de vida.
+  registrationDeadline: date('registration_deadline'),
   pointsAwarded: boolean('points_awarded').notNull().default(false),
   ...softDelete,
   ...timestamps,
@@ -181,6 +184,12 @@ export const tournamentCategories = pgTable('tournament_categories', {
   drawType: drawTypeEnum('draw_type').notNull().default('single_elimination'),
   maxEntries: integer('max_entries'),
   seedCount: integer('seed_count').notNull().default(4),
+  // Sistema de pontuação (ver packages/validators/src/scoring.ts). Padrão: 21 pontos, teto 30, melhor de 3.
+  pointsPerSet: integer('points_per_set').notNull().default(21),
+  setPointCap: integer('set_point_cap').notNull().default(30),
+  setsToWin: integer('sets_to_win').notNull().default(2),
+  // Configuração padrão do sorteio (grupos, rodadas do suíço, reset da dupla eliminação); o sorteio pode sobrescrever.
+  drawConfig: jsonb('draw_config').$type<CategoryDrawConfig>(),
   ...softDelete,
   ...timestamps,
 })

@@ -30,14 +30,17 @@ const scheduleMatchSchema = z.object({
 
 type BuiltDraw =
   | { ok: true; defs: MatchDef[]; config: GroupConfig | { rounds: number } | { reset: boolean } | null }
-  | { ok: false; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' | 'INVALID_DOUBLE_ELIMINATION_CONFIG' }
+  | { ok: false; status?: 404; error: string; code: 'INVALID_GROUP_CONFIG' | 'INVALID_SWISS_CONFIG' | 'INVALID_DOUBLE_ELIMINATION_CONFIG' | 'CATEGORY_NOT_FOUND' }
+
+type DrawTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /** Monta as partidas conforme o formato da categoria (eliminação simples, todos contra todos ou fase de grupos). */
 async function buildCategoryMatchDefs(
+  tx: DrawTx,
   drawId: string,
   categoryId: string,
   confirmed: { id: string; seed: number | null }[],
-  options: {
+  requested: {
     mode: 'random' | 'seeded'
     groupCount?: number | undefined
     groupSize?: number | undefined
@@ -46,8 +49,22 @@ async function buildCategoryMatchDefs(
     doubleEliminationReset?: boolean | undefined
   },
 ): Promise<BuiltDraw> {
+  // Trava a categoria: formato e padrão do sorteio não mudam (PATCH) nem ela some (DELETE) enquanto a chave é montada.
+  const [category] = await tx.select({ drawType: tournamentCategories.drawType, drawConfig: tournamentCategories.drawConfig })
+    .from(tournamentCategories)
+    .where(and(eq(tournamentCategories.id, categoryId), isNull(tournamentCategories.deletedAt)))
+    .for('update')
+  if (!category) return { ok: false, status: 404, error: 'Categoria não encontrada.', code: 'CATEGORY_NOT_FOUND' }
+  // O que o sorteio não informa vem da configuração da categoria; `groupSize` no corpo substitui o número de grupos padrão.
+  const defaults = category?.drawConfig ?? {}
+  const options = {
+    ...requested,
+    groupCount: requested.groupCount ?? (requested.groupSize === undefined ? defaults.groupCount : undefined),
+    advancePerGroup: requested.advancePerGroup ?? defaults.advancePerGroup,
+    swissRounds: requested.swissRounds ?? defaults.swissRounds,
+    doubleEliminationReset: requested.doubleEliminationReset ?? defaults.doubleEliminationReset,
+  }
   const { mode } = options
-  const [category] = await db.select({ drawType: tournamentCategories.drawType }).from(tournamentCategories).where(eq(tournamentCategories.id, categoryId))
   if (category?.drawType === 'group_then_elimination') {
     const planned = planGroups({ entries: confirmed.length, groupCount: options.groupCount, groupSize: options.groupSize, advancePerGroup: options.advancePerGroup })
     if (!planned.ok) return { ok: false, error: planned.error, code: 'INVALID_GROUP_CONFIG' }
@@ -112,15 +129,15 @@ export async function drawsRoutes(app: FastifyInstance) {
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
     const drawId = randomUUID()
-    const built = await buildCategoryMatchDefs(drawId, categoryId, confirmed, body)
-    if (!built.ok) return reply.status(422).send({ error: built.error, code: built.code })
-
-    const draw = await db.transaction(async (tx) => {
+    const outcome = await db.transaction(async (tx) => {
+      const built = await buildCategoryMatchDefs(tx, drawId, categoryId, confirmed, body)
+      if (!built.ok) return built
       const [row] = await tx.insert(draws).values({ id: drawId, categoryId, drawMode: mode, config: built.config }).returning()
       await tx.insert(matches).values(built.defs)
-      return row
+      return { ok: true as const, draw: row, matchCount: built.defs.length }
     })
-    return reply.status(201).send({ draw, matchCount: built.defs.length, mode })
+    if (!outcome.ok) return reply.status(outcome.status ?? 422).send({ error: outcome.error, code: outcome.code })
+    return reply.status(201).send({ draw: outcome.draw, matchCount: outcome.matchCount, mode })
   })
 
   app.post('/draws/:drawId/redraw', async (request, reply) => {
@@ -143,13 +160,13 @@ export async function drawsRoutes(app: FastifyInstance) {
     const confirmed = await selectRegistrations(and(eq(tournamentRegistrations.categoryId, draw.categoryId), eq(tournamentRegistrations.status, 'approved')))
     if (confirmed.length < 2) return reply.status(400).send({ error: 'Need at least 2 approved registrations' })
 
-    const built = await buildCategoryMatchDefs(drawId, draw.categoryId, confirmed, body)
-    if (!built.ok) return reply.status(422).send({ error: built.error, code: built.code })
-    const matchDefs = built.defs
-
     // Apagar a chave antiga e gravar a nova é uma operação só: ou troca inteira, ou nada.
+    // A chave nova é montada (e validada) antes de apagar a atual, com a categoria travada.
     let liveMatchIds: string[] = []
-    const updated = await db.transaction(async (tx) => {
+    const outcome = await db.transaction(async (tx) => {
+      const built = await buildCategoryMatchDefs(tx, drawId, draw.categoryId, confirmed, body)
+      if (!built.ok) return built
+      const matchDefs = built.defs
       const existingMatches = await tx.select({ id: matches.id, status: matches.status }).from(matches).where(eq(matches.drawId, drawId))
       const matchIds = existingMatches.map((m) => m.id)
       liveMatchIds = existingMatches.filter((m) => m.status === 'in_progress').map((m) => m.id)
@@ -164,8 +181,10 @@ export async function drawsRoutes(app: FastifyInstance) {
         .set({ drawMode: mode, config: built.config, published: false, generatedAt: new Date(), updatedAt: new Date() })
         .where(eq(draws.id, drawId))
         .returning()
-      return row
+      return { ok: true as const, row, matchCount: matchDefs.length }
     })
+    if (!outcome.ok) return reply.status(outcome.status ?? 422).send({ error: outcome.error, code: outcome.code })
+    const updated = outcome.row
 
     if (liveMatchIds.length) {
       const [owner] = await db.select({ tournamentId: tournamentCategories.tournamentId })
@@ -173,7 +192,7 @@ export async function drawsRoutes(app: FastifyInstance) {
       if (owner) for (const id of liveMatchIds) liveBus.publish(owner.tournamentId, { type: 'match-ended', matchId: id, reason: 'cancelled' })
     }
 
-    return reply.status(200).send({ draw: updated, matchCount: matchDefs.length, mode })
+    return reply.status(200).send({ draw: updated, matchCount: outcome.matchCount, mode })
   })
 
   app.post('/draws/:drawId/migrate-next-match-id', async (request) => {

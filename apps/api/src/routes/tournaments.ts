@@ -15,7 +15,12 @@ import {
   paginationQuerySchema,
   tournamentTransitionBodySchema,
   tournamentStatusSchema,
+  scoringRuleSchema,
+  categoryDrawConfigSchema,
+  type ScoringRule,
 } from '@birdie-atlas/validators'
+import { categoryChangeBlock } from '../domain/category-config.js'
+import { isTournamentLocked } from '../services/match-result.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { paginate } from '../domain/pagination.js'
 import { computeDrawPlacements, DRAW_FORMATS } from '../domain/placements.js'
@@ -38,15 +43,28 @@ const createTournamentSchema = z.object({
   location: z.string().optional(),
   startDate: z.string().date(),
   endDate: z.string().date(),
-  registrationDeadline: z.string().optional(),
+  registrationDeadline: z.string().date().nullable().optional(),
 })
 
-const createCategorySchema = z.object({
-  name: z.string().min(1),
+const categoryFieldsSchema = z.object({
+  name: z.string().trim().min(1),
   discipline: z.enum(['MS', 'WS', 'MD', 'WD', 'XD']),
-  maxEntries: z.number().int().optional(),
+  maxEntries: z.number().int().min(2).nullable().optional(),
+  seedCount: z.number().int().min(0).max(32).optional(),
   drawType: z.enum(DRAW_FORMATS).optional(),
+  scoring: scoringRuleSchema.optional(),
+  drawConfig: categoryDrawConfigSchema.nullable().optional(),
 })
+const createCategorySchema = categoryFieldsSchema
+// A disciplina não muda: as inscrições dependem dela.
+const updateCategorySchema = categoryFieldsSchema.omit({ discipline: true }).partial().strict()
+  .refine((v) => Object.keys(v).length > 0, { message: 'Informe ao menos um campo.' })
+const categoryParamsSchema = z.object({ categoryId: z.string().trim().min(1) })
+
+/** Campos do corpo da categoria no formato das colunas (`scoring` vira as três colunas da regra). */
+function categoryColumns<T extends { scoring?: ScoringRule | undefined }>({ scoring, ...rest }: T) {
+  return { ...rest, ...(scoring ? { pointsPerSet: scoring.pointsPerSet, setPointCap: scoring.setPointCap, setsToWin: scoring.setsToWin } : {}) }
+}
 
 export async function tournamentsRoutes(app: FastifyInstance) {
   // Lista paginada do tenant padrão. `public=true` esconde rascunhos (portal público); `status` filtra por situação.
@@ -177,8 +195,48 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   app.post('/tournaments/:id/categories', async (request, reply) => {
     const { id } = request.params as { id: string }
     const body = createCategorySchema.parse(request.body)
-    const [cat] = await db.insert(tournamentCategories).values({ id: randomUUID(), tournamentId: id, ...body }).returning()
+    const [t] = await db.select({ status: tournaments.status }).from(tournaments).where(and(eq(tournaments.id, id), isNull(tournaments.deletedAt)))
+    if (!t) return reply.status(404).send({ error: 'Torneio não encontrado.', code: 'TOURNAMENT_NOT_FOUND' })
+    const [cat] = await db.insert(tournamentCategories).values({ id: randomUUID(), tournamentId: id, ...categoryColumns(body) }).returning()
     return reply.status(201).send(cat)
+  })
+
+  // Edita a categoria. Formato só sem chave; pontuação só sem resultado nem partida ao vivo (domain/category-config.ts).
+  app.patch('/tournaments/categories/:categoryId', async (request, reply) => {
+    const { categoryId } = categoryParamsSchema.parse(request.params)
+    const body = updateCategorySchema.parse(request.body)
+    const result = await db.transaction(async (tx) => {
+      const loaded = await loadCategoryState(tx, categoryId)
+      if (!loaded.ok) return loaded.failure
+      const { cat, state } = loaded
+      const scoringChanged = body.scoring !== undefined && (
+        body.scoring.pointsPerSet !== cat.pointsPerSet || body.scoring.setPointCap !== cat.setPointCap || body.scoring.setsToWin !== cat.setsToWin)
+      const block = categoryChangeBlock(state, {
+        drawType: body.drawType !== undefined && body.drawType !== cat.drawType,
+        scoring: scoringChanged,
+        ...(body.maxEntries !== undefined ? { maxEntries: body.maxEntries } : {}),
+      })
+      if (block) return { status: 409 as const, body: block }
+      const [updated] = await tx.update(tournamentCategories)
+        .set({ ...categoryColumns(body), updatedAt: new Date() })
+        .where(eq(tournamentCategories.id, categoryId)).returning()
+      return { status: 200 as const, body: updated }
+    })
+    return reply.status(result.status).send(result.body)
+  })
+
+  // Exclui (soft delete) a categoria sem chave e sem inscrições ativas.
+  app.delete('/tournaments/categories/:categoryId', async (request, reply) => {
+    const { categoryId } = categoryParamsSchema.parse(request.params)
+    const result = await db.transaction(async (tx) => {
+      const loaded = await loadCategoryState(tx, categoryId)
+      if (!loaded.ok) return loaded.failure
+      const block = categoryChangeBlock(loaded.state, { delete: true })
+      if (block) return { status: 409 as const, body: block }
+      await tx.update(tournamentCategories).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(tournamentCategories.id, categoryId))
+      return { status: 204 as const, body: null }
+    })
+    return result.status === 204 ? reply.status(204).send() : reply.status(result.status).send(result.body)
   })
 
   app.put('/tournaments/:id', async (request, reply) => {
@@ -347,4 +405,30 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     await db.update(tournaments).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(tournaments.id, id), isNull(tournaments.deletedAt)))
     return reply.status(204).send()
   })
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** Trava a categoria e lê o que decide o que pode mudar nela; erro pronto para a resposta se não pode ser editada. */
+async function loadCategoryState(tx: Tx, categoryId: string) {
+  const [cat] = await tx.select().from(tournamentCategories)
+    .where(and(eq(tournamentCategories.id, categoryId), isNull(tournamentCategories.deletedAt))).for('update')
+  if (!cat) return { ok: false as const, failure: { status: 404 as const, body: { error: 'Categoria não encontrada.', code: 'CATEGORY_NOT_FOUND' } } }
+  const [t] = await tx.select({ status: tournaments.status }).from(tournaments).where(eq(tournaments.id, cat.tournamentId))
+  if (!t || isTournamentLocked(t.status)) return { ok: false as const, failure: { status: 409 as const, body: { error: 'O torneio está encerrado ou cancelado: as categorias não mudam mais.', code: 'TOURNAMENT_LOCKED' } } }
+  const drawRows = await tx.select({ id: draws.id }).from(draws).where(eq(draws.categoryId, categoryId))
+  const drawIds = drawRows.map((d) => d.id)
+  let hasPlayedMatch = false
+  if (drawIds.length) {
+    const [played] = await tx.select({ id: matches.id }).from(matches)
+      .where(and(inArray(matches.drawId, drawIds), eq(matches.status, 'in_progress')))
+      .limit(1)
+    const [withResult] = await tx.select({ id: matchResults.id }).from(matchResults)
+      .innerJoin(matches, eq(matches.id, matchResults.matchId))
+      .where(inArray(matches.drawId, drawIds)).limit(1)
+    hasPlayedMatch = Boolean(played || withResult)
+  }
+  const [regs] = await tx.select({ n: count() }).from(tournamentRegistrations)
+    .where(and(eq(tournamentRegistrations.categoryId, categoryId), isNull(tournamentRegistrations.deletedAt), ne(tournamentRegistrations.status, 'rejected')))
+  return { ok: true as const, cat, state: { hasDraw: drawIds.length > 0, hasPlayedMatch, activeRegistrations: Number(regs?.n ?? 0) } }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
+import type { CategoryDrawConfig } from '@birdie-atlas/validators'
 
 export type GroupConfigForm = { groupCount: string; groupSize: string; advancePerGroup: string }
 
@@ -19,14 +20,17 @@ export function groupConfigBody(form: GroupConfigForm): Record<string, number> {
 }
 
 /** Configuração da fase de grupos: número de grupos (ou pessoas por grupo) e classificados por grupo. */
-export function GroupConfigFields({ value, onChange }: { value: GroupConfigForm; onChange: (next: GroupConfigForm) => void }) {
+export function GroupConfigFields({ value, onChange, defaults }: { value: GroupConfigForm; onChange: (next: GroupConfigForm) => void; defaults?: CategoryDrawConfig | undefined }) {
+  const custom = defaults?.groupCount !== undefined || defaults?.advancePerGroup !== undefined
   const set = (patch: Partial<GroupConfigForm>) => onChange({ ...value, ...patch })
   return (
     <fieldset className="w-full space-y-3 rounded-xl border border-border p-4">
       <legend className="px-1 text-sm font-semibold">Fase de grupos</legend>
       <p className="text-xs text-muted-foreground">
-        Deixe em branco para o padrão: grupos de 4 pessoas e 2 classificados por grupo. Se informar o número de grupos,
-        as pessoas por grupo são calculadas.
+        {custom
+          ? <>Deixe em branco para o padrão desta categoria{defaults?.groupCount !== undefined ? `: ${defaults.groupCount} grupos` : ''}{defaults?.advancePerGroup !== undefined ? `, ${defaults.advancePerGroup} classificados por grupo` : ''}.</>
+          : 'Deixe em branco para o padrão: grupos de 4 pessoas e 2 classificados por grupo.'}{' '}
+        Se informar o número de grupos, as pessoas por grupo são calculadas.
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Número de grupos" muted>
@@ -39,7 +43,7 @@ export function GroupConfigFields({ value, onChange }: { value: GroupConfigForm;
               inputMode="numeric"
               value={value.groupCount}
               onChange={(e) => set({ groupCount: e.target.value })}
-              placeholder="automático"
+              placeholder={defaults?.groupCount !== undefined ? String(defaults.groupCount) : 'automático'}
               className={FIELD_CONTROL_CLASS}
             />
           )}
@@ -68,7 +72,7 @@ export function GroupConfigFields({ value, onChange }: { value: GroupConfigForm;
               inputMode="numeric"
               value={value.advancePerGroup}
               onChange={(e) => set({ advancePerGroup: e.target.value })}
-              placeholder="2"
+              placeholder={String(defaults?.advancePerGroup ?? 2)}
               className={FIELD_CONTROL_CLASS}
             />
           )}
@@ -79,12 +83,12 @@ export function GroupConfigFields({ value, onChange }: { value: GroupConfigForm;
 }
 
 /** Suíço: número de rodadas (vazio = ⌈log₂ inscritos⌉). */
-export function SwissConfigFields({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+export function SwissConfigFields({ value, onChange, defaultRounds }: { value: string; onChange: (next: string) => void; defaultRounds?: number | undefined }) {
   return (
     <fieldset className="w-full space-y-3 rounded-xl border border-border p-4">
       <legend className="px-1 text-sm font-semibold">Suíço</legend>
       <p className="text-xs text-muted-foreground">
-        Deixe em branco para o padrão: ⌈log₂ do número de inscritos⌉ rodadas. Cada rodada é gerada depois que a anterior termina.
+        Deixe em branco para o padrão{defaultRounds !== undefined ? ` desta categoria: ${defaultRounds} rodadas` : ': ⌈log₂ do número de inscritos⌉ rodadas'}. Cada rodada é gerada depois que a anterior termina.
       </p>
       <Field label="Número de rodadas" muted>
         {(props) => (
@@ -95,7 +99,7 @@ export function SwissConfigFields({ value, onChange }: { value: string; onChange
             inputMode="numeric"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="automático"
+            placeholder={defaultRounds !== undefined ? String(defaultRounds) : 'automático'}
             className={FIELD_CONTROL_CLASS}
           />
         )}

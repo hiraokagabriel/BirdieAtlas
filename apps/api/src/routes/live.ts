@@ -12,6 +12,7 @@ import {
 import type { LiveEvent } from '../services/live-bus.js'
 import {
   findOwnerTournament, isTournamentLocked, saveMatchResult, TOURNAMENT_LOCKED_MESSAGE, type Executor,
+  scoringOfDraw,
 } from '../services/match-result.js'
 
 // Placar ao vivo. Escritas (POST) exigem modo admin pelo guard global; leituras e o stream SSE são
@@ -258,7 +259,7 @@ export async function liveRoutes(app: FastifyInstance) {
       const live = await lockLiveMatch(tx, matchId, body.version)
       if (!live.ok) return live
       const points: Side[] = live.value.state.points
-      if (!canAddPoint(points)) {
+      if (!canAddPoint(points, await scoringOfDraw(tx, live.value.match.drawId))) {
         return fail(409, 'A partida já tem vencedor. Desfaça o último ponto ou encerre a partida.', 'LIVE_MATCH_DECIDED')
       }
       await tx.update(matchLiveStates)
@@ -302,7 +303,7 @@ export async function liveRoutes(app: FastifyInstance) {
     const outcome = await db.transaction(async (tx) => {
       const live = await lockLiveMatch(tx, matchId, body.version)
       if (!live.ok) return live
-      const score = computeLiveScore(live.value.state.points)
+      const score = computeLiveScore(live.value.state.points, await scoringOfDraw(tx, live.value.match.drawId))
       if (!score.winner) {
         return fail(409, 'A partida ainda não tem vencedor: termine os sets antes de encerrar.', 'LIVE_MATCH_NOT_DECIDED')
       }
