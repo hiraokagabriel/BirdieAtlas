@@ -1,13 +1,9 @@
-// Placar ao vivo de badminton, derivado da sequência de pontos. Regra única do placar provisório:
-// set até 21 pontos com diferença de 2, limite de 30 (aos 29-29 o ponto seguinte decide),
-// melhor de 3 sets. O placar nunca é gravado: é sempre recalculado da sequência de pontos.
+// Placar ao vivo de badminton, derivado da sequência de pontos. A regra vem da categoria (`ScoringRule`:
+// pontos do set, teto e sets para vencer; padrão 21 pontos, teto 30, melhor de 3). O placar nunca é
+// gravado: é sempre recalculado da sequência de pontos.
+import { DEFAULT_SCORING, setWinner as ruleSetWinner, type ScoringRule } from '@birdie-atlas/validators'
 
 export type Side = 1 | 2
-
-export const POINTS_TO_WIN_SET = 21
-export const MIN_LEAD = 2
-export const SET_POINT_CAP = 30
-export const SETS_TO_WIN_MATCH = 2
 
 export interface SetScore {
   score1: number
@@ -25,26 +21,22 @@ export interface LiveScore {
 }
 
 /** Quem venceu o set com este placar, ou `null` se ainda está aberto. */
-export function setWinner(score1: number, score2: number): Side | null {
-  if (score1 >= SET_POINT_CAP) return 1
-  if (score2 >= SET_POINT_CAP) return 2
-  if (score1 >= POINTS_TO_WIN_SET && score1 - score2 >= MIN_LEAD) return 1
-  if (score2 >= POINTS_TO_WIN_SET && score2 - score1 >= MIN_LEAD) return 2
-  return null
+export function setWinner(score1: number, score2: number, rule: ScoringRule = DEFAULT_SCORING): Side | null {
+  return ruleSetWinner(score1, score2, rule)
 }
 
 /** Recalcula o placar de uma sequência de pontos (cada item é quem marcou). */
-export function computeLiveScore(points: readonly Side[]): LiveScore {
+export function computeLiveScore(points: readonly Side[], rule: ScoringRule = DEFAULT_SCORING): LiveScore {
   const sets: SetScore[] = []
   let cur: SetScore = { score1: 0, score2: 0 }
   let wins1 = 0
   let wins2 = 0
 
   for (const point of points) {
-    if (wins1 >= SETS_TO_WIN_MATCH || wins2 >= SETS_TO_WIN_MATCH) break
+    if (wins1 >= rule.setsToWin || wins2 >= rule.setsToWin) break
     cur = point === 1 ? { ...cur, score1: cur.score1 + 1 } : { ...cur, score2: cur.score2 + 1 }
 
-    const won = setWinner(cur.score1, cur.score2)
+    const won = setWinner(cur.score1, cur.score2, rule)
     if (won) {
       sets.push(cur)
       if (won === 1) wins1++
@@ -53,7 +45,7 @@ export function computeLiveScore(points: readonly Side[]): LiveScore {
     }
   }
 
-  const winner: Side | null = wins1 >= SETS_TO_WIN_MATCH ? 1 : wins2 >= SETS_TO_WIN_MATCH ? 2 : null
+  const winner: Side | null = wins1 >= rule.setsToWin ? 1 : wins2 >= rule.setsToWin ? 2 : null
   return {
     sets,
     currentSet: winner ? null : { setNumber: sets.length + 1, ...cur },
@@ -63,8 +55,8 @@ export function computeLiveScore(points: readonly Side[]): LiveScore {
 }
 
 /** Vale mais um ponto? Falso quando a partida já tem vencedor. */
-export function canAddPoint(points: readonly Side[]): boolean {
-  return computeLiveScore(points).winner === null
+export function canAddPoint(points: readonly Side[], rule: ScoringRule = DEFAULT_SCORING): boolean {
+  return computeLiveScore(points, rule).winner === null
 }
 
 /** Sets encerrados no formato do resultado oficial (`match_results`). */

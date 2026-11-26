@@ -127,3 +127,23 @@ describe('canAddPoint / toResultSets', () => {
     ])
   })
 })
+
+describe('regra da categoria (15 pontos, teto 21)', () => {
+  const R15 = { pointsPerSet: 15, setPointCap: 21, setsToWin: 2 }
+  it('fecha o set aos 15 e a partida em 2 sets', () => {
+    const score = computeLiveScore([...rally(1, 15), ...rally(1, 15)], R15)
+    expect(score.winner).toBe(1)
+    expect(score.sets).toEqual([{ score1: 15, score2: 0 }, { score1: 15, score2: 0 }])
+  })
+  it('aos 20-20 o ponto seguinte decide no teto 21', () => {
+    const deuce = Array.from({ length: 20 }, () => [1, 2] as const).flat()
+    const score = computeLiveScore([...deuce, 2], R15)
+    expect(score.sets).toEqual([{ score1: 20, score2: 21 }])
+  })
+  it('melhor de 5 exige 3 sets', () => {
+    const R5 = { pointsPerSet: 11, setPointCap: 15, setsToWin: 3 }
+    const two = computeLiveScore([...rally(1, 11), ...rally(1, 11)], R5)
+    expect(two.winner).toBeNull()
+    expect(canAddPoint([...rally(1, 11), ...rally(1, 11), ...rally(1, 11)], R5)).toBe(false)
+  })
+})

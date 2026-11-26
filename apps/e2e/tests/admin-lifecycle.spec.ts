@@ -129,7 +129,7 @@ test.describe.serial('ciclo de vida do torneio no admin', () => {
     await pending.first().click()
     const dialog = page.getByRole('dialog', { name: 'Lançar resultado' })
     await dialog.getByRole('button', { name: 'Confirmar resultado' }).click()
-    await expect(dialog.getByText('Preencha ao menos 2 sets.')).toBeVisible()
+    await expect(dialog.getByText('Preencha o placar dos sets.')).toBeVisible()
     await dialog.getByRole('button', { name: 'Cancelar' }).click()
     await expect(dialog).toBeHidden()
 

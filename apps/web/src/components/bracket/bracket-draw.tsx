@@ -9,6 +9,7 @@ import { GroupKnockoutDraw } from './group-knockout-draw'
 import { SwissDraw } from './swiss-draw'
 import { DoubleEliminationDraw } from './double-elimination-draw'
 import { MatchResultDialog } from './match-result-dialog'
+import type { ScoringRule } from '@birdie-atlas/validators'
 
 type Category = { id: string; name: string; discipline: string }
 
@@ -30,10 +31,12 @@ type Props = {
   readonly?: boolean
   /** Placar ao vivo por id da partida (público). */
   live?: ReadonlyMap<string, LiveMatch>
+  /** Pontuação da categoria (diálogo de resultado). */
+  scoring?: ScoringRule
 }
 
 /** Chave de uma categoria. No admin abre o diálogo de resultado; no público é só leitura. */
-export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, advancePerGroup, onKnockoutGenerated, onRoundGenerated, readonly = false, live }: Props) {
+export function BracketDraw({ matches, registrations, results, activeCategory, drawId, drawType, advancePerGroup, onKnockoutGenerated, onRoundGenerated, readonly = false, live, scoring }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null)
 
   const entries = indexEntries(registrations)
@@ -109,6 +112,7 @@ export function BracketDraw({ matches, registrations, results, activeCategory, d
           drawId={drawId}
           existingResults={selectedMatch ? setsOf(selectedMatch.id, results) : []}
           roundLabel={selectedMatch ? matchTitle(selectedMatch) : ''}
+          {...(scoring ? { scoring } : {})}
         />
       )}
     </>

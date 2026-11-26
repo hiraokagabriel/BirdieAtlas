@@ -150,7 +150,7 @@ test.describe('suíço (interface)', () => {
     await page.getByLabel('Formato').selectOption('swiss')
     await page.getByLabel('Nome da categoria').fill('Categoria suíça')
     await page.getByRole('button', { name: 'Criar categoria' }).click()
-    await expect(page.getByText('· suíço')).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: 'Categoria suíça' }).getByText(/Suíço/)).toBeVisible()
   })
 
   for (const theme of THEMES) {

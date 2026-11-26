@@ -4,20 +4,26 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
 import { TOURNAMENT_LEVELS, TOURNAMENT_LEVEL_LABELS as LEVEL_LABELS, type TournamentLevel } from '@birdie-atlas/validators'
+import { scoringLabel, type CategoryDrawConfig } from '@birdie-atlas/validators'
 import { apiFetch } from '@/lib/api'
-import { Save, Plus, Check, AlertTriangle } from 'lucide-react'
+import { Save, Plus, Check, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { Field, FIELD_CONTROL_CLASS } from '@/components/ui/field'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  CategoryFormFields, DISCIPLINE_LABELS, DRAW_TYPE_LABELS, emptyCategoryForm, fromCategory, toCategoryBody,
+  type CategoryFormErrors, type CategoryFormValue,
+} from './category-form'
 
 type Tournament = {
   id: string; name: string; slug: string; status: string; level: TournamentLevel
   startDate: string; endDate: string; city: string | null; state: string | null
   location: string | null; tenantId: string; pointsAwarded: boolean; kind?: 'official' | 'friendly'
+  registrationDeadline?: string | null
 }
-type Category = { id: string; name: string; discipline: string; maxEntries: number | null; seedCount: number; drawType?: string }
-
-const DISCIPLINES = ['MS', 'WS', 'MD', 'WD', 'XD'] as const
-const DISCIPLINE_LABELS: Record<string, string> = {
-  MS: 'Simples Masc.', WS: 'Simples Fem.', MD: 'Duplas Masc.', WD: 'Duplas Fem.', XD: 'Misto',
+type Category = {
+  id: string; name: string; discipline: string; maxEntries: number | null; seedCount: number; drawType?: string
+  pointsPerSet?: number; setPointCap?: number; setsToWin?: number; drawConfig?: CategoryDrawConfig | null
 }
 
 const inputCls = FIELD_CONTROL_CLASS
@@ -41,6 +47,7 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
     city: tournament.city ?? '',
     state: tournament.state ?? '',
     location: tournament.location ?? '',
+    registrationDeadline: tournament.registrationDeadline?.slice(0, 10) ?? '',
   })
   const [generalSaved, setGeneralSaved] = useState(false)
 
@@ -55,28 +62,26 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
       city: general.city.trim() || undefined,
       state: general.state.trim().toUpperCase() || undefined,
       location: general.location.trim() || undefined,
+      registrationDeadline: general.registrationDeadline || null,
     }}),
     onSuccess: () => { setGeneralSaved(true); setTimeout(() => setGeneralSaved(false), 2000); onRefresh() },
   })
 
   // ── Categorias ────────────────────────────────────────────────
-  const [newCat, setNewCat] = useState({ name: '', discipline: 'MS' as typeof DISCIPLINES[number], maxEntries: '', drawType: 'single_elimination' })
-  const [catSaving, setCatSaving] = useState(false)
-  const [catError, setCatError] = useState('')
-
-  async function addCategory() {
-    if (!newCat.name.trim()) { setCatError('Nome obrigatório'); return }
-    setCatSaving(true); setCatError('')
-    try {
-      await apiFetch(`/tournaments/${tournament.id}/categories`, {
-        method: 'POST',
-        json: { name: newCat.name.trim(), discipline: newCat.discipline, drawType: newCat.drawType, maxEntries: newCat.maxEntries ? Number(newCat.maxEntries) : undefined },
-      })
-      setNewCat({ name: '', discipline: 'MS', maxEntries: '', drawType: 'single_elimination' })
-      onRefresh()
-    } catch { setCatError('Erro ao criar categoria') }
-    finally { setCatSaving(false) }
+  const [newCat, setNewCat] = useState<CategoryFormValue>(emptyCategoryForm)
+  const [newCatErrors, setNewCatErrors] = useState<CategoryFormErrors>({})
+  const createCategory = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiFetch(`/tournaments/${tournament.id}/categories`, { method: 'POST', json: body }),
+    onSuccess: () => { setNewCat(emptyCategoryForm()); onRefresh() },
+  })
+  function addCategory() {
+    const parsed = toCategoryBody(newCat)
+    setNewCatErrors(parsed.ok ? {} : parsed.errors)
+    if (parsed.ok) createCategory.mutate(parsed.body)
   }
+
+  const [editing, setEditing] = useState<Category | null>(null)
+  const [deleting, setDeleting] = useState<Category | null>(null)
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -119,6 +124,9 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
               {(props) => <input {...props} type="date" value={general.endDate} onChange={(e) => setGeneral({ ...general, endDate: e.target.value })} className={inputCls} />}
             </Field>
           </div>
+          <Field label="Prazo de inscrição" muted hint="Informativo: as inscrições fecham quando o torneio muda para Inscrições encerradas.">
+            {(props) => <input {...props} type="date" value={general.registrationDeadline} max={general.startDate || undefined} onChange={(e) => setGeneral({ ...general, registrationDeadline: e.target.value })} className={inputCls + ' sm:max-w-xs'} />}
+          </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Cidade">
               {(props) => <input {...props} value={general.city} onChange={(e) => setGeneral({ ...general, city: e.target.value })} className={inputCls} />}
@@ -154,18 +162,31 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
       <section aria-labelledby="setup-categories" className="space-y-4">
         <h3 id="setup-categories" className="text-lg">Categorias</h3>
 
+        {categories.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhuma categoria ainda. Adicione a primeira abaixo.</p>
+        )}
         {categories.length > 0 && (
           <ul className="rounded-xl border border-border overflow-hidden">
             {categories.map((cat, i) => (
-              <li key={cat.id} className={`flex items-center justify-between px-4 py-3 ${i < categories.length - 1 ? 'border-b border-border' : ''}`}>
-                <div>
-                  <span className="text-sm font-medium">{cat.name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{DISCIPLINE_LABELS[cat.discipline] ?? cat.discipline}</span>
-                  {cat.drawType === 'round_robin' && <span className="ml-2 text-xs text-muted-foreground">· todos contra todos</span>}
-                  {cat.drawType === 'group_then_elimination' && <span className="ml-2 text-xs text-muted-foreground">· grupos + eliminatória</span>}
-                  {cat.drawType === 'swiss' && <span className="ml-2 text-xs text-muted-foreground">· suíço</span>}
-                  {cat.drawType === 'double_elimination' && <span className="ml-2 text-xs text-muted-foreground">· eliminação dupla</span>}
-                  {cat.maxEntries && <span className="ml-2 text-xs text-muted-foreground">· máx {cat.maxEntries}</span>}
+              <li key={cat.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${i < categories.length - 1 ? 'border-b border-border' : ''}`}>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{cat.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[
+                      DISCIPLINE_LABELS[cat.discipline] ?? cat.discipline,
+                      DRAW_TYPE_LABELS[cat.drawType ?? 'single_elimination'],
+                      cat.pointsPerSet && cat.setPointCap && cat.setsToWin ? scoringLabel({ pointsPerSet: cat.pointsPerSet, setPointCap: cat.setPointCap, setsToWin: cat.setsToWin }) : null,
+                      cat.maxEntries ? `máx ${cat.maxEntries}` : null,
+                    ].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button type="button" variant="ghost" size="icon" aria-label={`Editar ${cat.name}`} onClick={() => setEditing(cat)}>
+                    <Pencil className="size-4" aria-hidden="true" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" aria-label={`Excluir ${cat.name}`} onClick={() => setDeleting(cat)}>
+                    <Trash2 className="size-4" aria-hidden="true" />
+                  </Button>
                 </div>
               </li>
             ))}
@@ -173,45 +194,23 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
         )}
 
         <div role="group" aria-labelledby="setup-new-category" className="rounded-xl border border-border p-4 space-y-3">
-          <p id="setup-new-category" className="text-xs font-medium text-muted-foreground">Adicionar categoria</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Disciplina" muted>
-              {(props) => (
-                <select {...props} value={newCat.discipline} onChange={(e) => setNewCat({ ...newCat, discipline: e.target.value as typeof DISCIPLINES[number] })} className={selectCls}>
-                  {DISCIPLINES.map((d) => <option key={d} value={d}>{DISCIPLINE_LABELS[d]}</option>)}
-                </select>
-              )}
-            </Field>
-            <Field label="Nome da categoria" muted error={catError || undefined}>
-              {(props) => <input {...props} value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} placeholder="ex: Simples Masc. A" className={inputCls} />}
-            </Field>
-            <Field label="Formato" muted>
-              {(props) => (
-                <select {...props} value={newCat.drawType} onChange={(e) => setNewCat({ ...newCat, drawType: e.target.value })} className={selectCls}>
-                  <option value="single_elimination">Eliminação simples</option>
-                  <option value="round_robin">Todos contra todos</option>
-                  <option value="group_then_elimination">Grupos + eliminatória</option>
-                  <option value="swiss">Suíço</option>
-                  <option value="double_elimination">Eliminação dupla</option>
-                </select>
-              )}
-            </Field>
-            <Field label="Máx. inscrições" muted>
-              {(props) => <input {...props} type="number" value={newCat.maxEntries} onChange={(e) => setNewCat({ ...newCat, maxEntries: e.target.value })} placeholder="ilimitado" className={inputCls} />}
-            </Field>
-          </div>
-          <div className="flex justify-end">
+          <p id="setup-new-category" className="text-sm font-semibold">Adicionar categoria</p>
+          <CategoryFormFields value={newCat} onChange={setNewCat} errors={newCatErrors} />
+          <div className="flex items-center justify-end gap-3">
+            {createCategory.isError && <p role="alert" className="text-xs font-medium text-destructive">Não foi possível criar: {createCategory.error.message}</p>}
             <button
               type="button"
               onClick={addCategory}
-              disabled={catSaving}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+              disabled={createCategory.isPending}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
-              {catSaving ? 'Criando...' : 'Criar categoria'}
+              {createCategory.isPending ? 'Criando...' : 'Criar categoria'}
             </button>
           </div>
         </div>
+        <EditCategoryDialog category={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onRefresh() }} />
+        <DeleteCategoryDialog category={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); onRefresh() }} />
       </section>
 
       <div className="border-t border-border" />
@@ -232,5 +231,78 @@ export function TournamentSetupTab({ tournament, categories, onRefresh }: Props)
         )}
       </section>
     </div>
+  )
+}
+
+/** Edição da categoria: os mesmos campos da criação; a API recusa o que não pode mudar (formato com chave, pontuação com resultado). */
+function EditCategoryDialog({ category, onClose, onSaved }: { category: Category | null; onClose: () => void; onSaved: () => void }) {
+  const [value, setValue] = useState<CategoryFormValue | null>(null)
+  const [errors, setErrors] = useState<CategoryFormErrors>({})
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  if (category && loadedFor !== category.id) {
+    setLoadedFor(category.id)
+    setValue(fromCategory(category))
+    setErrors({})
+  }
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiFetch(`/tournaments/categories/${category!.id}`, { method: 'PATCH', json: body }),
+    onSuccess: () => { setLoadedFor(null); onSaved() },
+  })
+  function close() { setLoadedFor(null); save.reset(); onClose() }
+  function submit() {
+    if (!value) return
+    const parsed = toCategoryBody(value)
+    setErrors(parsed.ok ? {} : parsed.errors)
+    if (!parsed.ok) return
+    // A disciplina não muda na edição (a API recusa o campo).
+    const body = { ...parsed.body }
+    delete body.discipline
+    save.mutate(body)
+  }
+  return (
+    <Dialog open={!!category} onOpenChange={(open) => !open && close()}>
+      <DialogContent className="sm:max-w-2xl">
+        <form onSubmit={(e) => { e.preventDefault(); submit() }} noValidate className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Editar categoria</DialogTitle>
+            <DialogDescription>{category?.name}</DialogDescription>
+          </DialogHeader>
+          {value && <CategoryFormFields value={value} onChange={setValue} errors={errors} disciplineLocked />}
+          {save.isError && <p role="alert" className="text-sm font-medium text-destructive">{save.error.message}</p>}
+          {/* Fixo no fim do diálogo: no celular o formulário rola e o botão continua à vista. */}
+          <DialogFooter className="sticky bottom-0 z-10 bg-popover">
+            <Button type="button" variant="outline" onClick={close} disabled={save.isPending}>Cancelar</Button>
+            <Button type="submit" disabled={save.isPending}>{save.isPending ? 'Salvando...' : 'Salvar categoria'}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DeleteCategoryDialog({ category, onClose, onDeleted }: { category: Category | null; onClose: () => void; onDeleted: () => void }) {
+  const remove = useMutation({
+    mutationFn: () => apiFetch(`/tournaments/categories/${category!.id}`, { method: 'DELETE' }),
+    onSuccess: onDeleted,
+  })
+  function close() { remove.reset(); onClose() }
+  return (
+    <Dialog open={!!category} onOpenChange={(open) => !open && close()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Excluir categoria?</DialogTitle>
+          <DialogDescription>
+            {category?.name} sai do torneio. Só é possível sem chave sorteada e sem inscrições.
+          </DialogDescription>
+        </DialogHeader>
+        {remove.isError && <p role="alert" className="text-sm font-medium text-destructive">{remove.error.message}</p>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={close} disabled={remove.isPending}>Cancelar</Button>
+          <Button type="button" variant="destructive" onClick={() => remove.mutate()} disabled={remove.isPending}>
+            {remove.isPending ? 'Excluindo...' : 'Excluir'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

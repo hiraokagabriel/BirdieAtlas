@@ -162,7 +162,7 @@ test.describe('grupos + eliminatória (interface)', () => {
     await page.getByLabel('Formato').selectOption('group_then_elimination')
     await page.getByLabel('Nome da categoria').fill('Fase de grupos e mata-mata')
     await page.getByRole('button', { name: 'Criar categoria' }).click()
-    await expect(page.getByText('· grupos + eliminatória')).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: 'Fase de grupos e mata-mata' }).getByText(/Grupos \+ eliminatória/)).toBeVisible()
   })
 
   for (const theme of THEMES) {

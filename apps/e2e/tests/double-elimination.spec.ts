@@ -202,7 +202,7 @@ test.describe('eliminação dupla (interface)', () => {
     await page.getByLabel('Formato').selectOption('double_elimination')
     await page.getByLabel('Nome da categoria').fill('Fase dupla')
     await page.getByRole('button', { name: 'Criar categoria' }).click()
-    await expect(page.getByText('· eliminação dupla')).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: 'Fase dupla' }).getByText(/Eliminação dupla/)).toBeVisible()
   })
 
   for (const theme of THEMES) {

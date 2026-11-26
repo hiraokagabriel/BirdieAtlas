@@ -5,6 +5,7 @@ import {
 } from '../db/schema.js'
 import { selectRegistrations } from '../db/registrations.js'
 import { matchRoundLabel } from '../domain/schedule.js'
+import type { ScoringRule } from '@birdie-atlas/validators'
 import { computeLiveScore, type Side } from '../domain/live-score.js'
 import { LiveBus } from './live-bus.js'
 
@@ -46,6 +47,8 @@ export interface LiveMatchView {
   version: number
   /** Momento da última alteração do placar (ISO). */
   updatedAt: string
+  /** Pontuação da categoria (pontos do set, teto, sets para vencer). */
+  scoring: ScoringRule
 }
 
 /** Partida pronta para começar (pendente, com os dois lados definidos). */
@@ -78,6 +81,9 @@ interface MatchWithContext {
   categoryId: string
   categoryName: string
   discipline: string
+  pointsPerSet: number
+  setPointCap: number
+  setsToWin: number
 }
 
 interface Participants {
@@ -116,6 +122,9 @@ function contextQuery(ex: Reader) {
     categoryId: tournamentCategories.id,
     categoryName: tournamentCategories.name,
     discipline: tournamentCategories.discipline,
+    pointsPerSet: tournamentCategories.pointsPerSet,
+    setPointCap: tournamentCategories.setPointCap,
+    setsToWin: tournamentCategories.setsToWin,
   })
     .from(matches)
     .innerJoin(draws, eq(draws.id, matches.drawId))
@@ -149,9 +158,10 @@ export async function toLiveViews(ex: Reader, contexts: MatchWithContext[]): Pro
   const stateByMatch = new Map(states.map((s) => [s.matchId, s]))
   const { nameOf } = await participants(ex, contexts.map((c) => c.match))
 
-  return contexts.map(({ match, tournamentId, categoryId, categoryName, discipline }) => {
+  return contexts.map(({ match, tournamentId, categoryId, categoryName, discipline, pointsPerSet, setPointCap, setsToWin }) => {
     const state = stateByMatch.get(match.id)
-    const score = computeLiveScore(state?.points ?? [])
+    const scoring: ScoringRule = { pointsPerSet, setPointCap, setsToWin }
+    const score = computeLiveScore(state?.points ?? [], scoring)
     return {
       matchId: match.id,
       tournamentId,
@@ -173,6 +183,7 @@ export async function toLiveViews(ex: Reader, contexts: MatchWithContext[]): Pro
       winner: score.winner,
       version: state?.version ?? 0,
       updatedAt: (state?.updatedAt ?? match.updatedAt).toISOString(),
+      scoring,
     }
   })
 }

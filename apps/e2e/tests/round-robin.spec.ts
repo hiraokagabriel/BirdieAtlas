@@ -139,7 +139,7 @@ test.describe('todos contra todos na interface', () => {
     await page.getByLabel('Formato').selectOption('round_robin')
     await page.getByLabel('Nome da categoria').fill('Fase de grupos')
     await page.getByRole('button', { name: 'Criar categoria' }).click()
-    await expect(page.getByText('· todos contra todos')).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: 'Fase de grupos' }).getByText(/Todos contra todos/)).toBeVisible()
   })
 
   test('o portal público mostra a classificação do todos contra todos', async ({ page }) => {

@@ -5,6 +5,7 @@ import {
   draws, matches, matchLiveStates, matchResultEvents, matchResults, tournamentCategories, tournaments,
 } from '../db/schema.js'
 import { getSlotForPosition } from '../domain/bracket.js'
+import { DEFAULT_SCORING, validateSets, type ScoringRule } from '@birdie-atlas/validators'
 
 // Resultado oficial de uma partida: grava os sets, faz o vencedor avançar e desfaz em cascata o que
 // dependia de um vencedor anterior. É a única implementação: a rota de resultado e o encerramento
@@ -54,6 +55,15 @@ export async function findOwnerTournament(ex: Pick<typeof db, 'select'>, drawId:
   return owner
 }
 
+/** Pontuação da categoria dona da chave (padrão 21 pontos, teto 30, melhor de 3). Use dentro de transação. */
+export async function scoringOfDraw(ex: Pick<typeof db, 'select'>, drawId: string): Promise<ScoringRule> {
+  const [row] = await ex.select({ pointsPerSet: tournamentCategories.pointsPerSet, setPointCap: tournamentCategories.setPointCap, setsToWin: tournamentCategories.setsToWin })
+    .from(draws).innerJoin(tournamentCategories, eq(tournamentCategories.id, draws.categoryId)).where(eq(draws.id, drawId))
+    // Trava compartilhada: um PATCH da pontuação espera o resultado (ou o ponto ao vivo) que validou pela regra atual.
+    .for('share', { of: tournamentCategories })
+  return row ?? DEFAULT_SCORING
+}
+
 export const TOURNAMENT_LOCKED_MESSAGE = 'O torneio está encerrado. Reabra-o para alterar resultados.'
 
 export function isTournamentLocked(status: OwnerTournament['status']): boolean {
@@ -62,7 +72,7 @@ export function isTournamentLocked(status: OwnerTournament['status']): boolean {
 
 export type SaveResultOutcome =
   | { ok: true; match: MatchRow; results: (typeof matchResults.$inferSelect)[]; tournamentId: string | null; resetMatchIds: string[] }
-  | { ok: false; status: 400 | 404 | 409; error: string; code?: string }
+  | { ok: false; status: 400 | 404 | 409 | 422; error: string; code?: string }
 
 /**
  * Grava o resultado. Deve rodar numa transação: trava a linha da partida (`FOR UPDATE`), então
@@ -99,6 +109,12 @@ export async function saveMatchResult(ex: Executor, matchId: string, body: Resul
     if (later) {
       return { ok: false, status: 409, error: 'A próxima rodada já foi gerada. Refaça a chave para alterar resultados de rodadas anteriores.', code: 'ROUND_LOCKED' }
     }
+  }
+
+  // Resultado normal segue a pontuação da categoria (W.O. e desistência têm parciais livres).
+  if (body.status === 'completed') {
+    const invalid = validateSets([...body.sets].sort((a, b) => a.setNumber - b.setNumber), await scoringOfDraw(ex, match.drawId))
+    if (invalid) return { ok: false, status: 422, error: invalid, code: 'INVALID_SCORE' }
   }
 
   const newWinner = getWinnerSlot(body.sets)
