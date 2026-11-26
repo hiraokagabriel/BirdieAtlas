@@ -394,7 +394,8 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
           <div className="divide-y divide-border">
             {registrations.map((reg, index) => {
               const badge = STATUS_BADGE[reg.status]
-              const iconBtn = 'shrink-0 p-2 rounded-lg text-muted-foreground transition-colors disabled:opacity-50'
+              // Ícone sem texto no admin: alvo do tamanho de controle (36 px, docs/DESIGN.md).
+              const iconBtn = 'inline-flex size-(--control-h) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors disabled:opacity-50'
               return (
                 <div key={reg.id} className="px-4 py-3 hover:bg-muted/20 transition-colors">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
