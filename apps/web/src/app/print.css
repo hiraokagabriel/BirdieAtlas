@@ -6,8 +6,8 @@
  * aplicam. O que some no papel (menu, cabeçalho, abas, botões, seletor de tema) usa a variante
  * `print:hidden` do Tailwind direto no componente.
  *
- * - `.print-bracket-page`: página A4 paisagem (chave).
- * - `.print-ranking-page`: página A4 retrato (ranking).
+ * - `.print-bracket-page`: a página que a contém imprime em A4 paisagem (chave), do cabeçalho ao fim.
+ * - `.print-ranking-page`: a página que a contém imprime em A4 retrato (ranking).
  * - `data-print-fit`: o PrintButton reduz o elemento (`zoom`) para caber na página em `beforeprint`.
  * - Tema claro: o PrintButton tira a classe `dark` de <html> em `beforeprint` e a devolve em `afterprint`.
  */
@@ -59,11 +59,14 @@
     print-color-adjust: exact;
   }
 
-  .print-bracket-page {
+  /* A página nomeada vai no <body> inteiro, não só no bloco: um bloco com página nomeada diferente da vizinha
+     força quebra antes e depois dele, e o cabeçalho do torneio sobrava sozinho na 1ª página (retrato) e o que vem
+     depois da chave abria uma última página em branco. */
+  body:has(.print-bracket-page) {
     page: bracket;
   }
 
-  .print-ranking-page {
+  body:has(.print-ranking-page) {
     page: ranking;
   }
 
@@ -79,8 +82,10 @@
     position: static !important;
   }
 
-  /* Cartão de partida nunca é cortado entre duas páginas. */
-  .print-bracket-page li,
+  /* Listas da chave (grupos, suíço) não cortam a linha entre páginas. Na árvore não: a célula (`data-bracket-cell`)
+     estica até meia chave nas fases finais e travá-la empurrava a chave para a página seguinte (1ª página só com o
+     cabeçalho); travar só o cartão faz o Chromium sobrepor cartões na quebra. Chave grande (64) pode cortar um cartão. */
+  .print-bracket-page li:not([data-bracket-cell]),
   .print-avoid-break {
     break-inside: avoid;
     page-break-inside: avoid;

@@ -479,8 +479,8 @@ Botão "Imprimir / Salvar PDF" (`PrintButton`) na chave do torneio público e no
 
 - Somem no papel: cabeçalho, menu, seletor de tema, abas, seletores de categoria, estatísticas, botões e controles de compartilhar (variante `print:hidden` do Tailwind).
 - Tema claro forçado: em `beforeprint` o botão tira a classe `dark` de `<html>` e a devolve em `afterprint` (vale também para Ctrl+P).
-- Chave: página A4 paisagem (`@page bracket`), desenrolada (sem rolagem) e reduzida com `zoom` para caber (`computePrintScale`, `lib/print.ts`). Cartões de partida não são cortados entre páginas e os conectores saem (`print-color-adjust: exact`).
-- Limite: a escala mínima é 0,4. Uma chave de 32 vagas já pede ~0,49; acima disso (64 vagas ou mais) a chave deixa de caber numa página sem ficar ilegível e continua na página seguinte, podendo cortar conectores na quebra. A largura sempre cabe. O `zoom` exige navegador recente (Chrome, Edge, Safari e Firefox 126 ou superior); sem ele a chave sai sem redução.
+- Chave: página A4 paisagem (`@page bracket`), desenrolada (sem rolagem) e reduzida com `zoom` para caber (`computePrintScale`, `lib/print.ts`); os conectores saem (`print-color-adjust: exact`). A página nomeada fica no `<body>` inteiro (`body:has(.print-bracket-page)`), não só no bloco da chave: assim o cabeçalho do torneio e a chave saem na mesma página, sem página só com o cabeçalho nem página em branco no fim. Linhas de listas da chave (grupos, suíço) não se partem; as células da árvore (`data-bracket-cell`) podem se partir, porque esticam até meia chave nas fases finais.
+- Limite: a escala mínima é 0,4. Uma chave de 32 vagas já pede ~0,49; acima disso (64 vagas ou mais) a chave deixa de caber numa página sem ficar ilegível e continua na página seguinte, podendo cortar conectores ou um cartão na quebra (64 vagas: 3 páginas). A largura sempre cabe. O `zoom` exige navegador recente (Chrome, Edge, Safari e Firefox 126 ou superior); sem ele a chave sai sem redução.
 - Ranking: página A4 retrato (`@page ranking`); imprime a página atual da tabela (25 linhas), sem cortar uma linha ao meio.
 
 ### CSV

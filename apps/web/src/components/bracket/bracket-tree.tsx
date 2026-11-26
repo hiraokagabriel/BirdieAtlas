@@ -157,7 +157,8 @@ export function BracketTree({
               </h3>
               <ol className="flex flex-1 flex-col">
                 {roundMatches.map((match) => (
-                  <li key={match.id} className={cn('flex flex-1 items-center', CELL_MIN_HEIGHT)}>
+                  <li key={match.id} data-bracket-cell="" className={cn('flex flex-1 items-center', CELL_MIN_HEIGHT)}>
+                    {/* A célula estica para alinhar com a rodada seguinte; no papel ela pode se partir entre páginas (print.css). */}
                     <div className="my-2 min-w-0 flex-1">
                       <MatchCard
                         match={match}
