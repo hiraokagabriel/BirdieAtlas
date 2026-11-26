@@ -386,7 +386,10 @@ export function TournamentView({ slug, share, initialCategoryId, initialTab = 'b
             <p className="hidden font-heading text-xl font-semibold print:block">{activeCategory.name}</p>
           )}
           {drawLoaded && draw && !drawError && (
-            <div className="flex justify-end print:hidden">
+            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 print:hidden">
+              <Link href={`/t/${tournament.slug}/chaves`} className="flex min-h-(--control-h) items-center text-sm font-medium text-primary underline underline-offset-4">
+                Todas as chaves em PDF
+              </Link>
               <PrintButton />
             </div>
           )}

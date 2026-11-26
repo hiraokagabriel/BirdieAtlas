@@ -15,6 +15,11 @@ describe('computePrintScale', () => {
     expect(computePrintScale({ contentWidth: 800, contentHeight: 500, ...page })).toBe(1)
   })
 
+  it('grows up to maxScale when asked (one bracket per page for publicity)', () => {
+    expect(computePrintScale({ contentWidth: 400, contentHeight: 200, ...page, maxScale: 1.6 })).toBe(1.6)
+    expect(computePrintScale({ contentWidth: 800, contentHeight: 300, ...page, maxScale: 1.6 })).toBe(1.25)
+  })
+
   it('shrinks to fit the width', () => {
     expect(computePrintScale({ contentWidth: 2000, contentHeight: 400, ...page })).toBe(0.5)
   })

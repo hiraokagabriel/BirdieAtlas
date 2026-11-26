@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { draws, matches, matchLiveStates, matchResultEvents, matchResults, tournamentCategories, tournamentRegistrations, tournaments } from '../db/schema.js'
-import { eq, and, desc, inArray, isNull } from 'drizzle-orm'
+import { eq, and, asc, desc, inArray, isNull, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { buildMatchDefs, buildSlots, type MatchDef } from '../domain/bracket.js'
@@ -15,6 +15,8 @@ import {
 } from '../domain/groups.js'
 import { awardTournamentPoints } from '../services/ranking-engine.js'
 import { selectRegistrations } from '../db/registrations.js'
+import { publicRegistrations } from './registrations.js'
+import { compareCategoriesForPublication } from '../domain/bracket-order.js'
 import { findOwnerTournament, isTournamentLocked, saveMatchResult, TOURNAMENT_LOCKED_MESSAGE } from '../services/match-result.js'
 import { getLiveMatchView, liveBus } from '../services/live-match.js'
 
@@ -417,6 +419,51 @@ export async function drawsRoutes(app: FastifyInstance) {
     const rows = await db.select().from(matchResultEvents).where(eq(matchResultEvents.matchId, matchId))
       .orderBy(desc(matchResultEvents.createdAt), desc(matchResultEvents.id))
     return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))
+  })
+
+  // Público: todas as chaves publicadas do torneio de uma vez (página de divulgação / PDF).
+  // Só nomes de atletas (publicRegistrations); chaves não publicadas e categorias sem chave ficam de fora.
+  app.get('/tournaments/:id/brackets', async (request, reply) => {
+    const { id } = z.object({ id: z.string().trim().min(1) }).parse(request.params)
+    const [tournament] = await db.select({ id: tournaments.id }).from(tournaments)
+      .where(and(eq(tournaments.id, id), isNull(tournaments.deletedAt), ne(tournaments.status, 'draft')))
+    if (!tournament) return reply.status(404).send({ error: 'Torneio não encontrado.', code: 'TOURNAMENT_NOT_FOUND' })
+    const categories = await db.select().from(tournamentCategories)
+      .where(and(eq(tournamentCategories.tournamentId, id), isNull(tournamentCategories.deletedAt)))
+    if (!categories.length) return []
+    const drawRows = await db.select().from(draws)
+      .where(and(inArray(draws.categoryId, categories.map((c) => c.id)), eq(draws.published, true)))
+      .orderBy(asc(draws.generatedAt))
+    // Uma chave por categoria (a mais antiga), como a agenda e o encerramento.
+    const drawByCategory = new Map<string, typeof drawRows[number]>()
+    for (const d of drawRows) if (!drawByCategory.has(d.categoryId)) drawByCategory.set(d.categoryId, d)
+    const published = categories.filter((c) => drawByCategory.has(c.id)).sort(compareCategoriesForPublication)
+    if (!published.length) return []
+    const drawIds = published.map((c) => drawByCategory.get(c.id)!.id)
+    // Um parâmetro por chave (não por partida): torneio grande tem milhares de partidas.
+    const matchRows = await db.select().from(matches).where(inArray(matches.drawId, drawIds))
+    const resultRows = await db.select({ result: matchResults, drawId: matches.drawId }).from(matchResults)
+      .innerJoin(matches, eq(matches.id, matchResults.matchId))
+      .where(inArray(matches.drawId, drawIds))
+    const regs = await publicRegistrations(published.map((c) => c.id))
+    const group = <T, K>(rows: T[], key: (row: T) => K) => {
+      const map = new Map<K, T[]>()
+      for (const row of rows) map.set(key(row), [...(map.get(key(row)) ?? []), row])
+      return map
+    }
+    const matchesByDraw = group(matchRows, (m) => m.drawId)
+    const resultsByDraw = group(resultRows, (r) => r.drawId)
+    const regsByCategory = group(regs, (r) => r.categoryId)
+    return published.map((c) => {
+      const draw = drawByCategory.get(c.id)!
+      return {
+        category: { id: c.id, name: c.name, discipline: c.discipline, drawType: c.drawType },
+        draw: { id: draw.id, config: draw.config },
+        matches: matchesByDraw.get(draw.id) ?? [],
+        registrations: regsByCategory.get(c.id) ?? [],
+        results: (resultsByDraw.get(draw.id) ?? []).map((r) => r.result),
+      }
+    })
   })
 
   app.get('/draws/matches/:matchId/result', async (request) => {

@@ -21,6 +21,8 @@ export interface PrintScaleInput {
   availableWidth: number
   availableHeight: number
   minScale?: number
+  /** Acima de 1 amplia o que sobra na página (página de divulgação); padrão 1, só reduz. */
+  maxScale?: number
 }
 
 /**
@@ -34,11 +36,12 @@ export function computePrintScale({
   availableWidth,
   availableHeight,
   minScale = MIN_READABLE_SCALE,
+  maxScale = 1,
 }: PrintScaleInput): number {
   if (contentWidth <= 0 || contentHeight <= 0 || availableWidth <= 0 || availableHeight <= 0) return 1
   const byWidth = availableWidth / contentWidth
   const byHeight = availableHeight / contentHeight
-  const fitsBoth = Math.min(1, byWidth, byHeight)
+  const fitsBoth = Math.min(maxScale, byWidth, byHeight)
   const widthFloor = Math.min(minScale, byWidth)
   return Math.round(Math.max(fitsBoth, widthFloor) * 1000) / 1000
 }
