@@ -452,6 +452,7 @@ export function TournamentView({ slug, share, initialCategoryId, initialTab = 'b
           tournamentId={tournament.id}
           categories={categories}
           readonly
+          playerHref={(id) => `/t/${slug}/jogador/${id}`}
         />
       </TabsContent>
       </Tabs>
