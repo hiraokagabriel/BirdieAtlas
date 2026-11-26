@@ -63,6 +63,22 @@ interface Props {
 }
 
 export function RegistrationsTab({ tournamentId, tournamentStatus, categories, friendly = false, slug }: Props) {
+  // Inscrição aprovada: cada nome (os dois da dupla) abre as partidas daquele atleta na página pública, em nova aba.
+  const matchesLink = (status: string, athleteId: string | null | undefined, name: string) =>
+    status === 'approved' && athleteId ? (
+      <a
+        href={`/t/${slug}/jogador/${athleteId}`}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex min-h-6 items-center rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary"
+        aria-label={`${name}: ver partidas (abre em nova aba)`}
+      >
+        {name}
+      </a>
+    ) : (
+      name
+    )
+
   // Encerrado ou cancelado: a API recusa qualquer alteração, então a tela nem oferece
   const locked = tournamentStatus === 'completed' || tournamentStatus === 'cancelled'
   const queryClient = useQueryClient()
@@ -398,10 +414,10 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
 
                     <div className="min-w-40 flex-1">
                       <p className={`text-sm font-medium break-words ${reg.status === 'rejected' ? 'line-through text-muted-foreground' : ''}`}>
-                        {reg.athleteName ?? reg.athleteId}
+                        {matchesLink(reg.status, reg.athleteId, reg.athleteName ?? reg.athleteId)}
                         {reg.athleteClub && <span className="font-normal text-muted-foreground"> ({reg.athleteClub})</span>}
                         {reg.athlete2Name && (
-                          <span className="text-muted-foreground"> / {reg.athlete2Name}{reg.athlete2Club && ` (${reg.athlete2Club})`}</span>
+                          <span className="text-muted-foreground"> / {matchesLink(reg.status, reg.athlete2Id, reg.athlete2Name)}{reg.athlete2Club && ` (${reg.athlete2Club})`}</span>
                         )}
                       </p>
                     </div>

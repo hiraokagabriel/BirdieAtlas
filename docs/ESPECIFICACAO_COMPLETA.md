@@ -69,7 +69,7 @@ Admin, sob `/admin`, identificando registros por `id`:
 | `/admin/athletes` | Atletas, cadastro e importação; abas Cadastrados e Avulsos (lista dos avulsos com "Juntar com atleta") |
 | `/admin/pairs` | Duplas |
 | `/admin/clubs`, `/admin/clubs/[clubId]` | Clubes (lista com divisórias: escudo, nome e cidade) |
-| `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios (lista com divisórias: nome, status, nível, tipo, datas e local); o detalhe tem as abas (com o seletor de categoria compartilhado, descrito em `/t/[slug]`) Inscrições (inscrição aprovada tem "Ver partidas", que abre a página pública do jogador em nova aba), Chaveamento, Agenda e Configurações |
+| `/admin/tournaments`, `/admin/tournaments/[tournamentId]` | Torneios (lista com divisórias: nome, status, nível, tipo, datas e local); o detalhe tem as abas (com o seletor de categoria compartilhado, descrito em `/t/[slug]`) Inscrições (inscrição aprovada tem "Ver partidas" e cada nome, os dois da dupla, é link para a página pública daquele jogador, em nova aba), Chaveamento, Agenda e Configurações |
 | `/admin/live` | Placar ao vivo: tela do operador de quadra (celular e tablet) |
 | `/admin/rankings`, `/admin/rankings/[rankingId]` | Rankings (lista com divisórias: nome, sigla e disciplina, ano e regras de contagem) e regras de pontos |
 
