@@ -31,7 +31,8 @@ export const metadata: Metadata = {
   description: 'Sistema de gestão de federações de badminton',
   applicationName: 'BirdieAtlas',
   appleWebApp: { capable: true, title: 'BirdieAtlas', statusBarStyle: 'default' },
-  icons: { apple: '/pwa-icon/180' },
+  // icon.svg (emblema) para quem aceita SVG; o favicon.ico, ao lado, fica para Safari e navegadores antigos.
+  icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }], apple: '/pwa-icon/180' },
 }
 
 export const viewport: Viewport = { themeColor: BRAND.green }
