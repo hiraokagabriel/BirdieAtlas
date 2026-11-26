@@ -45,6 +45,8 @@ export async function athletesRoutes(app: FastifyInstance) {
       isNull(athletes.deletedAt),
       // Avulsos (de amistoso) só com `guest=true`: não são filiados nem têm cadastro completo.
       eq(athletes.guest, query.guest),
+      // Avulsos: só os desta federação (cadastrados não têm tenant próprio).
+      query.guest ? eq(athletes.guestTenantId, tenantId) : undefined,
       query.search ? ilike(athletes.name, `%${query.search}%`) : undefined,
       query.gender ? eq(athletes.gender, query.gender) : undefined,
     )

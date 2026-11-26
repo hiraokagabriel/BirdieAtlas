@@ -77,7 +77,8 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         isNull(athleteAffiliations.endedAt),
       ))
       .leftJoin(clubs, eq(clubs.id, athleteAffiliations.clubId))
-      .where(and(isNull(athletes.deletedAt), eq(athletes.guest, friendly)))
+      // Amistoso: só avulsos desta federação (atleta não tem tenant; o avulso guarda a dele em guestTenantId).
+      .where(and(isNull(athletes.deletedAt), eq(athletes.guest, friendly), friendly ? eq(athletes.guestTenantId, tenantId) : undefined))
       .orderBy(asc(athletes.createdAt), asc(athletes.id))
     const byName = new Map<string, typeof athleteRows>()
     for (const a of athleteRows) {
@@ -248,6 +249,7 @@ export async function importTournamentRoutes(app: FastifyInstance) {
         const id = randomUUID()
         await tx.insert(athletes).values({
           id, name: person.ref_person.name, gender: person.gender, nationality: 'BR', active: true, guest: friendly,
+          ...(friendly ? { guestTenantId: tenantId } : {}),
         })
         athleteIdByRef.set(person.ref, id)
         const clubId = person.ref_person.club && !friendly ? clubIdByKey.get(fold(person.ref_person.club)) : undefined

@@ -114,6 +114,8 @@ export const athletes = pgTable('athletes', {
   // Avulso: criado só com o nome para um torneio amistoso (sem cadastro completo). Fica fora da lista de
   // Atletas do admin; o mesmo avulso é reaproveitado pelo nome em outras categorias e amistosos.
   guest: boolean('guest').notNull().default(false),
+  // Federação do avulso (atleta não tem tenant): o pareamento pelo nome só casa avulsos da mesma federação.
+  guestTenantId: text('guest_tenant_id').references(() => tenants.id),
   ...softDelete,
   ...timestamps,
 })

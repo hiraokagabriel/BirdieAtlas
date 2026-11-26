@@ -59,7 +59,8 @@ export async function guestsRoutes(app: FastifyInstance) {
         // shortcut: lê todos os avulsos (poucos por federação); filtrar no SQL pelos nomes da lista se crescer.
         const candidates: GuestCandidate[] = (await tx.select({ id: athletes.id, name: athletes.name, gender: athletes.gender, birthYear: athletes.birthYear })
           .from(athletes)
-          .where(and(eq(athletes.guest, true), isNull(athletes.deletedAt)))
+          // Só avulsos da federação do torneio: o mesmo nome em outra federação é outra pessoa.
+          .where(and(eq(athletes.guest, true), eq(athletes.guestTenantId, tournament.tenantId), isNull(athletes.deletedAt)))
           .orderBy(asc(athletes.createdAt), asc(athletes.id)))
         const taking = await selectRegistrations(
           and(eq(tournamentRegistrations.categoryId, categoryId), ne(tournamentRegistrations.status, 'rejected')),
@@ -85,7 +86,7 @@ export async function guestsRoutes(app: FastifyInstance) {
               ids.push(found.id)
             } else {
               const id = randomUUID()
-              await tx.insert(athletes).values({ id, name: player.name, gender: player.gender, birthYear: player.birthYear, guest: true })
+              await tx.insert(athletes).values({ id, name: player.name, gender: player.gender, birthYear: player.birthYear, guest: true, guestTenantId: tournament.tenantId })
               candidates.push({ id, name: player.name, gender: player.gender, birthYear: player.birthYear })
               created++
               ids.push(id)
