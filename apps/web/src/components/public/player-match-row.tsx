@@ -32,27 +32,30 @@ type Pending = { via: 'vencedor' | 'perdedor'; sides: Player[][] }
 type Player = { id: string; name: string }
 
 // Nome que é link, sem mudar a cor do texto: sublinhado discreto que acende no hover e no foco.
-const NAME_LINK = 'rounded-sm underline decoration-border underline-offset-4 hover:decoration-primary'
+// Sublinhado em cinza a 50% (≥3:1 contra o fundo, WCAG 1.4.1) que fica verde no hover.
+const NAME_LINK = 'rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary'
+// Nomes secundários ("contra o vencedor de…"): sem sublinhado em repouso para não poluir; aparece no hover e no foco.
+const QUIET_LINK = 'rounded-sm underline-offset-4 decoration-primary hover:underline focus-visible:underline'
 
 /** "vencedor de A × B" (ou "do jogo de A") com os nomes ligados aos perfis. */
-function PendingLinks({ pending }: { pending: Pending }) {
+function PendingLinks({ pending, quiet = false }: { pending: Pending; quiet?: boolean }) {
   return (
     <>
       {pending.via} {pending.sides.length === 2 ? 'de ' : 'do jogo de '}
-      <PlayerLinks players={pending.sides[0] ?? []} />
-      {pending.sides[1] && <> × <PlayerLinks players={pending.sides[1]} /></>}
+      <PlayerLinks players={pending.sides[0] ?? []} quiet={quiet} />
+      {pending.sides[1] && <> × <PlayerLinks players={pending.sides[1]} quiet={quiet} /></>}
     </>
   )
 }
 
 /** Atletas de um lado, cada um com link ao perfil, separados por " / ". */
-function PlayerLinks({ players }: { players: Player[] }) {
+function PlayerLinks({ players, quiet = false }: { players: Player[]; quiet?: boolean }) {
   return (
     <>
       {players.map((p, i) => (
         <span key={p.id}>
           {i > 0 && ' / '}
-          <Link href={`/a/${p.id}`} className={NAME_LINK}>{p.name}</Link>
+          <Link href={`/a/${p.id}`} className={quiet ? QUIET_LINK : NAME_LINK}>{p.name}</Link>
         </span>
       ))}
     </>
@@ -114,7 +117,7 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
             {free ? (
               <span className="block font-heading text-2xl font-bold leading-none">{m.kind === 'bye' ? 'Bye' : 'Folga'}</span>
             ) : clock ? (
-              <span className="block font-heading text-2xl font-bold leading-none tabular-nums">{clock}</span>
+              <span className="block font-heading text-2xl font-bold leading-none tabular-nums underline-offset-4 group-hover:underline">{clock}</span>
             ) : (
               <span className="block text-sm text-muted-foreground">Sem horário</span>
             )}
@@ -135,7 +138,7 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
           <Link
             href={`/t/${tournamentSlug}?aba=agenda`}
             aria-label={`${[clock || 'Sem horário', day, m.courtNumber != null ? `quadra ${m.courtNumber}` : 'quadra a definir'].filter(Boolean).join(', ')} (ver na agenda)`}
-            className={cn(layout, '-m-2 self-start rounded-md p-2 hover:bg-muted/60')}
+            className={cn(layout, 'group -m-2 min-h-11 self-start rounded-md p-2 hover:bg-foreground/5')}
           >
             {when}
           </Link>
@@ -149,7 +152,7 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
           {highlight && m.kind !== 'live' && <span className="font-semibold text-primary">Próxima</span>}
           <StatusChip match={m} />
           {tournamentSlug ? (
-            <Link href={`/t/${tournamentSlug}?categoria=${m.categoryId}`} className={`text-muted-foreground ${NAME_LINK}`}>
+            <Link href={`/t/${tournamentSlug}?categoria=${m.categoryId}`} className={`inline-flex min-h-11 items-center text-muted-foreground ${NAME_LINK}`}>
               {where}<span className="sr-only"> (ver o chaveamento)</span>
             </Link>
           ) : (
@@ -174,7 +177,7 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
             )}
           </p>
         ) : m.pending?.sides && m.pending.sides.some((s) => s.length) ? (
-          <p className="break-words text-base">Contra o <PendingLinks pending={m.pending} /></p>
+          <p className="break-words text-base">Contra o <PendingLinks pending={m.pending} quiet /></p>
         ) : m.opponent ? (
           <p className="break-words text-base">Contra o {m.opponent}</p>
         ) : (
@@ -199,7 +202,7 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
                   // A fase leva ao chaveamento da categoria (/t/[slug]?categoria=), onde se vê o caminho até ela.
                   <Link
                     href={`/t/${tournamentSlug}?categoria=${m.categoryId}`}
-                    className="font-heading text-xl font-bold leading-tight text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+                    className="inline-flex min-h-11 items-center font-heading text-xl font-bold leading-tight text-primary underline decoration-primary/60 underline-offset-4 hover:decoration-primary"
                   >
                     {m.ifWin.roundLabel}<span className="sr-only"> (ver o chaveamento de {m.categoryName})</span>
                   </Link>
@@ -209,9 +212,9 @@ export function MatchRow({ match: m, showCategory = false, highlight = false, to
               </p>
               <p className="break-words text-sm text-muted-foreground">
                 {(m.ifWin.players ?? []).length > 0 ? (
-                  <>contra <PlayerLinks players={m.ifWin.players} /></>
+                  <>contra <PlayerLinks players={m.ifWin.players} quiet /></>
                 ) : m.ifWin.pending?.sides && m.ifWin.pending.sides.some((s) => s.length) ? (
-                  <>contra o <PendingLinks pending={m.ifWin.pending} /></>
+                  <>contra o <PendingLinks pending={m.ifWin.pending} quiet /></>
                 ) : m.ifWin.opponent ? (
                   `contra ${m.ifWin.opponent}`
                 ) : (

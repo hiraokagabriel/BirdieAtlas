@@ -281,6 +281,14 @@ Rótulo de quadra em Barlow Condensed, com "QUADRA" pequeno e o número grande �
 ### Chave
 Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px e conectores de 1 px em `court-line`. Partida ao vivo com contorno amarelo-peteca e o chip "Ao vivo" (o contorno sozinho não tem 3:1). Rodada 1 é a final (ver `CLAUDE.md`).
 
+### Links em texto
+
+- **Nome de pessoa (adversário, atleta):** mesma cor do texto, sublinhado em cinza a 50% (≥3:1 contra o fundo, WCAG 1.4.1) que fica verde no hover.
+- **Ação de navegação (fase, "categoria · fase"):** verde (`primary`) com sublinhado a 60%; isolado, alvo de 44 px no público (`inline-flex min-h-11`).
+- **Nomes secundários** (dentro de caption, como "contra o vencedor de A × B"): sem sublinhado em repouso, aparece no hover e no foco. Nomes dentro de uma frase são a exceção aceita ao alvo de 44 px.
+- **Bloco clicável** (hora e quadra, resumo do perfil): o bloco inteiro é o alvo (≥44 px), com fundo `foreground/5` no hover; quando o texto é número, o link é esticado sobre o bloco para o texto não mudar.
+- Foco sempre visível: contorno de 2 px em `ring`.
+
 ### Iconografia
 
 - **Set do BA (domínio):** `components/icons/ba.tsx`, duotone: traço de 1,75 px em `currentColor` com pontas arredondadas e uma camada cheia a 20 % na mesma cor, grade 24×24. Cobre o que é do badminton e da federação: Início (casa com a rede), Painel, Atleta (jogador com raquete), Atletas, Duplas (raquetes cruzadas), Clube (escudo com a peteca), Torneio (troféu), Ao vivo (peteca com ondas), Ranking (pódio), Local (alfinete com a quadra), Agenda, Partida agendada, Agenda confirmada, Medalha, Chave e Peteca. Os nomes repetem os do Lucide que substituem (`Trophy`, `Radio`…), então a troca é só no `import`.
