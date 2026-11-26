@@ -285,7 +285,7 @@ Colunas por rodada (rótulo em caption maiúscula), confrontos em caixas de 8 px
 
 - **Nome de pessoa (adversário, atleta):** mesma cor do texto, sublinhado em cinza a 50% (≥3:1 contra o fundo, WCAG 1.4.1) que fica verde no hover.
 - **Ação de navegação (fase, "categoria · fase"):** verde (`primary`) com sublinhado a 60%; isolado, alvo de 44 px no público (`inline-flex min-h-11`).
-- **Nomes secundários** (dentro de caption, como "contra o vencedor de A × B"): sem sublinhado em repouso, aparece no hover e no foco. Nomes dentro de uma frase são a exceção aceita ao alvo de 44 px.
+- **Nomes secundários** (dentro de caption, como "contra o vencedor de A × B"): sem sublinhado em repouso, aparece no hover e no foco. Nomes dentro de uma frase são a exceção aceita ao alvo de 44 px; nome solto numa linha de lista (Agenda pública, inscrições do admin) tem alvo de 24 px (`inline-flex min-h-6`, o mínimo do WCAG 2.5.8).
 - **Bloco clicável** (hora e quadra, resumo do perfil): o bloco inteiro é o alvo (≥44 px), com fundo `foreground/5` no hover; quando o texto é número, o link é esticado sobre o bloco para o texto não mudar.
 - Foco sempre visível: contorno de 2 px em `ring`.
 
