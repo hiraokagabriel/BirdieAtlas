@@ -27,12 +27,20 @@ test('com muitas categorias, a grade Modalidade × Classe escolhe a categoria e 
 
   await expect(toggle).toContainText('Duplas Mistas B')
   await expect(page.getByText('Duplas Mistas B —')).toBeVisible()
-  // ↓ desce na mesma modalidade (linha de baixo) sem fechar a grade; ↑ volta.
+  // Setas e Home/End só movem o foco; Espaço escolhe. A grade fica aberta.
+  const cellOf = (name: string) => grid.getByRole('radio', { name })
   await page.keyboard.press('ArrowDown')
-  await expect(grid.getByRole('radio', { name: 'Duplas Mistas Sub 15' })).toBeChecked()
-  await expect(grid.getByRole('radio', { name: 'Duplas Mistas Sub 15' })).toBeFocused()
+  await expect(cellOf('Duplas Mistas Sub 15')).toBeFocused()
+  await expect(cellOf('Duplas Mistas B')).toBeChecked()
+  await page.keyboard.press('Home')
+  await expect(cellOf('Simples Masculino Sub 15')).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(cellOf('Duplas Mistas Sub 15')).toBeFocused()
+  await page.keyboard.press('Space')
+  await expect(cellOf('Duplas Mistas Sub 15')).toBeChecked()
+  await expect(toggle).toContainText('Duplas Mistas Sub 15')
   await page.keyboard.press('ArrowUp')
-  await expect(grid.getByRole('radio', { name: 'Duplas Mistas B' })).toBeChecked()
+  await expect(cellOf('Duplas Mistas B')).toBeFocused()
   await expect(grid).toBeVisible()
 
   // Esc fecha e devolve o foco ao botão.
