@@ -2,6 +2,22 @@
 
 A fonte de verdade é [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Leia a seção relevante antes de mudar comportamento, contrato ou schema, e atualize-a no mesmo PR. O andamento fica em [`PROGRESS.md`](PROGRESS.md). A ordem dos passos de uma mudança (branch, gates, verificador, revisor, PR) fica em [`workflow.md`](workflow.md).
 
+## Início de sessão
+
+Ao abrir um chat novo, leia nesta ordem antes de agir:
+
+1. [`PROGRESS.md`](PROGRESS.md), seção "Estado atual": o que foi feito, o que falta e as armadilhas do ambiente.
+2. [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md): só a seção da área que vai mexer.
+3. Conforme a tarefa:
+   - versão online: [`docs/PLANO_ONLINE.md`](docs/PLANO_ONLINE.md) (fases) e [`docs/PRODUCAO.md`](docs/PRODUCAO.md) (contas e deploy);
+   - UI: [`docs/DESIGN.md`](docs/DESIGN.md), [`docs/PRODUCT.md`](docs/PRODUCT.md), templates em `docs/design/` e decisões em [`docs/REDESIGN.md`](docs/REDESIGN.md);
+   - ambiente local: [`docs/SETUP.md`](docs/SETUP.md);
+   - acessibilidade manual: [`docs/ACESSIBILIDADE_LEITOR_DE_TELA.md`](docs/ACESSIBILIDADE_LEITOR_DE_TELA.md);
+   - contrato HTTP: `docs/api/`.
+4. `git log --oneline -20` e `gh pr list` para ver se algo mudou desde a última atualização do `PROGRESS.md`.
+
+Ao terminar uma entrega, atualize a seção "Estado atual" do `PROGRESS.md` no mesmo PR.
+
 ## Antes de entregar
 
 - Rode `pnpm turbo run check-types lint test build`: é o que o CI roda.

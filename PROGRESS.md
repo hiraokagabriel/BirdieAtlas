@@ -1,10 +1,18 @@
 # BirdieAtlas — Progresso
 
-> Atualizado em 14/11/2026.
+> Atualizado em 26/11/2026.
 > Regras e contratos: [`docs/ESPECIFICACAO_COMPLETA.md`](docs/ESPECIFICACAO_COMPLETA.md). Decisões do redesign: [`docs/REDESIGN.md`](docs/REDESIGN.md).
 > Atualize este arquivo no PR que concluir ou abrir um item.
 >
 > **Diretriz (14/11/2026):** a versão online foi aprovada com custo zero e sem domínio próprio: plano em [`docs/PLANO_ONLINE.md`](docs/PLANO_ONLINE.md) (Vercel Hobby, Render Free, Neon Free). O atleta guarda só nome, ano de nascimento e dados esportivos. A identidade de usuário (Better Auth, no lugar do Clerk) é a **última** fase.
+
+## Estado atual (26/11/2026)
+
+- **Tudo mesclado:** PRs #1 a #106 na `main`; nenhum PR aberto. O app roda completo em rede local (API 3001, web 3000, Postgres no Docker na porta 5433, PIN de admin em `apps/api/.env`).
+- **Próximo passo é do usuário:** criar as contas Neon, Render e Vercel seguindo [`docs/PRODUCAO.md`](docs/PRODUCAO.md), tudo em AWS US East (o Render não tem São Paulo e API e banco precisam ficar juntos). Depois: fase 4 (dados e backup no Neon), 5 (segurança e LGPD: `/privacidade` precisa do texto da federação; religar `ENABLE_CODE_SECURITY_REVIEW`), 6 (Better Auth) e 7 (push), conforme [`docs/PLANO_ONLINE.md`](docs/PLANO_ONLINE.md).
+- **Entregue de #79 a #106:** amistoso com jogadores avulsos (lista colada, planilha `modelo-importacao-torneio.xlsx`, avulso ligado à federação, juntar avulso com atleta cadastrado); página "Encontre sua próxima partida" (`/t/[slug]/jogador/[athleteId]`) com placar ao vivo, bye e "Se vencer"; "Próximas partidas" dentro do perfil do atleta; linha de partida em três colunas com links (agenda, head-to-head, perfis, chave da categoria); links de deep link `?categoria=`, `?aba=agenda|inscritos` no torneio e `?ranking=` no ranking; seletor de categoria em grade Modalidade × Classe com navegação por setas; ícones duotone próprios (`components/icons/ba.tsx`); datas em UTC no admin e na importação; versão de contrato da API (`x-api-contract`, `API_CONTRACT_VERSION=2`, aviso no web); E2E pela API em `127.0.0.1`; dev do web com 4 GB de heap.
+- **Pendências conhecidas:** passada manual com leitor de tela (`docs/ACESSIBILIDADE_LEITOR_DE_TELA.md`); clube nas linhas do ranking (API); hover amarelo (`--accent`) dos menus suspensos; notificações e gestão de usuários dependem de login.
+- **Armadilhas do ambiente local:** se o CSS parecer velho (controles com 2 px), apague `apps/web/.next/dev` e reinicie; depois de rodar dev ou verificação, restaure `apps/web/tsconfig.json` com `git checkout`; pare o ambiente de verificação (portas 3200/3201) antes de rodar o E2E.
 
 ## Redesign
 
@@ -30,7 +38,7 @@ Depois do plano: `finalPlacement` gravado no encerramento (PR #18) e lint do web
 | Home pública e perfil do atleta | ✅ PR #21 |
 | Chave visual (admin e pública) | ✅ PR #22 |
 | Dark mode (toggle claro/escuro/sistema) | ✅ PR #24 |
-| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | 🟡 Documento e os 5 passos da migração prontos em PRs encadeados, abertos (#68 a #78; ✅ quando entrarem na main): 1 tokens e fontes; 2 componentes `ui`; 3a moldura pública e home; 3b torneio; 3c atleta, clube e ranking; 4a moldura do admin; 4b quadras e "Precisa de você"; 4c tabelas e listas; 4d diálogo de resultado; 5 telão e impressão. Pendentes fora da migração: clube nas linhas do ranking (API), hover amarelo (`--accent`) dos menus suspensos |
+| Padronização visual: `docs/DESIGN.md`, `docs/PRODUCT.md`, templates em `docs/design/` e agente `birdie-designer` | ✅ Documento e os 5 passos da migração (PRs #68 a #78): 1 tokens e fontes; 2 componentes `ui`; 3a moldura pública e home; 3b torneio; 3c atleta, clube e ranking; 4a moldura do admin; 4b quadras e "Precisa de você"; 4c tabelas e listas; 4d diálogo de resultado; 5 telão e impressão. Pendentes fora da migração: clube nas linhas do ranking (API), hover amarelo (`--accent`) dos menus suspensos |
 | Ícones de domínio próprios (set duotone do BA: navegação, torneio, clube, ao vivo, ranking, agenda, local) | ✅ `components/icons/ba.tsx`, `docs/DESIGN.md` Iconografia |
 | Seletor de categoria (pílulas até 8; grade Modalidade × Classe a partir de 9) e pictogramas SVG por disciplina, no admin (Inscrições, Chaveamento) e na página pública do torneio | ✅ `components/shared/category-picker.tsx`, `discipline-icon.tsx` |
 | Amistoso com jogadores avulsos (sem cadastro): lista colada por categoria, planilha amistosa, pareamento pelo nome entre categorias | ✅ `athletes.guest` (migration `0014`), `POST /tournaments/categories/:id/guests`, regra em `domain/guest-list.ts`. Página de partidas do jogador com a busca "Encontre sua próxima partida" no torneio (`/t/[slug]/jogador/[athleteId]`, bye e próxima se vencer) ✅; a página também abre pelos nomes em Inscritos, pelo bloco "Próximas partidas" do perfil do atleta (que mostra as partidas a jogar no próprio perfil) e por "Ver partidas" no admin ✅. Juntar avulso com atleta cadastrado (`POST /athletes/:id/merge`, aba Avulsos em Atletas) ✅. Avulso ligado à federação (`guest_tenant_id`, migration `0015`) ✅ |
