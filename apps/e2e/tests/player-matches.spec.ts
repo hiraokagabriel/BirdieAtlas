@@ -110,6 +110,11 @@ test('a página do jogador abre pelos Inscritos, pelo perfil do atleta e pelo ad
   await page.getByRole('link', { name, exact: true }).click()
   await expect(page).toHaveURL(playerUrl)
 
+  // Torneio › Agenda: o nome leva às partidas do jogador no torneio.
+  await page.goto(`/t/${tournament.slug}?aba=agenda`)
+  await page.getByRole('tabpanel', { name: 'Agenda' }).getByRole('link', { name, exact: true }).click()
+  await expect(page).toHaveURL(playerUrl)
+
   // Perfil público: bloco Próximas partidas.
   await page.goto(`/a/${athleteId}`)
   const section = page.getByRole('region', { name: 'Próximas partidas' })

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
@@ -37,6 +38,8 @@ type Props = {
   readonly?: boolean
   /** "YYYY-MM-DD": dia sugerido para o início da agenda automática. */
   defaultStartDate?: string
+  /** Público: link de cada nome (as partidas do jogador no torneio). Sem ele, os nomes são texto. */
+  playerHref?: (athleteId: string) => string
 }
 
 function getAthleteLabel(regId: string | null, regs: Registration[]): string {
@@ -46,11 +49,28 @@ function getAthleteLabel(regId: string | null, regs: Registration[]): string {
   return reg.athlete2Id ? `${reg.athleteName ?? '?'} / ${reg.athlete2Name ?? '?'}` : (reg.athleteName ?? '?')
 }
 
+/** Lado da partida: nomes (com link quando `href` vem) ou "A definir". */
+function SideNames({ regId, regs, href }: { regId: string | null; regs: Registration[]; href: ((id: string) => string) | undefined }) {
+  const reg = regId ? regs.find((r) => r.id === regId) : undefined
+  if (!reg || !href) return <span className="font-medium">{getAthleteLabel(regId, regs)}</span>
+  const people = [{ id: reg.athleteId, name: reg.athleteName ?? '?' }, ...(reg.athlete2Id ? [{ id: reg.athlete2Id, name: reg.athlete2Name ?? '?' }] : [])]
+  return (
+    <span className="font-medium">
+      {people.map((p, i) => (
+        <span key={p.id}>
+          {i > 0 && ' / '}
+          <Link href={href(p.id)} className="rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary">{p.name}</Link>
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function getRoundLabel(round: number): string {
   return round === 1 ? 'Final' : round === 2 ? 'Semifinal' : round === 3 ? 'Quartas' : `Fase ${round}`
 }
 
-export function ScheduleView({ tournamentId, categories, readonly = false, defaultStartDate }: Props) {
+export function ScheduleView({ tournamentId, categories, readonly = false, defaultStartDate, playerHref }: Props) {
   const [filterCategoryId, setFilterCategoryId] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selectedMatch, setSelectedMatch] = useState<(Match & { drawId: string; categoryId: string }) | null>(null)
@@ -186,9 +206,9 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
                     </div>
 
                     <p className={cn('min-w-0 break-words leading-snug', readonly ? 'col-span-2' : undefined)}>
-                      <span className="font-medium">{p1}</span>
-                      <span className="text-muted-foreground"> x </span>
-                      <span className="font-medium">{p2}</span>
+                      <SideNames regId={match.registration1Id} regs={match.registrations} href={playerHref} />
+                      <span className="text-muted-foreground"> × </span>
+                      <SideNames regId={match.registration2Id} regs={match.registrations} href={playerHref} />
                     </p>
 
                     {!readonly && (
