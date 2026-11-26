@@ -1,0 +1,178 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - link "Pular para o conteúdo" [ref=f5e3] [cursor=pointer]:
+      - /url: "#conteudo-principal"
+    - complementary [ref=f5e4]:
+      - link "BirdieAtlas" [ref=f5e5] [cursor=pointer]:
+        - /url: /admin
+      - navigation "Navegação administrativa" [ref=f5e12]:
+        - link "Dashboard" [ref=f5e13] [cursor=pointer]:
+          - /url: /admin
+        - link "Atletas" [ref=f5e23] [cursor=pointer]:
+          - /url: /admin/athletes
+        - link "Duplas" [ref=f5e33] [cursor=pointer]:
+          - /url: /admin/pairs
+        - link "Clubes" [ref=f5e43] [cursor=pointer]:
+          - /url: /admin/clubs
+        - link "Torneios" [ref=f5e51] [cursor=pointer]:
+          - /url: /admin/tournaments
+        - link "Ao vivo 32 partidas ao vivo" [ref=f5e98] [cursor=pointer]:
+          - /url: /admin/live
+          - generic [ref=f5e67]: Ao vivo
+          - generic [ref=f5e99]:
+            - text: "32"
+            - generic [ref=f5e100]: partidas ao vivo
+        - link "Rankings" [ref=f5e68] [cursor=pointer]:
+          - /url: /admin/rankings
+      - link "Portal público" [ref=f5e76] [cursor=pointer]:
+        - /url: /
+    - generic [ref=f5e82]:
+      - banner [ref=f5e83]:
+        - heading "Torneios" [level=1] [ref=f5e84]
+        - generic [ref=f5e85]:
+          - button "Modo admin" [pressed] [ref=f5e101] [cursor=pointer]
+          - button "Alterar tema" [ref=f5e86]
+      - main [ref=f5e87]:
+        - generic [ref=f5e106]:
+          - button "Voltar para Torneios" [ref=f5e107]
+          - generic [ref=f5e110]:
+            - generic [ref=f5e111]:
+              - generic [ref=f5e112]:
+                - heading "Amistoso de Verão 86656" [level=2] [ref=f5e113]
+                - generic [ref=f5e114]: Em andamento
+                - generic [ref=f5e115]: Amistoso
+              - generic [ref=f5e116]:
+                - generic [ref=f5e117]: 25/11/2026 – 26/11/2026
+                - generic [ref=f5e124]: Ginásio Central, São Paulo/SP
+            - generic [ref=f5e130]:
+              - button "Exportar resultados" [ref=f5e132]
+              - button "Exportar agenda" [ref=f5e137]
+              - button "Cancelar torneio" [ref=f5e141]
+              - button "Encerrar campeonato" [ref=f5e145]
+            - generic [ref=f5e148]:
+              - link "Página pública (abre em nova aba)" [ref=f5e149] [cursor=pointer]:
+                - /url: /t/amistoso-verao-86656
+                - text: Página pública
+                - generic [ref=f5e154]: (abre em nova aba)
+              - link "Telão (abre em nova aba)" [ref=f5e155] [cursor=pointer]:
+                - /url: /telao/amistoso-verao-86656
+                - text: Telão
+                - generic [ref=f5e160]: (abre em nova aba)
+              - link "Súmulas (abre em nova aba)" [ref=f5e161] [cursor=pointer]:
+                - /url: /t/amistoso-verao-86656/sumulas
+                - text: Súmulas
+                - generic [ref=f5e166]: (abre em nova aba)
+          - generic [ref=f5e167]:
+            - tablist "Seções do torneio" [ref=f5e168]:
+              - tab "Inscrições" [selected] [ref=f5e169]
+              - tab "Chaveamento" [ref=f5e170]
+              - tab "Agenda" [ref=f5e171]
+              - tab "Configurações" [ref=f5e172]
+            - tabpanel "Inscrições" [ref=f5e176]:
+              - generic [ref=f5e177]:
+                - group "Categoria" [ref=f5e178]:
+                  - generic [ref=f5e180]:
+                    - generic [ref=f5e181] [cursor=pointer]:
+                      - radio "Simples Masculino (6)" [checked] [ref=f5e182]
+                      - text: Simples Masculino
+                      - generic [ref=f5e190]: (6)
+                    - generic [ref=f5e191] [cursor=pointer]:
+                      - radio "Duplas Masculinas" [ref=f5e192]
+                      - text: Duplas Masculinas
+                - generic [ref=f5e204]:
+                  - generic [ref=f5e205]:
+                    - paragraph [ref=f5e206]: Simples Masculino — 6 inscrições
+                    - generic [ref=f5e207]:
+                      - button "Exportar CSV" [ref=f5e209]
+                      - button "Colar lista" [ref=f5e213]
+                      - button "Inscrever" [ref=f5e214]
+                  - paragraph [ref=f5e215]: "Presença confirmada: 0 de 6 aprovadas"
+                  - generic [ref=f5e216]:
+                    - generic [ref=f5e218]:
+                      - generic [ref=f5e219]: "1"
+                      - paragraph [ref=f5e221]:
+                        - 'link "Carlos Teixeira: ver partidas (abre em nova aba)" [ref=f5e222] [cursor=pointer]':
+                          - /url: /t/amistoso-verao-86656/jogador/8f592911-2357-4833-a380-256801873037
+                          - text: Carlos Teixeira
+                      - generic [ref=f5e223]: Aprovada
+                      - link "Ver partidas de Carlos Teixeira (abre em nova aba)" [ref=f5e224] [cursor=pointer]:
+                        - /url: /t/amistoso-verao-86656/jogador/8f592911-2357-4833-a380-256801873037
+                      - 'button "Presente: Carlos Teixeira" [ref=f5e232]': Presente
+                      - generic [ref=f5e237]:
+                        - button "Recusar inscrição de Carlos Teixeira" [ref=f5e238]
+                        - button "Editar inscrição de Carlos Teixeira" [ref=f5e242]
+                        - button "Remover inscrição de Carlos Teixeira" [ref=f5e246]
+                    - generic [ref=f5e251]:
+                      - generic [ref=f5e252]: "2"
+                      - paragraph [ref=f5e254]:
+                        - 'link "Felipe Nunes: ver partidas (abre em nova aba)" [ref=f5e255] [cursor=pointer]':
+                          - /url: /t/amistoso-verao-86656/jogador/280264c7-96ea-4e4b-a4f1-bfea76015c26
+                          - text: Felipe Nunes
+                      - generic [ref=f5e256]: Aprovada
+                      - link "Ver partidas de Felipe Nunes (abre em nova aba)" [ref=f5e257] [cursor=pointer]:
+                        - /url: /t/amistoso-verao-86656/jogador/280264c7-96ea-4e4b-a4f1-bfea76015c26
+                      - 'button "Presente: Felipe Nunes" [ref=f5e265]': Presente
+                      - generic [ref=f5e270]:
+                        - button "Recusar inscrição de Felipe Nunes" [ref=f5e271]
+                        - button "Editar inscrição de Felipe Nunes" [ref=f5e275]
+                        - button "Remover inscrição de Felipe Nunes" [ref=f5e279]
+                    - generic [ref=f5e284]:
+                      - generic [ref=f5e285]: "3"
+                      - paragraph [ref=f5e287]:
+                        - 'link "Eduardo Prado: ver partidas (abre em nova aba)" [ref=f5e288] [cursor=pointer]':
+                          - /url: /t/amistoso-verao-86656/jogador/a2e649c2-cb84-4964-881e-72337532b5fb
+                          - text: Eduardo Prado
+                      - generic [ref=f5e289]: Aprovada
+                      - link "Ver partidas de Eduardo Prado (abre em nova aba)" [ref=f5e290] [cursor=pointer]:
+                        - /url: /t/amistoso-verao-86656/jogador/a2e649c2-cb84-4964-881e-72337532b5fb
+                      - 'button "Presente: Eduardo Prado" [ref=f5e298]': Presente
+                      - generic [ref=f5e303]:
+                        - button "Recusar inscrição de Eduardo Prado" [ref=f5e304]
+                        - button "Editar inscrição de Eduardo Prado" [ref=f5e308]
+                        - button "Remover inscrição de Eduardo Prado" [ref=f5e312]
+                    - generic [ref=f5e317]:
+                      - generic [ref=f5e318]: "4"
+                      - paragraph [ref=f5e320]:
+                        - 'link "Daniel Rocha: ver partidas (abre em nova aba)" [ref=f5e321] [cursor=pointer]':
+                          - /url: /t/amistoso-verao-86656/jogador/cf73536d-9ce4-439b-a067-13ca76a88150
+                          - text: Daniel Rocha
+                      - generic [ref=f5e322]: Aprovada
+                      - link "Ver partidas de Daniel Rocha (abre em nova aba)" [ref=f5e323] [cursor=pointer]:
+                        - /url: /t/amistoso-verao-86656/jogador/cf73536d-9ce4-439b-a067-13ca76a88150
+                      - 'button "Presente: Daniel Rocha" [ref=f5e331]': Presente
+                      - generic [ref=f5e336]:
+                        - button "Recusar inscrição de Daniel Rocha" [ref=f5e337]
+                        - button "Editar inscrição de Daniel Rocha" [ref=f5e341]
+                        - button "Remover inscrição de Daniel Rocha" [ref=f5e345]
+                    - generic [ref=f5e350]:
+                      - generic [ref=f5e351]: "5"
+                      - paragraph [ref=f5e353]:
+                        - 'link "Bruno Lima: ver partidas (abre em nova aba)" [ref=f5e354] [cursor=pointer]':
+                          - /url: /t/amistoso-verao-86656/jogador/321089c3-2d2b-42f5-b25c-e9349eec3224
+                          - text: Bruno Lima
+                      - generic [ref=f5e355]: Aprovada
+                      - link "Ver partidas de Bruno Lima (abre em nova aba)" [ref=f5e356] [cursor=pointer]:
+                        - /url: /t/amistoso-verao-86656/jogador/321089c3-2d2b-42f5-b25c-e9349eec3224
+                      - 'button "Presente: Bruno Lima" [ref=f5e364]': Presente
+                      - generic [ref=f5e369]:
+                        - button "Recusar inscrição de Bruno Lima" [ref=f5e370]
+                        - button "Editar inscrição de Bruno Lima" [ref=f5e374]
+                        - button "Remover inscrição de Bruno Lima" [ref=f5e378]
+                    - generic [ref=f5e383]:
+                      - generic [ref=f5e384]: "6"
+                      - paragraph [ref=f5e386]:
+                        - 'link "Rafael Souza: ver partidas (abre em nova aba)" [ref=f5e387] [cursor=pointer]':
+                          - /url: /t/amistoso-verao-86656/jogador/2a0e634a-f976-4f60-86b0-eb61ed986d49
+                          - text: Rafael Souza
+                      - generic [ref=f5e388]: Aprovada
+                      - link "Ver partidas de Rafael Souza (abre em nova aba)" [ref=f5e389] [cursor=pointer]:
+                        - /url: /t/amistoso-verao-86656/jogador/2a0e634a-f976-4f60-86b0-eb61ed986d49
+                      - 'button "Presente: Rafael Souza" [ref=f5e397]': Presente
+                      - generic [ref=f5e402]:
+                        - button "Recusar inscrição de Rafael Souza" [ref=f5e403]
+                        - button "Editar inscrição de Rafael Souza" [ref=f5e407]
+                        - button "Remover inscrição de Rafael Souza" [ref=f5e411]
+  - region "Notificações (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=f5e94] [cursor=pointer]
+  - alert [ref=f5e415]

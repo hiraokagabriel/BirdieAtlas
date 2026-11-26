@@ -70,7 +70,7 @@ export function RegistrationsTab({ tournamentId, tournamentStatus, categories, f
         href={`/t/${slug}/jogador/${athleteId}`}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex min-h-6 items-center rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary"
+        className="inline-flex min-h-6 items-center rounded-sm text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary"
         aria-label={`${name}: ver partidas (abre em nova aba)`}
       >
         {name}

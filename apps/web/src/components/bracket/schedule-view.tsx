@@ -59,7 +59,7 @@ function SideNames({ regId, regs, href }: { regId: string | null; regs: Registra
       {people.map((p, i) => (
         <span key={p.id}>
           {i > 0 && ' / '}
-          <Link href={href(p.id)} className="rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary">{p.name}</Link>
+          <Link href={href(p.id)} className="inline-flex min-h-6 items-center rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary focus-visible:outline-offset-2">{p.name}</Link>
         </span>
       ))}
     </span>
@@ -207,7 +207,8 @@ export function ScheduleView({ tournamentId, categories, readonly = false, defau
 
                     <p className={cn('min-w-0 break-words leading-snug', readonly ? 'col-span-2' : undefined)}>
                       <SideNames regId={match.registration1Id} regs={match.registrations} href={playerHref} />
-                      <span className="text-muted-foreground"> × </span>
+                      {/* Espaço inseparável antes do ×: ele abre a linha seguinte em vez de ficar sozinho no fim. */}
+                      <span className="text-muted-foreground">{' × '}</span>
                       <SideNames regId={match.registration2Id} regs={match.registrations} href={playerHref} />
                     </p>
 
