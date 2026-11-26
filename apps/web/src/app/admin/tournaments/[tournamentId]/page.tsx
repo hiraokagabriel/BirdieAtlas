@@ -19,6 +19,8 @@ import { ExternalLink, ChevronLeft, Flag, RotateCcw, Settings } from 'lucide-rea
 import { Calendar, MapPin } from '@/components/icons/ba'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { ImportTournamentDialog } from '@/components/tournament/import-tournament-dialog'
 
 type Tournament = {
   id: string; name: string; slug: string; status: TournamentStatus; level: TournamentLevel
@@ -42,6 +44,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
 export default function TournamentPage({ params }: { params: Promise<{ tournamentId: string }> }) {
   const { tournamentId } = use(params)
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [tab, setTab] = useState<'registrations' | 'bracket' | 'schedule' | 'setup'>('registrations')
@@ -122,6 +125,9 @@ export default function TournamentPage({ params }: { params: Promise<{ tournamen
 
         {/* Celular: uma coluna com botões de largura igual; a partir de sm, uma linha à direita. */}
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end [&_button]:w-full [&_button]:justify-center sm:[&_button]:w-auto">
+          {['draft', 'registration_open', 'registration_closed'].includes(tournament.status) && (
+            <ImportTournamentDialog target={{ id: tournament.id, name: tournament.name, onImported: () => { void fetchTournament(); void queryClient.invalidateQueries() } }} />
+          )}
           <ExportCsvButton path={`/tournaments/${tournament.id}/results/export.csv`} fallbackName="resultados.csv" label="Exportar resultados" />
           <ExportCsvButton path={`/tournaments/${tournament.id}/schedule/export.csv`} fallbackName="agenda.csv" label="Exportar agenda" />
           {isCompleted && (

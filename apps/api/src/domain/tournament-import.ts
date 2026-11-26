@@ -1,4 +1,7 @@
-import { TOURNAMENT_LEVELS, type ImportIssue, type ImportTournamentInput } from '@birdie-atlas/validators'
+import {
+  DEFAULT_SCORING, SCORING_PRESETS, TOURNAMENT_LEVELS,
+  type ImportIntoTournamentInput, type ImportIssue, type ImportTournamentInput, type ScoringRule,
+} from '@birdie-atlas/validators'
 import { normalizeSearchText } from './athlete-search.js'
 import { isDoublesDiscipline } from './eligibility.js'
 import type { DrawFormat } from './placements.js'
@@ -132,6 +135,21 @@ export interface NormalizedCategory {
   discipline: Discipline
   drawType: DrawFormat
   maxEntries: number | null
+  scoring: ScoringRule
+  /** Categoria que já existe no torneio (importação para torneio existente): recebe as inscrições, sem mudar. */
+  existingId?: string
+}
+
+/** Categoria já cadastrada no torneio de destino. */
+export interface ExistingCategory {
+  id: string
+  name: string
+  discipline: Discipline
+  drawType: DrawFormat
+  maxEntries: number | null
+  scoring: ScoringRule
+  /** Já tem chave sorteada: não recebe inscrição nova. */
+  locked?: boolean
 }
 
 export interface NormalizedEntry {
@@ -165,14 +183,40 @@ export function personKey(p: PersonRef): string {
   return `nome:${fold(p.name)}|${fold(p.club)}`
 }
 
-export function validateImportInput(input: ImportTournamentInput): ValidatedImport {
+/** Pontuação pela coluna "Pontuação": 21, 15 ou 11 (os modelos), ou o rótulo do modelo; vazio = 21. */
+export function parseScoring(raw?: string): ScoringRule | null {
+  const text = fold(raw)
+  if (!text) return DEFAULT_SCORING
+  const points = /^(\d+)/.exec(text)?.[1]
+  return SCORING_PRESETS.find((p) => String(p.rule.pointsPerSet) === points || fold(p.label) === text)?.rule ?? null
+}
+
+/**
+ * Valida as linhas da planilha. Com `existing`, é a importação para um torneio já criado: a aba Torneio é ignorada,
+ * categorias de mesmo nome usam a da plataforma (a disciplina precisa bater) e inscritos podem apontar para
+ * categorias que só existem na plataforma.
+ */
+export function validateImportInput(
+  input: ImportTournamentInput | ImportIntoTournamentInput,
+  existing?: readonly ExistingCategory[],
+): ValidatedImport {
   const errors: ImportIssue[] = []
   const warnings: ImportIssue[] = []
   const error = (sheet: ImportIssue['sheet'], row: number, field: string, message: string) => errors.push({ sheet, row, field, message })
+  const existingByKey = new Map<string, ExistingCategory>()
+  // Duas categorias do torneio com o mesmo nome (só acento ou caixa diferentes): a planilha não sabe qual é.
+  const ambiguous = new Set<string>()
+  for (const c of existing ?? []) {
+    const k = fold(c.name)
+    if (existingByKey.has(k)) ambiguous.add(k)
+    else existingByKey.set(k, c)
+  }
+  const ambiguousMessage = (label: string) => `Há duas categorias no torneio com o nome "${label}" (só acento ou caixa diferentes). Renomeie uma delas antes de importar.`
 
   // ----- Torneio
-  const t = input.tournament
   let tournament: NormalizedTournament | null = null
+  if ('tournament' in input) {
+  const t = input.tournament
   const name = t.name.trim()
   if (!name) error('Torneio', 0, 'Nome', 'Informe o nome do torneio.')
   const start = parseDate(t.startDate)
@@ -191,23 +235,46 @@ export function validateImportInput(input: ImportTournamentInput): ValidatedImpo
   if (name && start && end && kind && level) {
     tournament = { name, slug, kind, level, startDate: start, endDate: end, city: blank(t.city), state: state?.toUpperCase() ?? null, location: blank(t.location) }
   }
+  }
 
   // ----- Categorias
   const categories: NormalizedCategory[] = []
   const byKey = new Map<string, NormalizedCategory>()
-  if (input.categories.length === 0) error('Categorias', 0, 'Categorias', 'A planilha não tem nenhuma categoria.')
+  if (input.categories.length === 0 && existingByKey.size === 0) error('Categorias', 0, 'Categorias', 'A planilha não tem nenhuma categoria.')
   for (const c of input.categories) {
     const label = c.name.trim()
     if (!label) { error('Categorias', c.row, 'Nome', 'Informe o nome da categoria.'); continue }
     const key = fold(label)
     if (byKey.has(key)) { error('Categorias', c.row, 'Nome', `Categoria repetida: "${label}".`); continue }
-    const discipline = parseDiscipline(c.discipline)
+    if (ambiguous.has(key)) { error('Categorias', c.row, 'Nome', ambiguousMessage(label)); continue }
+    // Categoria da plataforma citada sem disciplina (CSV sem aba Categorias): usa a de lá.
+    const onPlatform = existingByKey.get(key)
+    const discipline = parseDiscipline(c.discipline) ?? (onPlatform && !c.discipline.trim() ? onPlatform.discipline : null)
     if (!discipline) { error('Categorias', c.row, 'Disciplina', `Disciplina inválida: "${c.discipline}". Use Simples Masculino, Simples Feminino, Duplas Masculinas, Duplas Femininas ou Misto.`); continue }
+    // Categoria que já existe: vale a configuração da plataforma, então formato, limite e pontuação da planilha nem são lidos.
+    const current = onPlatform
+    if (current && current.discipline !== discipline) {
+      error('Categorias', c.row, 'Disciplina', `"${current.name}" já existe no torneio com outra disciplina. Use outro nome ou a mesma disciplina.`)
+      continue
+    }
+    if (current?.locked) {
+      error('Categorias', c.row, 'Nome', `"${current.name}" já tem chave sorteada no torneio e não recebe novas inscrições.`)
+      continue
+    }
+    if (current) {
+      warnings.push({ sheet: 'Categorias', row: c.row, field: 'Nome', message: `"${current.name}" já existe no torneio: as inscrições entram nela, com o formato, o limite e a pontuação de lá.` })
+      const reused: NormalizedCategory = { row: c.row, name: current.name, key, discipline, drawType: current.drawType, maxEntries: current.maxEntries, scoring: current.scoring, existingId: current.id }
+      categories.push(reused)
+      byKey.set(key, reused)
+      continue
+    }
     const drawType = parseDrawType(c.drawType)
     if (!drawType) { error('Categorias', c.row, 'Formato', `Formato inválido: "${c.drawType}". Use Eliminação simples, Todos contra todos, Grupos + eliminatória, Suíço ou Eliminação dupla.`); continue }
     const maxEntries = parsePositiveInt(c.maxEntries)
     if (maxEntries === null) { error('Categorias', c.row, 'Máx. inscrições', 'Use um número inteiro maior que zero (ou deixe em branco).'); continue }
-    const normalized: NormalizedCategory = { row: c.row, name: label, key, discipline, drawType, maxEntries: maxEntries ?? null }
+    const scoring = parseScoring(c.scoring)
+    if (!scoring) { error('Categorias', c.row, 'Pontuação', `Pontuação inválida: "${c.scoring}". Use 21, 15 ou 11 (ou deixe em branco para 21).`); continue }
+    const normalized: NormalizedCategory = { row: c.row, name: label, key, discipline, drawType, maxEntries: maxEntries ?? null, scoring }
     categories.push(normalized)
     byKey.set(key, normalized)
   }
@@ -218,9 +285,22 @@ export function validateImportInput(input: ImportTournamentInput): ValidatedImpo
   const seedsInCategory = new Map<string, Set<number>>()
   for (const e of input.entries) {
     const catLabel = e.category.trim()
-    const category = byKey.get(fold(catLabel))
+    let category = byKey.get(fold(catLabel))
+    if (!category && ambiguous.has(fold(catLabel))) { error('Inscritos', e.row, 'Categoria', ambiguousMessage(catLabel)); continue }
+    const onPlatform = existingByKey.get(fold(catLabel))
+    if (!category && onPlatform?.locked) {
+      error('Inscritos', e.row, 'Categoria', `"${onPlatform.name}" já tem chave sorteada e não recebe novas inscrições.`)
+      continue
+    }
+    if (!category && onPlatform) {
+      // Categoria só da plataforma: entra na lista para receber as inscrições.
+      category = { row: 0, name: onPlatform.name, key: fold(catLabel), discipline: onPlatform.discipline, drawType: onPlatform.drawType, maxEntries: onPlatform.maxEntries, scoring: onPlatform.scoring, existingId: onPlatform.id }
+      categories.push(category)
+      byKey.set(category.key, category)
+    }
     if (!category) {
-      error('Inscritos', e.row, 'Categoria', catLabel ? `Categoria "${catLabel}" não existe na aba Categorias.` : 'Informe a categoria.')
+      const where = existing ? 'nem na aba Categorias nem no torneio' : 'na aba Categorias'
+      error('Inscritos', e.row, 'Categoria', catLabel ? `Categoria "${catLabel}" não existe ${where}.` : 'Informe a categoria.')
       continue
     }
     const before = errors.length
@@ -274,7 +354,7 @@ export function validateImportInput(input: ImportTournamentInput): ValidatedImpo
     if (category.maxEntries !== null && count > category.maxEntries) {
       error('Inscritos', 0, 'Categoria', `"${category.name}" tem ${count} inscritos, mais que o limite de ${category.maxEntries}.`)
     }
-    if (count === 0) warnings.push({ sheet: 'Categorias', row: category.row, field: 'Nome', message: `"${category.name}" não tem nenhum inscrito.` })
+    if (count === 0 && !category.existingId) warnings.push({ sheet: 'Categorias', row: category.row, field: 'Nome', message: `"${category.name}" não tem nenhum inscrito.` })
   }
 
   return { errors, warnings, tournament, categories, entries }

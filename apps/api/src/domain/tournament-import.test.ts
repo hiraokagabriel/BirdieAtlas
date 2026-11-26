@@ -200,3 +200,64 @@ describe('validateImportInput', () => {
     expect(r.warnings.some((w) => w.message.includes('não tem nenhum inscrito'))).toBe(true)
   })
 })
+
+describe('importação para torneio existente', () => {
+  const existing = [
+    { id: 'cat-sm', name: 'Simples Masculino A', discipline: 'MS' as const, drawType: 'round_robin' as const, maxEntries: 8, scoring: { pointsPerSet: 15, setPointCap: 21, setsToWin: 2 } },
+    { id: 'cat-sf', name: 'Simples Feminino A', discipline: 'WS' as const, drawType: 'single_elimination' as const, maxEntries: null, scoring: { pointsPerSet: 21, setPointCap: 30, setsToWin: 2 }, locked: true },
+  ]
+  const entry = (row: number, category: string, athlete: string) => ({ row, category, athlete })
+
+  it('inscritos podem apontar para categoria só da plataforma, que mantém a configuração', () => {
+    const v = validateImportInput({ dryRun: true, categories: [], entries: [entry(2, 'simples masculino a', 'João Silva')] }, existing)
+    expect(v.errors).toEqual([])
+    expect(v.categories[0]).toMatchObject({ existingId: 'cat-sm', drawType: 'round_robin', maxEntries: 8 })
+  })
+
+  it('mesmo nome na aba Categorias reaproveita a da plataforma; outra disciplina é erro', () => {
+    const ok = validateImportInput({ dryRun: true, categories: [{ row: 2, name: 'Simples Masculino A', discipline: 'MS', maxEntries: '32' }], entries: [] }, existing)
+    expect(ok.categories[0]?.existingId).toBe('cat-sm')
+    expect(ok.categories[0]?.maxEntries).toBe(8)
+    const bad = validateImportInput({ dryRun: true, categories: [{ row: 2, name: 'Simples Masculino A', discipline: 'WS' }], entries: [] }, existing)
+    expect(bad.errors[0]?.field).toBe('Disciplina')
+  })
+
+  it('categoria com chave sorteada não recebe inscrição', () => {
+    const v = validateImportInput({ dryRun: true, categories: [], entries: [entry(2, 'Simples Feminino A', 'Ana Souza')] }, existing)
+    expect(v.errors[0]?.message).toMatch(/chave sorteada/)
+  })
+
+  it('categoria nova com pontuação de 15; pontuação inválida é erro', () => {
+    const v = validateImportInput({ dryRun: true, categories: [{ row: 2, name: 'Duplas Mistas B', discipline: 'XD', scoring: '15' }], entries: [] }, existing)
+    expect(v.categories[0]?.scoring).toEqual({ pointsPerSet: 15, setPointCap: 21, setsToWin: 2 })
+    const bad = validateImportInput({ dryRun: true, categories: [{ row: 2, name: 'Duplas Mistas B', discipline: 'XD', scoring: '17' }], entries: [] }, existing)
+    expect(bad.errors[0]?.field).toBe('Pontuação')
+  })
+})
+
+describe('importação para torneio existente (CSV sem aba Categorias)', () => {
+  it('categoria da plataforma com disciplina em branco é reaproveitada', () => {
+    const existing = [{ id: 'c1', name: 'Simples A', discipline: 'MS' as const, drawType: 'single_elimination' as const, maxEntries: null, scoring: { pointsPerSet: 21, setPointCap: 30, setsToWin: 2 } }]
+    const v = validateImportInput({ dryRun: true, categories: [{ row: 2, name: 'Simples A', discipline: '' }], entries: [{ row: 2, category: 'Simples A', athlete: 'João Silva' }] }, existing)
+    expect(v.errors).toEqual([])
+    expect(v.categories[0]?.existingId).toBe('c1')
+  })
+})
+
+describe('importação para torneio existente (revisão)', () => {
+  const rule = { pointsPerSet: 21, setPointCap: 30, setsToWin: 2 }
+  it('categoria existente ignora formato e pontuação inválidos da planilha (vale a de lá)', () => {
+    const existing = [{ id: 'c1', name: 'Simples A', discipline: 'MS' as const, drawType: 'single_elimination' as const, maxEntries: null, scoring: rule }]
+    const v = validateImportInput({ dryRun: true, categories: [{ row: 2, name: 'Simples A', discipline: 'MS', drawType: 'xyz', scoring: '99' }], entries: [] }, existing)
+    expect(v.errors).toEqual([])
+    expect(v.categories[0]?.existingId).toBe('c1')
+  })
+  it('duas categorias do torneio com o mesmo nome (acento) são ambíguas', () => {
+    const existing = [
+      { id: 'c1', name: 'Simples Júnior', discipline: 'MS' as const, drawType: 'single_elimination' as const, maxEntries: null, scoring: rule },
+      { id: 'c2', name: 'Simples Junior', discipline: 'MS' as const, drawType: 'single_elimination' as const, maxEntries: null, scoring: rule },
+    ]
+    const v = validateImportInput({ dryRun: true, categories: [], entries: [{ row: 2, category: 'simples junior', athlete: 'João Silva' }] }, existing)
+    expect(v.errors[0]?.message).toMatch(/duas categorias/)
+  })
+})

@@ -8,7 +8,8 @@
     "start": "next start",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "template:import": "tsx scripts/build-import-template.mts"
   },
   "dependencies": {
     "@birdie-atlas/validators": "workspace:*",
@@ -37,7 +38,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9.39.1",
+    "exceljs": "4.4.0",
     "tailwindcss": "^4",
+    "tsx": "4.22.4",
     "typescript": "^5",
     "vitest": "^3.2.4"
   }
