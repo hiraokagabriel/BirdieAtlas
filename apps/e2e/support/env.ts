@@ -15,7 +15,9 @@ export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url
 
 export const API_PORT = Number(process.env['E2E_API_PORT'] ?? 3201)
 export const WEB_PORT = Number(process.env['E2E_WEB_PORT'] ?? 3200)
-export const API_URL = `http://localhost:${API_PORT}`
+// IPv4 explícito: a API escuta em 0.0.0.0 e, no Windows, `localhost` tenta ::1 primeiro; a troca de endereço
+// sob carga gerava "Failed to fetch" intermitente no navegador (chave não carregava). O web segue em localhost.
+export const API_URL = `http://127.0.0.1:${API_PORT}`
 export const WEB_URL = `http://localhost:${WEB_PORT}`
 
 export const DATABASE_URL =
