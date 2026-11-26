@@ -88,20 +88,34 @@ function CategoryGrid({ categories, value, onChange, extra, className }: Omit<Pr
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  // A grade fica aberta ao escolher: num grupo de radios as setas já trocam a seleção, e fechar a cada troca
-  // impediria navegar pela grade com o teclado. Fecha pelo botão ou por Esc.
+  // A grade fica aberta ao escolher; fecha pelo botão ou por Esc.
   const choose = (id: string) => onChange(id)
 
-  // Setas ↑/↓ andam na coluna (mesma modalidade), pulando células vazias; ←/→ seguem o radio nativo (na linha).
-  const vertical = (cat: PickerCategory, step: 1 | -1) => {
-    const k = classes.indexOf(categoryClass(cat.name))
-    for (let r = k + step; r >= 0 && r < classes.length; r += step) {
-      const target = cell.get(`${classes[r]}|${cat.discipline}`)
-      if (!target) continue
-      choose(target.id)
-      document.getElementById(`${base}-${target.id}`)?.focus()
-      return
+  // Teclado: setas, Home e End só movem o foco (pulando células vazias); Enter ou Espaço escolhem. Assim percorrer
+  // a grade não troca a categoria (e não recarrega a lista abaixo) a cada tecla.
+  const moveFocus = (cat: PickerCategory, key: string): boolean => {
+    const row = classes.indexOf(categoryClass(cat.name))
+    const col = disciplines.indexOf(cat.discipline)
+    const at = (r: number, c: number) => cell.get(`${classes[r]}|${disciplines[c]}`)
+    const walk = (dr: number, dc: number) => {
+      for (let r = row + dr, c = col + dc; r >= 0 && r < classes.length && c >= 0 && c < disciplines.length; r += dr, c += dc) {
+        const t = at(r, c)
+        if (t) return t
+      }
+      return undefined
     }
+    const inRow = disciplines.map((_, c) => at(row, c)).filter((t): t is PickerCategory => Boolean(t))
+    const target =
+      key === 'ArrowDown' ? walk(1, 0)
+      : key === 'ArrowUp' ? walk(-1, 0)
+      : key === 'ArrowRight' ? walk(0, 1)
+      : key === 'ArrowLeft' ? walk(0, -1)
+      : key === 'Home' ? inRow[0]
+      : key === 'End' ? inRow[inRow.length - 1]
+      : undefined
+    if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'ArrowRight' && key !== 'ArrowLeft' && key !== 'Home' && key !== 'End') return false
+    if (target) document.getElementById(`${base}-${target.id}`)?.focus()
+    return true
   }
 
   const radio = (cat: PickerCategory, visible: ReactNode, boxClass: string) => (
@@ -114,9 +128,8 @@ function CategoryGrid({ categories, value, onChange, extra, className }: Omit<Pr
         onChange={() => choose(cat.id)}
         id={`${base}-${cat.id}`}
         onKeyDown={(e) => {
-          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-          e.preventDefault()
-          vertical(cat, e.key === 'ArrowDown' ? 1 : -1)
+          if (e.key === 'Enter') { e.preventDefault(); choose(cat.id); return }
+          if (moveFocus(cat, e.key)) e.preventDefault()
         }}
         aria-label={cat.name}
         className="peer sr-only"
@@ -125,7 +138,8 @@ function CategoryGrid({ categories, value, onChange, extra, className }: Omit<Pr
         aria-hidden="true"
         className={cn(
           'flex min-h-(--control-h) cursor-pointer items-center justify-center rounded-md border text-xs font-semibold transition-colors',
-          'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring',
+          // Contorno afastado 3 px: na célula selecionada (verde) o foco continua legível.
+          'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[3px] peer-focus-visible:outline-ring',
           cat.id === value ? 'border-primary bg-primary text-primary-foreground' : 'border-field-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
           boxClass,
         )}
