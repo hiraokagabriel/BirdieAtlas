@@ -14,7 +14,7 @@ Passo a passo da Fase 3 de [`PLANO_ONLINE.md`](PLANO_ONLINE.md). Nenhum provedor
 1. Crie a conta em <https://render.com> e um **Web Service** ligado a este repositório, plano **Free**, região **Virginia (US East)**.
 2. Configuração:
    - **Root directory:** vazio (raiz do repositório).
-   - **Build command:** `corepack enable && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@birdie-atlas/api`
+   - **Build command:** `corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm turbo run build --filter=@birdie-atlas/api` (o `--prod=false` instala as devDependencies, como `turbo` e `typescript`, que o pnpm pula com `NODE_ENV=production`)
    - **Start command:** `node apps/api/dist/index.js`
    - **Health check path:** `/health`
    - **Auto-Deploy:** **desligado** (o deploy vem do GitHub Actions, depois das migrations).
