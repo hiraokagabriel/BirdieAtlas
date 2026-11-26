@@ -46,3 +46,9 @@ test-results/
 
 # Backups do banco (contêm dados pessoais de atletas)
 backups/
+
+# Sobras de verificação no navegador (playwright-cli grava snapshots e capturas onde roda)
+apps/e2e/*.yml
+apps/e2e/*.png
+*.tmp.mjs
+*.tmp.ts
